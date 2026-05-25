@@ -199,6 +199,8 @@ These rules apply to every change made in this repository. There are no exceptio
 
 1. **Never downgrade a dependency.** If a situation arises where a downgrade seems necessary, stop, explain the problem clearly, and ask for explicit permission before making the change. Prefer fixing the root cause (API incompatibility, missing migration step) over a version rollback.
 
+2. **Build before every commit.** After each code change, run `./gradlew assembleDebug` (and `./gradlew test` if logic changed) before staging anything. Fix all errors and warnings introduced by the change before committing. Never commit a broken build.
+
 ---
 
 ## Key Constraints

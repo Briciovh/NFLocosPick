@@ -47,28 +47,55 @@ All commands run from the repo root. On Windows use `gradlew.bat`; on Mac/Linux 
 
 ## Target Architecture
 
-The app follows **MVVM + Repository** pattern with a clean layered package structure under `com.example.nflocospick`:
+The app follows **Clean Architecture** with three explicit layers, and **MVVM** as the presentation pattern (planned migration to **MVI** in a future refactor — design ViewModels to be state-holder-friendly so the transition is low friction).
+
+### Layer responsibilities
+
+| Layer | Package | Rule |
+|---|---|---|
+| **Presentation** | `presentation/` | Composables, ViewModels, UI state classes. No direct data-source access. |
+| **Domain** | `domain/` | Pure Kotlin. No Android framework imports. Use cases own all business logic. Defines repository interfaces. |
+| **Data** | `data/` | Implements domain interfaces. Owns all I/O: Firestore, ESPN API, WorkManager scheduling. |
+
+Dependencies flow **inward only**: `presentation → domain ← data`. The domain layer knows nothing about Firebase or Retrofit.
+
+### Package structure
 
 ```
 app/src/main/java/com/example/nflocospick/
-├── data/
-│   ├── api/          # Retrofit service + DTOs for ESPN API
-│   ├── firebase/     # Firestore repositories (groups, picks, standings)
-│   └── model/        # Shared data models (User, Group, Game, Pick, Standing)
-├── domain/
-│   └── usecase/      # Business logic (ScorePicks, GetWeeklySchedule, etc.)
-├── ui/
-│   ├── theme/        # Color, Type, Theme (existing)
-│   ├── auth/         # LoginScreen + AuthViewModel
-│   ├── groups/       # GroupScreen (create/join) + GroupViewModel
-│   ├── schedule/     # ScheduleScreen + ScheduleViewModel
-│   ├── picks/        # PickScreen + PickViewModel
-│   ├── leaderboard/  # LeaderboardScreen + LeaderboardViewModel
-│   └── history/      # HistoryScreen + HistoryViewModel
-├── di/               # Hilt modules (NetworkModule, FirebaseModule)
-├── NFLocosPickApp.kt # @HiltAndroidApp Application class
-└── MainActivity.kt   # Single Activity; hosts NavHost
+│
+├── domain/                         # Pure Kotlin — no Android/Firebase/Retrofit imports
+│   ├── model/                      # Entity classes (User, Group, Game, Pick, Standing)
+│   ├── repository/                 # Repository interfaces (GroupRepository, PickRepository…)
+│   └── usecase/                    # One class per use case (ScoreWeekPicksUseCase, SubmitPickUseCase…)
+│
+├── data/                           # Implements domain interfaces
+│   ├── remote/
+│   │   ├── espn/                   # Retrofit service + ESPN DTOs + mappers → domain models
+│   │   └── firebase/               # Firestore data sources + mappers → domain models
+│   ├── repository/                 # Concrete repository implementations (injected via Hilt)
+│   └── worker/                     # WorkManager Workers (e.g. ScoringWorker)
+│
+├── presentation/                   # Android / Compose layer
+│   ├── theme/                      # Color, Type, Theme (existing, move here from ui/theme)
+│   ├── navigation/                 # NavGraph, Screen sealed class, NavHost wiring
+│   ├── auth/                       # LoginScreen + AuthViewModel + AuthUiState
+│   ├── groups/                     # GroupScreen (create/join) + GroupViewModel + GroupUiState
+│   ├── schedule/                   # ScheduleScreen + ScheduleViewModel + ScheduleUiState
+│   ├── picks/                      # PickScreen + PickViewModel + PickUiState
+│   ├── leaderboard/                # LeaderboardScreen + LeaderboardViewModel + LeaderboardUiState
+│   └── history/                    # HistoryScreen + HistoryViewModel + HistoryUiState
+│
+├── di/                             # Hilt modules (NetworkModule, FirebaseModule, RepositoryModule)
+├── NFLocosPickApp.kt               # @HiltAndroidApp
+└── MainActivity.kt                 # Single Activity; hosts NavHost
 ```
+
+### MVVM → MVI migration notes
+
+- Each feature already exposes a `*UiState` data class and a `StateFlow` — keep this pattern so MVI's `State` fits in without restructuring.
+- Side-effects (navigation, toasts) must go through a `Channel<UiEffect>` from day one; avoid calling nav callbacks directly from ViewModels.
+- Use cases must remain pure and side-effect-free so they work identically under both patterns.
 
 ### Firestore Data Model
 
@@ -166,9 +193,23 @@ Each PR has its own branch. Merge into `main` in order.
 
 ---
 
+## Rules
+
+These rules apply to every change made in this repository. There are no exceptions unless a rule explicitly says so.
+
+1. **Never downgrade a dependency.** If a situation arises where a downgrade seems necessary, stop, explain the problem clearly, and ask for explicit permission before making the change. Prefer fixing the root cause (API incompatibility, missing migration step) over a version rollback.
+
+---
+
 ## Key Constraints
 
 - `minSdk 24` — no API below Android 7.0
 - Dynamic color (Material You) is enabled by default on Android 12+; custom color scheme kicks in on older devices (see `Theme.kt`)
 - All Firestore writes must use transactions or batched writes when updating both a pick and a standing simultaneously (PR-6)
-- `google-services.json` is never committed; document setup steps in PR-1 description
+- `google-services.json` is never committed — add a real one from the Firebase Console to `app/` to enable Firebase at runtime. The `google-services` plugin is applied conditionally in `app/build.gradle.kts` so the project builds without it.
+
+## AGP 9 / Dependency Compatibility Notes
+
+- **Hilt requires ≥ 2.59** with AGP 9.x (versions ≤ 2.58 use the removed `BaseExtension` API). Hilt 2.59 also requires Gradle ≥ 9.1.
+- **KSP on Kotlin 2.2.x + AGP 9** needs `android.disallowKotlinSourceSets=false` in `gradle.properties` because KSP adds sources via the old `kotlin.sourceSets` DSL. This flag can be removed when the project upgrades to Kotlin 2.3.x (where KSP ≥ 2.3.6 handles it natively).
+- **Firebase `-ktx` artifacts were merged** into their base counterparts as of BOM 33+. Use `firebase-auth` and `firebase-firestore` (without the `-ktx` suffix).

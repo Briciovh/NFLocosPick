@@ -1,4 +1,4 @@
-package com.example.nflocospick.ui.theme
+package com.example.nflocospick.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 

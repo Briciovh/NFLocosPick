@@ -13,7 +13,7 @@ if (file("google-services.json").exists()) {
 }
 
 android {
-    namespace = "com.example.nflocospick"
+    namespace = "com.softeen.nflocospicks"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.nflocospick"
+        applicationId = "com.softeen.nflocospicks"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

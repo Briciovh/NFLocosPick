@@ -28,10 +28,10 @@ All commands run from the repo root. On Windows use `gradlew.bat`; on Mac/Linux 
 ./gradlew test
 
 # Run a single unit test class
-./gradlew test --tests "com.example.nflocospick.ExampleUnitTest"
+./gradlew test --tests "com.softeen.nflocospicks.ExampleUnitTest"
 
 # Run a single test method
-./gradlew test --tests "com.example.nflocospick.ExampleUnitTest.addition_isCorrect"
+./gradlew test --tests "com.softeen.nflocospicks.ExampleUnitTest.addition_isCorrect"
 
 # Run instrumented tests (requires connected device or emulator)
 ./gradlew connectedAndroidTest
@@ -62,7 +62,7 @@ Dependencies flow **inward only**: `presentation → domain ← data`. The domai
 ### Package structure
 
 ```
-app/src/main/java/com/example/nflocospick/
+app/src/main/java/com/softeen/nflocospicks/
 │
 ├── domain/                         # Pure Kotlin — no Android/Firebase/Retrofit imports
 │   ├── model/                      # Entity classes (User, Group, Game, Pick, Standing)

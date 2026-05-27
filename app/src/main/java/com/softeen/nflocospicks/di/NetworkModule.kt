@@ -31,10 +31,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit =
+    fun provideEspnRetrofit(client: OkHttpClient): Retrofit =
         Retrofit.Builder()
             .baseUrl(ESPN_BASE_URL)
-            .client(okHttpClient)
+            .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 

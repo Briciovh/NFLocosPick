@@ -17,8 +17,8 @@ class ScheduleViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // groupId se inyecta automáticamente desde el argumento de navegación
-    val groupId: String = checkNotNull(savedStateHandle["groupId"])
+    // groupId viene de la ruta de navegación "schedule/{groupId}" vía SavedStateHandle
+    private val groupId: String = checkNotNull(savedStateHandle["groupId"])
 
     private val _uiState = MutableStateFlow<ScheduleUiState>(ScheduleUiState.Loading)
     val uiState: StateFlow<ScheduleUiState> = _uiState.asStateFlow()
@@ -32,11 +32,11 @@ class ScheduleViewModel @Inject constructor(
             _uiState.value = ScheduleUiState.Loading
             try {
                 val games = getCurrentWeekGamesUseCase(groupId)
-                val weekId = games.firstOrNull()?.weekId ?: "—"
+                val weekId = games.firstOrNull()?.weekId.orEmpty()
                 _uiState.value = ScheduleUiState.Success(games, weekId)
             } catch (e: Exception) {
                 _uiState.value = ScheduleUiState.Error(
-                    e.message ?: "Error al cargar el calendario"
+                    e.message ?: "No se pudo cargar el calendario"
                 )
             }
         }

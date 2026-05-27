@@ -96,7 +96,7 @@ fun NavGraph() {
             route     = Screen.Schedule.route,
             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
         ) {
-            // groupId lo lee ScheduleViewModel directamente de SavedStateHandle
+            // groupId lo lee ScheduleViewModel vía SavedStateHandle — no se pasa explícitamente
             ScheduleScreen(onNavigateBack = { navController.popBackStack() })
         }
 
@@ -104,7 +104,7 @@ fun NavGraph() {
             route     = Screen.Picks.route,
             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
         ) {
-            // groupId lo lee PickViewModel directamente de SavedStateHandle
+            // groupId lo lee PickViewModel vía SavedStateHandle — no se pasa explícitamente
             PickScreen(onNavigateBack = { navController.popBackStack() })
         }
     }

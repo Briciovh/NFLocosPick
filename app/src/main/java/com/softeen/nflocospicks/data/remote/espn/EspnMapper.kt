@@ -3,56 +3,55 @@ package com.softeen.nflocospicks.data.remote.espn
 import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.GameStatus
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
+private val espnDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US).apply {
+    timeZone = TimeZone.getTimeZone("UTC")
+}
+
 /**
- * Convierte [EspnScoreboardResponse] al modelo de dominio [List<Game>].
- * Cada evento se procesa con runCatching para que un partido malformado
- * no rompa la lista completa.
+ * Mapea la respuesta completa del scoreboard a una lista de domain [Game].
+ * Eventos malformados se descartan silenciosamente con runCatching.
  */
 fun EspnScoreboardResponse.toDomain(): List<Game> {
-    val weekNumber = week?.number ?: 0
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
+    val weekNumber = week.number
+    return events.mapNotNull { event ->
+        runCatching { event.toGame(weekNumber) }.getOrNull()
     }
+}
 
-    return events.orEmpty().mapNotNull { event ->
-        runCatching {
-            val competition = event.competitions?.firstOrNull() ?: return@runCatching null
-            val competitors = competition.competitors.orEmpty()
+private fun EspnEvent.toGame(weekNumber: Int): Game {
+    val competition = competitions.first()
+    val home = competition.competitors.first { it.homeAway == "home" }
+    val away = competition.competitors.first { it.homeAway == "away" }
 
-            val home = competitors.firstOrNull { it.homeAway == "home" } ?: return@runCatching null
-            val away = competitors.firstOrNull { it.homeAway == "away" } ?: return@runCatching null
+    val kickoffMillis = espnDateFormat.parse(date)?.time ?: 0L
 
-            val kickoffMillis = dateFormat.parse(event.date ?: return@runCatching null)?.time
-                ?: return@runCatching null
-
-            // weekId derivado del año del kickoff para que sea consistente entre PRs
-            val year = java.util.Calendar.getInstance(TimeZone.getTimeZone("UTC")).also {
-                it.timeInMillis = kickoffMillis
-            }.get(java.util.Calendar.YEAR)
-            val weekId = "$year-week-${weekNumber.toString().padStart(2, '0')}"
-
-            val statusType = competition.status?.type
-            val status = when {
-                statusType?.completed == true -> GameStatus.FINAL
-                statusType?.name == "STATUS_IN_PROGRESS" -> GameStatus.IN_PROGRESS
-                else -> GameStatus.SCHEDULED
-            }
-
-            Game(
-                id           = event.id ?: return@runCatching null,
-                weekId       = weekId,
-                homeTeam     = home.team?.displayName ?: "Home",
-                awayTeam     = away.team?.displayName ?: "Away",
-                homeTeamAbbr = home.team?.abbreviation ?: "HME",
-                awayTeamAbbr = away.team?.abbreviation ?: "AWY",
-                kickoffTime  = kickoffMillis,
-                homeScore    = home.score?.toIntOrNull(),
-                awayScore    = away.score?.toIntOrNull(),
-                status       = status
-            )
-        }.getOrNull()
+    // El año se deriva del kickoff para ser correcto en transiciones de temporada
+    val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+        timeInMillis = kickoffMillis
     }
+    val year = cal.get(Calendar.YEAR)
+    val weekId = "$year-week-${weekNumber.toString().padStart(2, '0')}"
+
+    return Game(
+        id           = id,
+        weekId       = weekId,
+        homeTeam     = home.team.displayName,
+        awayTeam     = away.team.displayName,
+        homeTeamAbbr = home.team.abbreviation,
+        awayTeamAbbr = away.team.abbreviation,
+        kickoffTime  = kickoffMillis,
+        homeScore    = home.score?.toIntOrNull(),
+        awayScore    = away.score?.toIntOrNull(),
+        status       = competition.status.type.toGameStatus()
+    )
+}
+
+private fun EspnStatusType.toGameStatus(): GameStatus = when {
+    completed                    -> GameStatus.FINAL
+    name == "STATUS_IN_PROGRESS" -> GameStatus.IN_PROGRESS
+    else                         -> GameStatus.SCHEDULED
 }

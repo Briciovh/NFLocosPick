@@ -91,12 +91,9 @@ fun NavGraph() {
         composable(
             route = Screen.Schedule.route,
             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
-            ScheduleScreen(
-                groupId = groupId,
-                onNavigateBack = { navController.popBackStack() }
-            )
+        ) {
+            // groupId lo lee ScheduleViewModel vía SavedStateHandle — no se pasa explícitamente
+            ScheduleScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 

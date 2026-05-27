@@ -220,12 +220,18 @@ private fun GamePickCard(
                     fontWeight = FontWeight.Bold
                 )
                 if (item.isLocked) {
-                    Text(
-                        text       = "🔒 CERRADO",
-                        color      = BSMuted,
-                        style      = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold
-                    )
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text       = "🔒 CERRADO",
+                            color      = MaterialTheme.colorScheme.error,
+                            style      = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier   = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
                 }
             }
 

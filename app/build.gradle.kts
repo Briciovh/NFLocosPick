@@ -3,13 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
-    // google-services is applied conditionally below — requires google-services.json to be present
-}
-
-// Apply google-services only when google-services.json exists so the project builds without it.
-// To enable Firebase, add a real google-services.json to app/ (it is git-ignored).
-if (file("google-services.json").exists()) {
-    apply(plugin = "com.google.gms.google-services")
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -64,10 +58,21 @@ dependencies {
     // Firebase (versions managed by BOM)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.analytics)
     implementation(libs.firebase.firestore)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
+
+    // Credential Manager + Google Identity
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
+
+    // Hilt + ViewModel Compose integration
+    implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Network
     implementation(libs.retrofit)

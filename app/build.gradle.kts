@@ -74,6 +74,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
 
+    // Material Icons
+    implementation(libs.androidx.compose.material.icons.core)
+
     // Network
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)

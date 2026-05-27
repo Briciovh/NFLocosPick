@@ -1,8 +1,12 @@
 package com.softeen.nflocospicks.di
 
 import com.softeen.nflocospicks.data.repository.GroupRepositoryImpl
+import com.softeen.nflocospicks.data.repository.PickRepositoryImpl
+import com.softeen.nflocospicks.data.repository.ScheduleRepositoryImpl
 import com.softeen.nflocospicks.data.repository.UserRepositoryImpl
 import com.softeen.nflocospicks.domain.repository.GroupRepository
+import com.softeen.nflocospicks.domain.repository.PickRepository
+import com.softeen.nflocospicks.domain.repository.ScheduleRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import dagger.Binds
 import dagger.Module
@@ -21,4 +25,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindGroupRepository(impl: GroupRepositoryImpl): GroupRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindScheduleRepository(impl: ScheduleRepositoryImpl): ScheduleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPickRepository(impl: PickRepositoryImpl): PickRepository
 }

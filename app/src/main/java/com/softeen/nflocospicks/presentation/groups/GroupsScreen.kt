@@ -44,6 +44,7 @@ fun GroupsScreen(
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToSchedule: (String) -> Unit,
+    onNavigateToPicks: (String) -> Unit,
     onSignedOut: () -> Unit,
     viewModel: GroupViewModel = hiltViewModel()
 ) {
@@ -54,6 +55,7 @@ fun GroupsScreen(
         for (effect in viewModel.effects) {
             when (effect) {
                 is GroupUiEffect.NavigateToSchedule -> onNavigateToSchedule(effect.groupId)
+                is GroupUiEffect.NavigateToPicks    -> onNavigateToPicks(effect.groupId)
                 GroupUiEffect.NavigateToLogin       -> onSignedOut()
             }
         }
@@ -131,8 +133,9 @@ fun GroupsScreen(
                         ) {
                             items(state.groups, key = { it.id }) { group ->
                                 GroupCard(
-                                    group = group,
-                                    onClick = { viewModel.onGroupClicked(group.id) }
+                                    group        = group,
+                                    onClick      = { viewModel.onGroupClicked(group.id) },
+                                    onPicksClick = { viewModel.onPicksClicked(group.id) }
                                 )
                             }
                         }
@@ -154,7 +157,11 @@ fun GroupsScreen(
 }
 
 @Composable
-private fun GroupCard(group: Group, onClick: () -> Unit) {
+private fun GroupCard(
+    group: Group,
+    onClick: () -> Unit,
+    onPicksClick: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -175,6 +182,13 @@ private fun GroupCard(group: Group, onClick: () -> Unit) {
                 color = BSMuted,
                 style = MaterialTheme.typography.bodySmall
             )
+            Spacer(Modifier.height(8.dp))
+            TextButton(
+                onClick  = onPicksClick,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("🏈 MIS PICKS", color = BSGold, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

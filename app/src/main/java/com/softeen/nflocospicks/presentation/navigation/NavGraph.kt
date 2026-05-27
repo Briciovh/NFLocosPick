@@ -18,6 +18,7 @@ import com.softeen.nflocospicks.presentation.groups.CreateGroupScreen
 import com.softeen.nflocospicks.presentation.groups.GroupViewModel
 import com.softeen.nflocospicks.presentation.groups.GroupsScreen
 import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
+import com.softeen.nflocospicks.presentation.picks.PickScreen
 import com.softeen.nflocospicks.presentation.schedule.ScheduleScreen
 
 @Composable
@@ -56,6 +57,9 @@ fun NavGraph() {
                 onNavigateToSchedule = { groupId ->
                     navController.navigate("schedule/$groupId")
                 },
+                onNavigateToPicks = { groupId ->
+                    navController.navigate("picks/$groupId")
+                },
                 onSignedOut = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Groups.route) { inclusive = true }
@@ -89,14 +93,19 @@ fun NavGraph() {
         }
 
         composable(
-            route = Screen.Schedule.route,
+            route     = Screen.Schedule.route,
             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
-            ScheduleScreen(
-                groupId = groupId,
-                onNavigateBack = { navController.popBackStack() }
-            )
+        ) {
+            // groupId lo lee ScheduleViewModel directamente de SavedStateHandle
+            ScheduleScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route     = Screen.Picks.route,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+        ) {
+            // groupId lo lee PickViewModel directamente de SavedStateHandle
+            PickScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 

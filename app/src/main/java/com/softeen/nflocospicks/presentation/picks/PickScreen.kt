@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.presentation.picks
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,18 +13,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,6 +52,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private val kickoffDisplayFormat = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault())
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PickScreen(
     onNavigateBack: () -> Unit,
@@ -54,7 +64,7 @@ fun PickScreen(
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Mostrar snackbar al recibir un error
+    // Mostrar Snackbar al recibir un error
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -64,48 +74,55 @@ fun PickScreen(
 
     Scaffold(
         containerColor = BSBg,
-        snackbarHost   = {
+        snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
-                    snackbarData      = data,
-                    containerColor    = BSCard,
-                    contentColor      = BSWhite,
-                    actionColor       = BSGold
+                    snackbarData   = data,
+                    containerColor = BSCard,
+                    contentColor   = BSWhite,
+                    actionColor    = BSGold
                 )
             }
         },
         topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                TextButton(onClick = onNavigateBack) {
-                    Text("← Atrás", color = BSGold)
-                }
-                Text(
-                    text = "NFL PICKS",
-                    color = BSGold,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-                if (uiState is PickUiState.Success) {
-                    val weekId = (uiState as PickUiState.Success).weekId
-                    Text(
-                        text = weekIdToLabel(weekId),
-                        color = BSMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-                    )
-                }
-            }
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text       = "MIS PICKS",
+                            color      = BSGold,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        if (uiState is PickUiState.Success) {
+                            val weekLabel = (uiState as PickUiState.Success)
+                                .weekId
+                                .uppercase()
+                                .replace("-", " · ")
+                            Text(
+                                text  = weekLabel,
+                                color = BSMuted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Atrás",
+                            tint               = BSGold
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BSHeader)
+            )
         }
     ) { innerPadding ->
         when (val state = uiState) {
             is PickUiState.Loading -> {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    modifier         = Modifier.fillMaxSize().padding(innerPadding),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = BSGold)
@@ -114,20 +131,25 @@ fun PickScreen(
 
             is PickUiState.Error -> {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
+                        text      = state.message,
+                        color     = MaterialTheme.colorScheme.error,
+                        style     = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(16.dp))
-                    TextButton(onClick = { viewModel.loadData() }) {
-                        Text("Reintentar", color = BSGold)
+                    Button(
+                        onClick = { viewModel.loadData() },
+                        colors  = ButtonDefaults.buttonColors(containerColor = BSGold)
+                    ) {
+                        Text("Reintentar", color = BSHeader, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -135,27 +157,25 @@ fun PickScreen(
             is PickUiState.Success -> {
                 if (state.items.isEmpty()) {
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
+                        modifier         = Modifier.fillMaxSize().padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "No hay partidos disponibles esta semana.",
+                            text  = "No hay partidos esta semana.",
                             color = BSMuted,
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding)
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier            = Modifier.padding(innerPadding),
+                        contentPadding      = PaddingValues(vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        item { Spacer(Modifier.height(4.dp)) }
                         items(state.items, key = { it.game.id }) { item ->
                             GamePickCard(
-                                item    = item,
-                                onPick  = { teamAbbr ->
+                                item   = item,
+                                onPick = { teamAbbr ->
                                     viewModel.submitPick(
                                         gameId      = item.game.id,
                                         teamAbbr    = teamAbbr,
@@ -164,7 +184,6 @@ fun PickScreen(
                                 }
                             )
                         }
-                        item { Spacer(Modifier.height(16.dp)) }
                     }
                 }
             }
@@ -177,65 +196,65 @@ private fun GamePickCard(
     item: GamePickItem,
     onPick: (String) -> Unit
 ) {
-    val timeFormat = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault())
     val game = item.game
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape    = RoundedCornerShape(12.dp),
-        colors   = CardDefaults.cardColors(containerColor = BSCard)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape  = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = BSCard)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Hora del partido o chip CERRADO
+            // Hora + chip CERRADO (si aplica)
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment     = Alignment.CenterVertically
             ) {
                 Text(
-                    text  = timeFormat.format(Date(game.kickoffTime)),
-                    color = BSMuted,
-                    style = MaterialTheme.typography.bodySmall
+                    text       = kickoffDisplayFormat.format(Date(game.kickoffTime)),
+                    color      = BSMuted,
+                    style      = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
                 )
                 if (item.isLocked) {
                     Text(
-                        text  = "🔒 CERRADO",
-                        color = BSMuted,
-                        style = MaterialTheme.typography.labelSmall,
+                        text       = "🔒 CERRADO",
+                        color      = BSMuted,
+                        style      = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // Botones de selección de equipo
+            // Botones de selección: VISITANTE @ LOCAL
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment     = Alignment.CenterVertically
             ) {
-                // VISITANTE
-                TeamButton(
+                TeamPickButton(
                     abbr       = game.awayTeamAbbr,
-                    fullName   = game.awayTeam,
+                    name       = game.awayTeam,
+                    label      = "VISITANTE",
                     isSelected = item.pickedTeam == game.awayTeamAbbr,
                     isLocked   = item.isLocked,
                     modifier   = Modifier.weight(1f),
                     onClick    = { onPick(game.awayTeamAbbr) }
                 )
-
                 Text(
-                    text      = "@",
-                    color     = BSMuted,
-                    style     = MaterialTheme.typography.bodyMedium,
-                    modifier  = Modifier.align(Alignment.CenterVertically)
+                    text       = "@",
+                    color      = BSMuted,
+                    fontWeight = FontWeight.ExtraBold
                 )
-
-                // LOCAL
-                TeamButton(
+                TeamPickButton(
                     abbr       = game.homeTeamAbbr,
-                    fullName   = game.homeTeam,
+                    name       = game.homeTeam,
+                    label      = "LOCAL",
                     isSelected = item.pickedTeam == game.homeTeamAbbr,
                     isLocked   = item.isLocked,
                     modifier   = Modifier.weight(1f),
@@ -247,9 +266,10 @@ private fun GamePickCard(
 }
 
 @Composable
-private fun TeamButton(
+private fun TeamPickButton(
     abbr: String,
-    fullName: String,
+    name: String,
+    label: String,
     isSelected: Boolean,
     isLocked: Boolean,
     modifier: Modifier = Modifier,
@@ -266,25 +286,28 @@ private fun TeamButton(
         colors   = ButtonDefaults.buttonColors(
             containerColor         = containerColor,
             contentColor           = contentColor,
-            disabledContainerColor = if (isSelected) BSGold.copy(alpha = 0.5f) else BSCard.copy(alpha = 0.7f),
-            disabledContentColor   = if (isSelected) BSHeader.copy(alpha = 0.6f) else BSMuted
+            disabledContainerColor = if (isSelected) BSGold.copy(alpha = 0.5f)
+                                     else BSCard.copy(alpha = 0.7f),
+            disabledContentColor   = if (isSelected) BSHeader.copy(alpha = 0.6f)
+                                     else BSMuted
         )
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text       = abbr,
-                fontWeight = FontWeight.ExtraBold,
-                style      = MaterialTheme.typography.titleMedium
+                text       = label,
+                style      = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold
             )
             Text(
-                text      = fullName,
+                text       = abbr,
+                style      = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text      = name,
                 style     = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center
             )
         }
     }
 }
-
-/** "2025-week-05" → "2025 · WEEK · 05" */
-private fun weekIdToLabel(weekId: String): String =
-    weekId.replace("-week-", " · WEEK · ").uppercase()

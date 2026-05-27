@@ -91,6 +91,10 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch { effects.send(GroupUiEffect.NavigateToSchedule(groupId)) }
     }
 
+    fun onPicksClicked(groupId: String) {
+        viewModelScope.launch { effects.send(GroupUiEffect.NavigateToPicks(groupId)) }
+    }
+
     fun onSignOut() {
         viewModelScope.launch {
             userRepository.signOut()

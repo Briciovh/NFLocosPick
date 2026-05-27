@@ -51,7 +51,7 @@ private fun EspnEvent.toGame(weekNumber: Int): Game {
 }
 
 private fun EspnStatusType.toGameStatus(): GameStatus = when {
-    completed                      -> GameStatus.FINAL
-    name == "STATUS_IN_PROGRESS"   -> GameStatus.IN_PROGRESS
-    else                           -> GameStatus.SCHEDULED
+    completed                    -> GameStatus.FINAL
+    name == "STATUS_IN_PROGRESS" -> GameStatus.IN_PROGRESS
+    else                         -> GameStatus.SCHEDULED
 }

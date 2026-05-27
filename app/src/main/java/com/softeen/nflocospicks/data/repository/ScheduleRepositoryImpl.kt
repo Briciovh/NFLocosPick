@@ -16,11 +16,26 @@ class ScheduleRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "ScheduleRepository"
+
+        /**
+         * SOLO para desarrollo: desplaza el kickoffTime N horas al futuro para
+         * poder testear picks durante la temporada muerta.
+         * Cambiar a 0L en producción / cuando arranque la temporada real.
+         */
+        private const val DEBUG_KICKOFF_OFFSET_MS = 24 * 60 * 60 * 1000L  // 24 h hacia el futuro
     }
 
     override suspend fun getCurrentWeekGames(groupId: String): List<Game> {
         val response = espnApiService.getScoreboard()
-        val games = response.toDomain()
+        val games = response.toDomain().map { game ->
+            // En debug desplazamos el kickoff para que los picks estén desbloqueados.
+            // Quitar este bloque (o poner DEBUG_KICKOFF_OFFSET_MS = 0) para producción.
+            if (DEBUG_KICKOFF_OFFSET_MS > 0L) {
+                game.copy(kickoffTime = System.currentTimeMillis() + DEBUG_KICKOFF_OFFSET_MS)
+            } else {
+                game
+            }
+        }
 
         if (games.isNotEmpty()) {
             cacheGamesToFirestore(groupId, games)

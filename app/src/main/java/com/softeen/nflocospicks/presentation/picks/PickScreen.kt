@@ -1,4 +1,4 @@
-package com.softeen.nflocospicks.presentation.schedule
+package com.softeen.nflocospicks.presentation.picks
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,20 +25,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.softeen.nflocospicks.domain.model.Game
-import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.presentation.theme.BSBg
 import com.softeen.nflocospicks.presentation.theme.BSCard
 import com.softeen.nflocospicks.presentation.theme.BSGold
@@ -53,30 +56,50 @@ private val kickoffDisplayFormat = SimpleDateFormat("EEE, MMM d · h:mm a", Loca
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ScheduleScreen(
+fun PickScreen(
     onNavigateBack: () -> Unit,
-    viewModel: ScheduleViewModel = hiltViewModel()
+    viewModel: PickViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
+    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Mostrar Snackbar al recibir un error
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.onErrorShown()
+        }
+    }
 
     Scaffold(
         containerColor = BSBg,
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData   = data,
+                    containerColor = BSCard,
+                    contentColor   = BSWhite,
+                    actionColor    = BSGold
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text(
-                            text = "NFL PICKS",
-                            color = BSGold,
+                            text       = "MIS PICKS",
+                            color      = BSGold,
                             fontWeight = FontWeight.ExtraBold
                         )
-                        if (uiState is ScheduleUiState.Success) {
-                            val weekLabel = (uiState as ScheduleUiState.Success)
+                        if (uiState is PickUiState.Success) {
+                            val weekLabel = (uiState as PickUiState.Success)
                                 .weekId
                                 .uppercase()
                                 .replace("-", " · ")
                             Text(
-                                text = weekLabel,
+                                text  = weekLabel,
                                 color = BSMuted,
                                 style = MaterialTheme.typography.labelSmall
                             )
@@ -97,16 +120,16 @@ fun ScheduleScreen(
         }
     ) { innerPadding ->
         when (val state = uiState) {
-            is ScheduleUiState.Loading -> {
+            is PickUiState.Loading -> {
                 Box(
-                    modifier          = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment  = Alignment.Center
+                    modifier         = Modifier.fillMaxSize().padding(innerPadding),
+                    contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = BSGold)
                 }
             }
 
-            is ScheduleUiState.Error -> {
+            is PickUiState.Error -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -116,13 +139,14 @@ fun ScheduleScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text  = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+                        text      = state.message,
+                        color     = MaterialTheme.colorScheme.error,
+                        style     = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(16.dp))
                     Button(
-                        onClick = { viewModel.loadGames() },
+                        onClick = { viewModel.loadData() },
                         colors  = ButtonDefaults.buttonColors(containerColor = BSGold)
                     ) {
                         Text("Reintentar", color = BSHeader, fontWeight = FontWeight.Bold)
@@ -130,8 +154,8 @@ fun ScheduleScreen(
                 }
             }
 
-            is ScheduleUiState.Success -> {
-                if (state.games.isEmpty()) {
+            is PickUiState.Success -> {
+                if (state.items.isEmpty()) {
                     Box(
                         modifier         = Modifier.fillMaxSize().padding(innerPadding),
                         contentAlignment = Alignment.Center
@@ -148,8 +172,17 @@ fun ScheduleScreen(
                         contentPadding      = PaddingValues(vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(state.games, key = { it.id }) { game ->
-                            GameCard(game = game)
+                        items(state.items, key = { it.game.id }) { item ->
+                            GamePickCard(
+                                item   = item,
+                                onPick = { teamAbbr ->
+                                    viewModel.submitPick(
+                                        gameId      = item.game.id,
+                                        teamAbbr    = teamAbbr,
+                                        kickoffTime = item.game.kickoffTime
+                                    )
+                                }
+                            )
                         }
                     }
                 }
@@ -159,7 +192,12 @@ fun ScheduleScreen(
 }
 
 @Composable
-private fun GameCard(game: Game) {
+private fun GamePickCard(
+    item: GamePickItem,
+    onPick: (String) -> Unit
+) {
+    val game = item.game
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -169,11 +207,11 @@ private fun GameCard(game: Game) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Hora de kickoff + estado
+            // Hora + chip CERRADO (si aplica)
             Row(
-                modifier             = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment    = Alignment.CenterVertically
+                verticalAlignment     = Alignment.CenterVertically
             ) {
                 Text(
                     text       = kickoffDisplayFormat.format(Date(game.kickoffTime)),
@@ -181,35 +219,52 @@ private fun GameCard(game: Game) {
                     style      = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
-                StatusChip(game.status)
+                if (item.isLocked) {
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text       = "🔒 CERRADO",
+                            color      = MaterialTheme.colorScheme.error,
+                            style      = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier   = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(10.dp))
 
-            // Matchup: VISITANTE @ LOCAL
+            // Botones de selección: VISITANTE @ LOCAL
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment     = Alignment.CenterVertically
             ) {
-                TeamColumn(
-                    abbr     = game.awayTeamAbbr,
-                    name     = game.awayTeam,
-                    score    = game.awayScore,
-                    label    = "VISITANTE",
-                    modifier = Modifier.weight(1f)
+                TeamPickButton(
+                    abbr       = game.awayTeamAbbr,
+                    name       = game.awayTeam,
+                    label      = "VISITANTE",
+                    isSelected = item.pickedTeam == game.awayTeamAbbr,
+                    isLocked   = item.isLocked,
+                    modifier   = Modifier.weight(1f),
+                    onClick    = { onPick(game.awayTeamAbbr) }
                 )
                 Text(
                     text       = "@",
                     color      = BSMuted,
                     fontWeight = FontWeight.ExtraBold
                 )
-                TeamColumn(
-                    abbr     = game.homeTeamAbbr,
-                    name     = game.homeTeam,
-                    score    = game.homeScore,
-                    label    = "LOCAL",
-                    modifier = Modifier.weight(1f)
+                TeamPickButton(
+                    abbr       = game.homeTeamAbbr,
+                    name       = game.homeTeam,
+                    label      = "LOCAL",
+                    isSelected = item.pickedTeam == game.homeTeamAbbr,
+                    isLocked   = item.isLocked,
+                    modifier   = Modifier.weight(1f),
+                    onClick    = { onPick(game.homeTeamAbbr) }
                 )
             }
         }
@@ -217,62 +272,48 @@ private fun GameCard(game: Game) {
 }
 
 @Composable
-private fun TeamColumn(
+private fun TeamPickButton(
     abbr: String,
     name: String,
-    score: Int?,
     label: String,
-    modifier: Modifier = Modifier
+    isSelected: Boolean,
+    isLocked: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
-    Column(
-        modifier            = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+    val containerColor = if (isSelected) BSGold else BSCard
+    val contentColor   = if (isSelected) BSHeader else BSWhite
+
+    Button(
+        onClick  = onClick,
+        enabled  = !isLocked,
+        modifier = modifier,
+        shape    = RoundedCornerShape(8.dp),
+        colors   = ButtonDefaults.buttonColors(
+            containerColor         = containerColor,
+            contentColor           = contentColor,
+            disabledContainerColor = if (isSelected) BSGold.copy(alpha = 0.5f)
+                                     else BSCard.copy(alpha = 0.7f),
+            disabledContentColor   = if (isSelected) BSHeader.copy(alpha = 0.6f)
+                                     else BSMuted
+        )
     ) {
-        Text(
-            text       = label,
-            color      = BSMuted,
-            style      = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold
-        )
-        Text(
-            text       = abbr,
-            color      = BSWhite,
-            style      = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold
-        )
-        Text(
-            text  = name,
-            color = BSMuted,
-            style = MaterialTheme.typography.labelSmall
-        )
-        score?.let {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text       = it.toString(),
-                color      = BSGold,
+                text       = label,
+                style      = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text       = abbr,
                 style      = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text      = name,
+                style     = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center
             )
         }
-    }
-}
-
-@Composable
-private fun StatusChip(status: GameStatus) {
-    val (label, tint) = when (status) {
-        GameStatus.SCHEDULED   -> "PROG"    to BSMuted
-        GameStatus.IN_PROGRESS -> "EN VIVO" to BSGold
-        GameStatus.FINAL       -> "FINAL"   to MaterialTheme.colorScheme.error
-    }
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = tint.copy(alpha = 0.15f)
-    ) {
-        Text(
-            text       = label,
-            color      = tint,
-            style      = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold,
-            modifier   = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-        )
     }
 }

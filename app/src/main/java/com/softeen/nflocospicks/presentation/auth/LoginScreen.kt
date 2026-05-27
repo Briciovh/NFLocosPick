@@ -70,7 +70,7 @@ fun LoginScreen(
             )
 
             Text(
-                text = "NFL LOCOS PICK",
+                text = "NFLocos Picks",
                 color = BSGold,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold

@@ -40,7 +40,14 @@ fun NavGraph() {
         }
 
         composable(Screen.Groups.route) {
-            GroupsScreen()
+            GroupsScreen(
+                onSignedOut = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Groups.route) { inclusive = true }
+                    }
+                },
+                authViewModel = authViewModel
+            )
         }
     }
 

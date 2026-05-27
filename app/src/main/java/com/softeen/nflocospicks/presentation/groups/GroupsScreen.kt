@@ -18,11 +18,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -48,21 +52,40 @@ fun GroupsScreen(
     onSignedOut: () -> Unit,
     viewModel: GroupViewModel = hiltViewModel()
 ) {
-    val listState by viewModel.groupListState.collectAsStateWithLifecycle()
+    val listState        by viewModel.groupListState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Consume efectos de un solo disparo (navegación)
+    // Consume efectos de un solo disparo (navegación + feedback de puntuación)
     LaunchedEffect(Unit) {
         for (effect in viewModel.effects) {
             when (effect) {
                 is GroupUiEffect.NavigateToSchedule -> onNavigateToSchedule(effect.groupId)
                 is GroupUiEffect.NavigateToPicks    -> onNavigateToPicks(effect.groupId)
                 GroupUiEffect.NavigateToLogin       -> onSignedOut()
+                is GroupUiEffect.ScoringResult      -> {
+                    val msg = if (effect.newlyScoredCount == 0)
+                        "No hay picks nuevos que puntuar"
+                    else
+                        "${effect.newlyScoredCount} pick(s) puntuados 🏆"
+                    snackbarHostState.showSnackbar(msg)
+                }
+                is GroupUiEffect.ScoringError       -> snackbarHostState.showSnackbar(effect.message)
             }
         }
     }
 
     Scaffold(
         containerColor = BSBg,
+        snackbarHost   = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData   = data,
+                    containerColor = BSCard,
+                    contentColor   = BSWhite,
+                    actionColor    = BSGold
+                )
+            }
+        },
         floatingActionButton = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // FAB secundario: unirse con código
@@ -135,7 +158,8 @@ fun GroupsScreen(
                                 GroupCard(
                                     group        = group,
                                     onClick      = { viewModel.onGroupClicked(group.id) },
-                                    onPicksClick = { viewModel.onPicksClicked(group.id) }
+                                    onPicksClick = { viewModel.onPicksClicked(group.id) },
+                                    onScoreClick = { viewModel.onScoreClicked(group.id) }
                                 )
                             }
                         }
@@ -158,9 +182,10 @@ fun GroupsScreen(
 
 @Composable
 private fun GroupCard(
-    group: Group,
-    onClick: () -> Unit,
-    onPicksClick: () -> Unit
+    group       : Group,
+    onClick     : () -> Unit,
+    onPicksClick: () -> Unit,
+    onScoreClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -183,6 +208,11 @@ private fun GroupCard(
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(8.dp))
+            TextButton(
+                onClick  = onScoreClick
+            ) {
+                Text("🔄 PUNTUAR", color = BSMuted, fontWeight = FontWeight.Bold)
+            }
             TextButton(
                 onClick  = onPicksClick,
                 modifier = Modifier.align(Alignment.End)

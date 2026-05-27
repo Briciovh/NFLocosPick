@@ -78,6 +78,12 @@ dependencies {
     // Material Icons
     implementation(libs.androidx.compose.material.icons.core)
 
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+    // Hilt WorkManager integration
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)         // androidx.hilt compiler — separate from Dagger's
+
     // Network
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)

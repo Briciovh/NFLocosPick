@@ -22,4 +22,11 @@ interface GroupRepository {
      * Firestore (listener en tiempo real).
      */
     fun getGroupsForUser(userId: String): Flow<List<Group>>
+
+    /**
+     * Obtiene un grupo por su [groupId]. Necesario en PR-6 para leer
+     * memberIds al puntuar, y en PR-7 para cargar el leaderboard.
+     * Lanza excepción si el documento no existe.
+     */
+    suspend fun getGroupById(groupId: String): Group
 }

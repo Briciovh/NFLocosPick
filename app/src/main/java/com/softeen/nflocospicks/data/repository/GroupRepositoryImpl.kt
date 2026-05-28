@@ -18,4 +18,7 @@ class GroupRepositoryImpl @Inject constructor(
 
     override fun getGroupsForUser(userId: String): Flow<List<Group>> =
         dataSource.getGroupsForUser(userId)
+
+    override suspend fun getGroupById(groupId: String): Group =
+        dataSource.getGroupById(groupId)
 }

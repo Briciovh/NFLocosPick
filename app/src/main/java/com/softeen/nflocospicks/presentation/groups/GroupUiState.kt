@@ -23,6 +23,8 @@ sealed class GroupActionUiState {
 
 sealed class GroupUiEffect {
     data class NavigateToSchedule(val groupId: String) : GroupUiEffect()
-    data class NavigateToPicks(val groupId: String) : GroupUiEffect()
-    data object NavigateToLogin : GroupUiEffect()
+    data class NavigateToPicks(val groupId: String)    : GroupUiEffect()
+    data object NavigateToLogin                        : GroupUiEffect()
+    data class ScoringResult(val groupId: String, val newlyScoredCount: Int) : GroupUiEffect()
+    data class ScoringError(val message: String)       : GroupUiEffect()
 }

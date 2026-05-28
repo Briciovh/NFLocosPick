@@ -56,6 +56,9 @@ class FirebaseGroupDataSource @Inject constructor(
         return updated.toGroup()
     }
 
+    suspend fun getGroupById(groupId: String): Group =
+        firestore.collection(COLLECTION).document(groupId).get().await().toGroup()
+
     fun getGroupsForUser(userId: String): Flow<List<Group>> = callbackFlow {
         val listener = firestore.collection(COLLECTION)
             .whereArrayContains("memberIds", userId)

@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,6 +50,7 @@ fun GroupsScreen(
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToSchedule: (String) -> Unit,
     onNavigateToPicks: (String) -> Unit,
+    onNavigateToLeaderboard: (String) -> Unit,
     onSignedOut: () -> Unit,
     viewModel: GroupViewModel = hiltViewModel()
 ) {
@@ -59,9 +61,10 @@ fun GroupsScreen(
     LaunchedEffect(Unit) {
         for (effect in viewModel.effects) {
             when (effect) {
-                is GroupUiEffect.NavigateToSchedule -> onNavigateToSchedule(effect.groupId)
-                is GroupUiEffect.NavigateToPicks    -> onNavigateToPicks(effect.groupId)
-                GroupUiEffect.NavigateToLogin       -> onSignedOut()
+                is GroupUiEffect.NavigateToSchedule    -> onNavigateToSchedule(effect.groupId)
+                is GroupUiEffect.NavigateToPicks       -> onNavigateToPicks(effect.groupId)
+                is GroupUiEffect.NavigateToLeaderboard -> onNavigateToLeaderboard(effect.groupId)
+                GroupUiEffect.NavigateToLogin          -> onSignedOut()
                 is GroupUiEffect.ScoringResult      -> {
                     val msg = if (effect.newlyScoredCount == 0)
                         "No hay picks nuevos que puntuar"
@@ -156,10 +159,11 @@ fun GroupsScreen(
                         ) {
                             items(state.groups, key = { it.id }) { group ->
                                 GroupCard(
-                                    group        = group,
-                                    onClick      = { viewModel.onGroupClicked(group.id) },
-                                    onPicksClick = { viewModel.onPicksClicked(group.id) },
-                                    onScoreClick = { viewModel.onScoreClicked(group.id) }
+                                    group             = group,
+                                    onClick           = { viewModel.onGroupClicked(group.id) },
+                                    onPicksClick      = { viewModel.onPicksClicked(group.id) },
+                                    onScoreClick      = { viewModel.onScoreClicked(group.id) },
+                                    onLeaderboardClick = { viewModel.onLeaderboardClicked(group.id) }
                                 )
                             }
                         }
@@ -182,10 +186,11 @@ fun GroupsScreen(
 
 @Composable
 private fun GroupCard(
-    group       : Group,
-    onClick     : () -> Unit,
-    onPicksClick: () -> Unit,
-    onScoreClick: () -> Unit
+    group              : Group,
+    onClick            : () -> Unit,
+    onPicksClick       : () -> Unit,
+    onScoreClick       : () -> Unit,
+    onLeaderboardClick : () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -208,16 +213,20 @@ private fun GroupCard(
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(8.dp))
-            TextButton(
-                onClick  = onScoreClick
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("🔄 PUNTUAR", color = BSMuted, fontWeight = FontWeight.Bold)
-            }
-            TextButton(
-                onClick  = onPicksClick,
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text("🏈 MIS PICKS", color = BSGold, fontWeight = FontWeight.Bold)
+                TextButton(onClick = onScoreClick) {
+                    Text("🔄 PUNTUAR", color = BSMuted, fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = onLeaderboardClick) {
+                    Text("🏆 TABLA", color = BSMuted, fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = onPicksClick) {
+                    Text("🏈 MIS PICKS", color = BSGold, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }

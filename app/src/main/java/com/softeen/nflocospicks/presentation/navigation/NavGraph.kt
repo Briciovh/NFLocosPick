@@ -18,6 +18,7 @@ import com.softeen.nflocospicks.presentation.groups.CreateGroupScreen
 import com.softeen.nflocospicks.presentation.groups.GroupViewModel
 import com.softeen.nflocospicks.presentation.groups.GroupsScreen
 import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
+import com.softeen.nflocospicks.presentation.leaderboard.LeaderboardScreen
 import com.softeen.nflocospicks.presentation.picks.PickScreen
 import com.softeen.nflocospicks.presentation.schedule.ScheduleScreen
 
@@ -59,6 +60,9 @@ fun NavGraph() {
                 },
                 onNavigateToPicks = { groupId ->
                     navController.navigate("picks/$groupId")
+                },
+                onNavigateToLeaderboard = { groupId ->
+                    navController.navigate("leaderboard/$groupId")
                 },
                 onSignedOut = {
                     navController.navigate(Screen.Login.route) {
@@ -106,6 +110,14 @@ fun NavGraph() {
         ) {
             // groupId lo lee PickViewModel vía SavedStateHandle — no se pasa explícitamente
             PickScreen(onNavigateBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route     = Screen.Leaderboard.route,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+        ) {
+            // groupId lo lee LeaderboardViewModel vía SavedStateHandle — no se pasa explícitamente
+            LeaderboardScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 

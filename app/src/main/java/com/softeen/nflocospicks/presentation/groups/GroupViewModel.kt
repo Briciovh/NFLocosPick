@@ -147,6 +147,10 @@ class GroupViewModel @Inject constructor(
         }
     }
 
+    fun onLeaderboardClicked(groupId: String) {
+        viewModelScope.launch { effects.send(GroupUiEffect.NavigateToLeaderboard(groupId)) }
+    }
+
     fun onSignOut() {
         viewModelScope.launch {
             userRepository.signOut()

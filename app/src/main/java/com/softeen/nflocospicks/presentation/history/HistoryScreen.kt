@@ -1,4 +1,4 @@
-package com.softeen.nflocospicks.presentation.leaderboard
+package com.softeen.nflocospicks.presentation.history
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -13,12 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,24 +29,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.softeen.nflocospicks.domain.model.LeaderboardEntry
+import com.softeen.nflocospicks.domain.model.GamePickResult
+import com.softeen.nflocospicks.domain.model.WeekHistoryEntry
 import com.softeen.nflocospicks.presentation.theme.BSBg
 import com.softeen.nflocospicks.presentation.theme.BSCard
 import com.softeen.nflocospicks.presentation.theme.BSGold
@@ -58,19 +50,13 @@ import com.softeen.nflocospicks.presentation.theme.BSHeader
 import com.softeen.nflocospicks.presentation.theme.BSMuted
 import com.softeen.nflocospicks.presentation.theme.BSWhite
 
-private val SilverColor = Color(0xFFB0BEC5)
-private val BronzeColor = Color(0xFFBF8970)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LeaderboardScreen(
+fun HistoryScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToHistory: (groupId: String) -> Unit = {},
-    viewModel: LeaderboardViewModel = hiltViewModel()
+    viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val currentUserId = viewModel.currentUserId
-    val groupId = viewModel.groupId
 
     Scaffold(
         containerColor = BSBg,
@@ -78,7 +64,7 @@ fun LeaderboardScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Leaderboard",
+                        text = "Historial de picks",
                         color = BSWhite,
                         fontWeight = FontWeight.Bold
                     )
@@ -97,7 +83,7 @@ fun LeaderboardScreen(
         }
     ) { innerPadding ->
         when (val state = uiState) {
-            is LeaderboardUiState.Loading -> {
+            is HistoryUiState.Loading -> {
                 Box(
                     modifier = Modifier.fillMaxSize().padding(innerPadding),
                     contentAlignment = Alignment.Center
@@ -106,7 +92,7 @@ fun LeaderboardScreen(
                 }
             }
 
-            is LeaderboardUiState.Error -> {
+            is HistoryUiState.Error -> {
                 Box(
                     modifier = Modifier.fillMaxSize().padding(innerPadding),
                     contentAlignment = Alignment.Center
@@ -121,14 +107,14 @@ fun LeaderboardScreen(
                 }
             }
 
-            is LeaderboardUiState.Success -> {
-                if (state.entries.isEmpty()) {
+            is HistoryUiState.Success -> {
+                if (state.weeks.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize().padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Aún no hay puntuaciones.\nLos picks se puntúan automáticamente.",
+                            text = "Aún no hay picks registrados.",
                             color = BSMuted,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
@@ -136,8 +122,6 @@ fun LeaderboardScreen(
                         )
                     }
                 } else {
-                    val expanded = remember { mutableStateMapOf<String, Boolean>() }
-
                     LazyColumn(
                         contentPadding = innerPadding,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -146,16 +130,12 @@ fun LeaderboardScreen(
                             .padding(horizontal = 16.dp)
                             .padding(top = 12.dp)
                     ) {
-                        items(state.entries, key = { it.userId }) { entry ->
-                            MemberCard(
-                                entry = entry,
-                                isExpanded = expanded[entry.userId] == true,
-                                onToggle = {
-                                    expanded[entry.userId] = !(expanded[entry.userId] ?: false)
-                                },
-                                isOwnCard = entry.userId == currentUserId,
-                                onViewHistory = { onNavigateToHistory(groupId) },
-                                modifier = Modifier.animateItem()
+                        items(state.weeks, key = { it.weekId }) { entry ->
+                            WeekCard(
+                                entry      = entry,
+                                isExpanded = state.expandedWeekId == entry.weekId,
+                                onToggle   = { viewModel.toggleWeek(entry.weekId) },
+                                modifier   = Modifier.animateItem()
                             )
                         }
                         item { Spacer(Modifier.height(16.dp)) }
@@ -167,12 +147,10 @@ fun LeaderboardScreen(
 }
 
 @Composable
-private fun MemberCard(
-    entry: LeaderboardEntry,
+private fun WeekCard(
+    entry: WeekHistoryEntry,
     isExpanded: Boolean,
     onToggle: () -> Unit,
-    isOwnCard: Boolean = false,
-    onViewHistory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -187,24 +165,23 @@ private fun MemberCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                RankBadge(rank = entry.rank)
-                Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = entry.displayName,
+                        text = formatWeekId(entry.weekId),
                         color = BSWhite,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = "${entry.totalPoints} pts",
+                        text = "${entry.weekPoints} pts",
                         color = BSGold,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
                 Icon(
-                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp
+                                  else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
                     tint = BSMuted
                 )
@@ -212,91 +189,77 @@ private fun MemberCard(
 
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = expandVertically(),
-                exit = shrinkVertically()
+                enter   = expandVertically(),
+                exit    = shrinkVertically()
             ) {
-                Column {
-                    WeeklyBreakdown(weeklyBreakdown = entry.weeklyBreakdown)
-                    if (isOwnCard) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = onViewHistory,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "Ver historial completo",
-                                color = BSGold,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                    }
-                }
+                GamePicksList(picks = entry.picks)
             }
         }
     }
 }
 
 @Composable
-private fun RankBadge(rank: Int) {
-    val (bgColor, textColor) = when (rank) {
-        1    -> BSGold to BSHeader
-        2    -> SilverColor to BSHeader
-        3    -> BronzeColor to BSHeader
-        else -> BSHeader to BSMuted
-    }
-    Surface(
-        shape = CircleShape,
-        color = bgColor,
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text(
-                text = "#$rank",
-                color = textColor,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
-    }
-}
-
-@Composable
-private fun WeeklyBreakdown(weeklyBreakdown: Map<String, Int>) {
-    if (weeklyBreakdown.isEmpty()) return
-
+private fun GamePicksList(picks: List<GamePickResult>) {
     Column(modifier = Modifier.padding(top = 12.dp)) {
         HorizontalDivider(color = BSMuted.copy(alpha = 0.3f))
         Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Desglose semanal",
-            color = BSMuted,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        weeklyBreakdown.entries
-            .sortedBy { it.key }
-            .forEach { (weekId, points) ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = weekId,
-                        color = BSMuted,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Text(
-                        text = "$points pts",
-                        color = BSWhite,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+        picks.forEach { result ->
+            GamePickRow(result = result)
+        }
     }
+}
+
+@Composable
+private fun GamePickRow(result: GamePickResult) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "${result.game.awayTeamAbbr} @ ${result.game.homeTeamAbbr}",
+                color = BSMuted,
+                style = MaterialTheme.typography.labelSmall
+            )
+            if (result.pickedTeam != null) {
+                Text(
+                    text = result.pickedTeam,
+                    color = BSGold,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            } else {
+                Text(
+                    text = "Sin pick",
+                    color = BSMuted,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            if (result.winnerTeamAbbr != null) {
+                Text(
+                    text = "Ganador: ${result.winnerTeamAbbr}",
+                    color = BSMuted,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        Text(
+            text = when (result.isCorrect) {
+                true  -> "✅"
+                false -> "❌"
+                null  -> "⏳"
+            },
+            style = MaterialTheme.typography.titleMedium
+        )
+    }
+}
+
+private fun formatWeekId(weekId: String): String {
+    // "2025-week-12" → "SEMANA 12 · 2025"
+    val parts = weekId.split("-")
+    val year   = parts.getOrNull(0) ?: return weekId
+    val number = parts.getOrNull(2) ?: return weekId
+    return "SEMANA $number · $year"
 }

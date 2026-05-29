@@ -55,8 +55,9 @@ class FirebaseScoringDataSource @Inject constructor(
                 val winner  = winners[gameId]
                 val correct = winner != null && pick.pickedTeam == winner
                 if (correct) newlyCorrect++
-                pickUpdate["$gameId.isCorrect"] = correct
-                pickUpdate["$gameId.scoredAt"]  = nowMs
+                pickUpdate["$gameId.isCorrect"]      = correct
+                pickUpdate["$gameId.scoredAt"]       = nowMs
+                pickUpdate["$gameId.winnerTeamAbbr"] = winner ?: ""
                 scored++
             }
             batch.update(picksRef, pickUpdate)

@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.presentation.leaderboard
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.GetLeaderboardUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,10 +17,12 @@ import javax.inject.Inject
 @HiltViewModel
 class LeaderboardViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val getLeaderboardUseCase: GetLeaderboardUseCase
+    private val getLeaderboardUseCase: GetLeaderboardUseCase,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
-    private val groupId: String = checkNotNull(savedStateHandle["groupId"])
+    val groupId: String = checkNotNull(savedStateHandle["groupId"])
+    val currentUserId: String? = userRepository.getCurrentUser()?.uid
 
     private val _uiState = MutableStateFlow<LeaderboardUiState>(LeaderboardUiState.Loading)
     val uiState: StateFlow<LeaderboardUiState> = _uiState.asStateFlow()

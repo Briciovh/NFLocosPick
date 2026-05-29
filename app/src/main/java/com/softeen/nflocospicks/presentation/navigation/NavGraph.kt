@@ -18,6 +18,7 @@ import com.softeen.nflocospicks.presentation.groups.CreateGroupScreen
 import com.softeen.nflocospicks.presentation.groups.GroupViewModel
 import com.softeen.nflocospicks.presentation.groups.GroupsScreen
 import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
+import com.softeen.nflocospicks.presentation.history.HistoryScreen
 import com.softeen.nflocospicks.presentation.leaderboard.LeaderboardScreen
 import com.softeen.nflocospicks.presentation.picks.PickScreen
 import com.softeen.nflocospicks.presentation.schedule.ScheduleScreen
@@ -117,7 +118,20 @@ fun NavGraph() {
             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
         ) {
             // groupId lo lee LeaderboardViewModel vía SavedStateHandle — no se pasa explícitamente
-            LeaderboardScreen(onNavigateBack = { navController.popBackStack() })
+            LeaderboardScreen(
+                onNavigateBack     = { navController.popBackStack() },
+                onNavigateToHistory = { groupId ->
+                    navController.navigate("history/$groupId")
+                }
+            )
+        }
+
+        composable(
+            route     = Screen.History.route,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+        ) {
+            // groupId lo lee HistoryViewModel vía SavedStateHandle — no se pasa explícitamente
+            HistoryScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 

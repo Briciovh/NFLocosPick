@@ -65,7 +65,7 @@ Dependencies flow **inward only**: `presentation → domain ← data`. The domai
 app/src/main/java/com/softeen/nflocospicks/
 │
 ├── domain/                         # Pure Kotlin — no Android/Firebase/Retrofit imports
-│   ├── model/                      # Entity classes (User, Group, Game, Pick, Standing)
+│   ├── model/                      # Entity classes (User, Group, Game, Pick, Standing, UserPreferences…)
 │   ├── repository/                 # Repository interfaces (GroupRepository, PickRepository…)
 │   └── usecase/                    # One class per use case (ScoreWeekPicksUseCase, SubmitPickUseCase…)
 │
@@ -74,19 +74,27 @@ app/src/main/java/com/softeen/nflocospicks/
 │   │   ├── espn/                   # Retrofit service + ESPN DTOs + mappers → domain models
 │   │   └── firebase/               # Firestore data sources + mappers → domain models
 │   ├── repository/                 # Concrete repository implementations (injected via Hilt)
+│   │   └── UserPreferencesRepositoryImpl  # DataStore-backed; NOT Firestore
 │   └── worker/                     # WorkManager Workers (e.g. ScoringWorker)
 │
 ├── presentation/                   # Android / Compose layer
-│   ├── theme/                      # Color, Type, Theme (existing, move here from ui/theme)
+│   ├── theme/                      # Color.kt (Blue Steel palette), Type.kt, Theme.kt, AppColors.kt
 │   ├── navigation/                 # NavGraph, Screen sealed class, NavHost wiring
+│   ├── common/                     # Shared UI utilities: TeamLogo, NflTeams, NflTeamColors, EspnLogoUrl
+│   ├── preview/                    # PreviewData.kt + PreviewWrapper composable (internal, preview-only)
 │   ├── auth/                       # LoginScreen + AuthViewModel + AuthUiState
-│   ├── groups/                     # GroupScreen (create/join) + GroupViewModel + GroupUiState
+│   ├── groups/                     # GroupsScreen, CreateGroupScreen, JoinGroupScreen + ViewModel + UiState
 │   ├── schedule/                   # ScheduleScreen + ScheduleViewModel + ScheduleUiState
 │   ├── picks/                      # PickScreen + PickViewModel + PickUiState
 │   ├── leaderboard/                # LeaderboardScreen + LeaderboardViewModel + LeaderboardUiState
-│   └── history/                    # HistoryScreen + HistoryViewModel + HistoryUiState
+│   ├── history/                    # HistoryScreen + HistoryViewModel + HistoryUiState
+│   ├── settings/                   # SettingsScreen + SettingsViewModel (DataStore prefs)
+│   ├── teamselection/              # TeamSelectionScreen (picks favorite NFL team)
+│   ├── welcome/                    # WelcomeScreen (onboarding stub)
+│   └── proposals/                  # UI design proposals — keep until PR-10 lands
 │
-├── di/                             # Hilt modules (NetworkModule, FirebaseModule, RepositoryModule)
+├── di/                             # Hilt modules (NetworkModule, FirebaseModule, RepositoryModule,
+│                                   #   DataStoreModule, WorkerModule)
 ├── NFLocosPickApp.kt               # @HiltAndroidApp
 └── MainActivity.kt                 # Single Activity; hosts NavHost
 ```
@@ -96,6 +104,18 @@ app/src/main/java/com/softeen/nflocospicks/
 - Each feature already exposes a `*UiState` data class and a `StateFlow` — keep this pattern so MVI's `State` fits in without restructuring.
 - Side-effects (navigation, toasts) must go through a `Channel<UiEffect>` from day one; avoid calling nav callbacks directly from ViewModels.
 - Use cases must remain pure and side-effect-free so they work identically under both patterns.
+
+### Team-theming system (PR-10)
+
+The app uses a fixed "Blue Steel" `MaterialTheme` (dynamic color is intentionally disabled). On top of that, two accent colors shift per the user's favorite NFL team:
+
+- `AppColors(accent, header)` in `presentation/theme/AppColors.kt` — holds the two active colors.
+- `LocalAppColors` — `CompositionLocal` defaulting to Blue Steel gold/header.
+- `nflTeamColorMap` in `presentation/common/NflTeamColors.kt` — maps 32 team abbreviations to their `NflTeamColors`.
+- `SettingsViewModel` (scoped to `NavGraph`) reads `UserPreferences.favoriteTeamAbbr` from DataStore, derives the `AppColors`, and provides them via `CompositionLocalProvider` at the `NavGraph` level so every screen inherits the active theme.
+- All screens read colors via `LocalAppColors.current` — never hardcode `BSGold`/`BSHeader` in new UI code.
+
+`SettingsViewModel` is instantiated once at `NavGraph` scope and shared into `SettingsScreen` and `TeamSelectionScreen` to avoid duplicate DataStore reads.
 
 ### Firestore Data Model
 
@@ -191,6 +211,25 @@ Each PR has its own branch. Merge into `main` in order.
 - `HistoryViewModel` loads all past `weeks/{weekId}/picks/{userId}` docs for the current user in the selected group
 - Accessible from the leaderboard (tap own name) or a profile menu
 
+### PR-9 — Settings, DataStore & Team Logos
+**Branch:** `feature/09-teams_logos`
+
+- `SettingsScreen` — shows signed-in user (avatar, name, email), favorite team row, sign-out button
+- `UserPreferences` domain model + `UserPreferencesRepository` interface; `UserPreferencesRepositoryImpl` backed by Jetpack DataStore (Proto or Preferences)
+- `DataStoreModule` Hilt module; `SettingsViewModel` exposes `preferences: StateFlow<UserPreferences>`
+- `TeamLogo` composable uses Coil + ESPN logo CDN (`EspnLogoUrl.kt`)
+- `NflTeams.kt` — `NflTeam(abbr, name)` data class + complete 32-team list
+
+### PR-10 — Team Theming
+**Branch:** `feature/10-team-theming`
+
+- `NflTeamColors.kt` — `nflTeamColorMap` mapping all 32 team abbreviations to `NflTeamColors(accent, header)`
+- `AppColors.kt` + `LocalAppColors` — `CompositionLocal` theming layer on top of the fixed Blue Steel `MaterialTheme`
+- `NavGraph` derives `AppColors` from the saved favorite team and wraps the entire nav host in `CompositionLocalProvider`
+- `TeamSelectionScreen` — 4-column grid of all 32 team logos; tapping selects/deselects the favorite
+- All screens updated to read colors from `LocalAppColors.current` instead of hardcoded Blue Steel constants
+- `PreviewData.kt` + `PreviewWrapper` extracted to `presentation/preview/` for clean Compose preview setup
+
 ---
 
 ## Rules
@@ -209,8 +248,9 @@ These rules apply to every change made in this repository. There are no exceptio
 ## Key Constraints
 
 - `minSdk 24` — no API below Android 7.0
-- Dynamic color (Material You) is enabled by default on Android 12+; custom color scheme kicks in on older devices (see `Theme.kt`)
+- Dynamic color (Material You) is **disabled** — the app uses a fixed Blue Steel dark theme. Do not re-enable it.
 - All Firestore writes must use transactions or batched writes when updating both a pick and a standing simultaneously (PR-6)
+- User preferences (favorite team) are stored in **Jetpack DataStore** on-device, not in Firestore.
 - `google-services.json` is never committed — add a real one from the Firebase Console to `app/` to enable Firebase at runtime. The `google-services` plugin is applied conditionally in `app/build.gradle.kts` so the project builds without it.
 
 ## AGP 9 / Dependency Compatibility Notes

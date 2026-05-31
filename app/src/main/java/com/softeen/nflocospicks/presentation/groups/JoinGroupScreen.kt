@@ -27,24 +27,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.softeen.nflocospicks.presentation.theme.BSBg
-import com.softeen.nflocospicks.presentation.theme.BSGold
-import com.softeen.nflocospicks.presentation.theme.BSHeader
-import com.softeen.nflocospicks.presentation.theme.BSMuted
-import com.softeen.nflocospicks.presentation.theme.BSWhite
+import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
-/**
- * El ViewModel se pasa desde NavGraph scoped al back-stack entry de Groups.
- * El campo fuerza uppercase y limita a 6 caracteres en la UI.
- */
 @Composable
 fun JoinGroupScreen(
     onNavigateBack: () -> Unit,
     viewModel: GroupViewModel
 ) {
-    var inviteCode by remember { mutableStateOf("") }
     val actionState by viewModel.actionState.collectAsStateWithLifecycle()
 
     // Navegar de regreso cuando la acción sea exitosa
@@ -55,17 +48,33 @@ fun JoinGroupScreen(
         }
     }
 
+    JoinGroupScreenContent(
+        actionState    = actionState,
+        onNavigateBack = onNavigateBack,
+        onJoinGroup    = { viewModel.joinGroup(it) }
+    )
+}
+
+@Composable
+internal fun JoinGroupScreenContent(
+    actionState: GroupActionUiState,
+    onNavigateBack: () -> Unit,
+    onJoinGroup: (String) -> Unit
+) {
+    var inviteCode by remember { mutableStateOf("") }
+    val appColors   = LocalAppColors.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BSBg)
+            .background(appColors.background)
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = "Unirse a Grupo",
-            color = BSGold,
+            color = appColors.primary,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.ExtraBold
         )
@@ -75,16 +84,16 @@ fun JoinGroupScreen(
         OutlinedTextField(
             value = inviteCode,
             onValueChange = { inviteCode = it.uppercase().take(6) },
-            label = { Text("Código de invitación", color = BSMuted) },
-            placeholder = { Text("XXXXXX", color = BSMuted) },
+            label = { Text("Código de invitación", color = appColors.secondary) },
+            placeholder = { Text("XXXXXX", color = appColors.secondary) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = BSGold,
-                unfocusedBorderColor = BSMuted,
-                focusedTextColor = BSWhite,
-                unfocusedTextColor = BSWhite,
-                cursorColor = BSGold
+                focusedBorderColor = appColors.primary,
+                unfocusedBorderColor = appColors.secondary,
+                focusedTextColor = appColors.onBackground,
+                unfocusedTextColor = appColors.onBackground,
+                cursorColor = appColors.primary
             )
         )
 
@@ -92,7 +101,7 @@ fun JoinGroupScreen(
 
         if (actionState is GroupActionUiState.Error) {
             Text(
-                text = (actionState as GroupActionUiState.Error).message,
+                text = actionState.message,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
@@ -101,29 +110,53 @@ fun JoinGroupScreen(
         Spacer(Modifier.height(16.dp))
 
         Button(
-            onClick = { viewModel.joinGroup(inviteCode) },
+            onClick = { onJoinGroup(inviteCode) },
             enabled = inviteCode.length == 6 && actionState !is GroupActionUiState.Loading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = BSGold),
+            colors = ButtonDefaults.buttonColors(containerColor = appColors.primary),
             shape = RoundedCornerShape(12.dp)
         ) {
             if (actionState is GroupActionUiState.Loading) {
                 CircularProgressIndicator(
-                    color = BSHeader,
+                    color = appColors.onPrimary,
                     modifier = Modifier.size(24.dp),
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Unirme", color = BSHeader, fontWeight = FontWeight.Bold)
+                Text("Unirme", color = appColors.onPrimary, fontWeight = FontWeight.Bold)
             }
         }
 
         Spacer(Modifier.height(8.dp))
 
         TextButton(onClick = onNavigateBack) {
-            Text("Cancelar", color = BSMuted)
+            Text("Cancelar", color = appColors.secondary)
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun JoinGroupScreenIdlePreview() {
+    PreviewWrapper {
+        JoinGroupScreenContent(
+            actionState    = GroupActionUiState.Idle,
+            onNavigateBack = {},
+            onJoinGroup    = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun JoinGroupScreenLoadingPreview() {
+    PreviewWrapper {
+        JoinGroupScreenContent(
+            actionState    = GroupActionUiState.Loading,
+            onNavigateBack = {},
+            onJoinGroup    = {}
+        )
     }
 }

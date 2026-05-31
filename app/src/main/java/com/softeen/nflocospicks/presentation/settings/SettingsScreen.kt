@@ -1,9 +1,7 @@
 package com.softeen.nflocospicks.presentation.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,50 +36,68 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.softeen.nflocospicks.domain.model.User
-import com.softeen.nflocospicks.presentation.common.NflTeam
+import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.common.nflTeams
-import com.softeen.nflocospicks.presentation.theme.BSBg
-import com.softeen.nflocospicks.presentation.theme.BSGold
-import com.softeen.nflocospicks.presentation.theme.BSHeader
-import com.softeen.nflocospicks.presentation.theme.BSMuted
-import com.softeen.nflocospicks.presentation.theme.BSWhite
+import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.preview.fakePrefs
+import com.softeen.nflocospicks.presentation.preview.fakeUser
+import com.softeen.nflocospicks.presentation.theme.AppColors
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     user: User,
     viewModel: SettingsViewModel,
     onSignOut: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToTeamSelection: () -> Unit
 ) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
 
+    SettingsScreenContent(
+        user                      = user,
+        prefs                     = prefs,
+        onSignOut                 = onSignOut,
+        onNavigateBack            = onNavigateBack,
+        onNavigateToTeamSelection = onNavigateToTeamSelection
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SettingsScreenContent(
+    user: User,
+    prefs: UserPreferences,
+    onSignOut: () -> Unit,
+    onNavigateBack: () -> Unit,
+    onNavigateToTeamSelection: () -> Unit
+) {
+    val appColors    = LocalAppColors.current
+    val favoriteTeam = nflTeams.find { it.abbr == prefs.favoriteTeamAbbr }
+
     Scaffold(
-        containerColor = BSBg,
+        containerColor = appColors.background,
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "Configuración",
-                        color = BSWhite,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(text = "Configuración", color = appColors.onBackground, fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Regresar",
-                            tint = BSWhite
+                            tint               = appColors.onBackground
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BSHeader)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = appColors.header)
             )
         }
     ) { innerPadding ->
@@ -91,140 +108,102 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
+            SectionHeader("MI CUENTA", appColors.primary)
 
-            // ── MI CUENTA ────────────────────────────────────────────────
-            SectionHeader("MI CUENTA")
+            Row(
+                modifier          = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                UserAvatar(user = user, size = 56, appColors = appColors)
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text       = user.displayName,
+                        color      = appColors.onBackground,
+                        style      = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(text = user.email, color = appColors.secondary, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+            Spacer(Modifier.height(16.dp))
+
+            SectionHeader("EQUIPO FAVORITO", appColors.primary)
+            Spacer(Modifier.height(4.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onNavigateToTeamSelection)
+                    .padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                UserAvatar(user = user, size = 56)
-                Spacer(Modifier.width(16.dp))
-                Column {
+                if (favoriteTeam != null) {
+                    TeamLogo(abbr = favoriteTeam.abbr, size = 40.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text       = favoriteTeam.name,
+                            color      = appColors.onSurface,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(text = favoriteTeam.abbr, color = appColors.secondary, style = MaterialTheme.typography.labelSmall)
+                    }
+                } else {
+                    Box(
+                        modifier         = Modifier.size(40.dp).clip(CircleShape)
+                            .background(appColors.secondary.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("?", color = appColors.secondary, style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.width(12.dp))
                     Text(
-                        text = user.displayName,
-                        color = BSWhite,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = user.email,
-                        color = BSMuted,
-                        style = MaterialTheme.typography.bodySmall
+                        text     = "Ninguno",
+                        color    = appColors.secondary,
+                        style    = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
                     )
                 }
+                Icon(
+                    imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint               = appColors.secondary
+                )
             }
 
-            HorizontalDivider(color = BSMuted.copy(alpha = 0.2f))
-            Spacer(Modifier.height(16.dp))
-
-            // ── EQUIPO FAVORITO ──────────────────────────────────────────
-            SectionHeader("EQUIPO FAVORITO")
+            Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
             Spacer(Modifier.height(8.dp))
 
-            TeamGrid(
-                teams          = nflTeams,
-                selectedAbbr   = prefs.favoriteTeamAbbr,
-                onTeamSelected = { abbr ->
-                    val newSelection = if (prefs.favoriteTeamAbbr == abbr) null else abbr
-                    viewModel.setFavoriteTeam(newSelection)
-                }
-            )
-
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = BSMuted.copy(alpha = 0.2f))
-            Spacer(Modifier.height(8.dp))
-
-            // ── CERRAR SESIÓN ────────────────────────────────────────────
             TextButton(
                 onClick  = onSignOut,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
-                Text(
-                    text  = "Cerrar sesión",
-                    color = MaterialTheme.colorScheme.error
-                )
+                Text(text = "Cerrar sesión", color = MaterialTheme.colorScheme.error)
             }
-
             Spacer(Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
-private fun SectionHeader(title: String) {
+private fun SectionHeader(title: String, accentColor: androidx.compose.ui.graphics.Color) {
     Text(
-        text      = title,
-        color     = BSGold,
-        style     = MaterialTheme.typography.labelSmall,
+        text       = title,
+        color      = accentColor,
+        style      = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.ExtraBold,
-        modifier  = Modifier.padding(vertical = 4.dp)
+        modifier   = Modifier.padding(vertical = 4.dp)
     )
 }
 
 @Composable
-private fun TeamGrid(
-    teams: List<NflTeam>,
-    selectedAbbr: String?,
-    onTeamSelected: (String) -> Unit
-) {
-    val rows = teams.chunked(4)
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        rows.forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                row.forEach { team ->
-                    TeamCell(
-                        team       = team,
-                        isSelected = team.abbr == selectedAbbr,
-                        onClick    = { onTeamSelected(team.abbr) }
-                    )
-                }
-                // Rellenar si la última fila tiene menos de 4
-                repeat(4 - row.size) {
-                    Spacer(Modifier.size(64.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TeamCell(
-    team: NflTeam,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val bgColor     = if (isSelected) BSGold.copy(alpha = 0.15f) else BSBg
-    val borderColor = if (isSelected) BSGold else BSBg
-
-    Column(
-        modifier = Modifier
-            .size(64.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        TeamLogo(abbr = team.abbr, size = 36.dp)
-        Text(
-            text  = team.abbr,
-            color = if (isSelected) BSGold else BSMuted,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Normal
-        )
-    }
-}
-
-@Composable
-private fun UserAvatar(user: User, size: Int) {
+private fun UserAvatar(user: User, size: Int, appColors: AppColors) {
     val sizeDp = size.dp
     if (user.photoUrl != null) {
         AsyncImage(
@@ -235,15 +214,43 @@ private fun UserAvatar(user: User, size: Int) {
         )
     } else {
         Box(
-            modifier         = Modifier.size(sizeDp).clip(CircleShape).background(BSGold),
+            modifier         = Modifier.size(sizeDp).clip(CircleShape).background(appColors.primary),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text       = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                color      = BSHeader,
+                color      = appColors.header,
                 style      = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold
             )
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun SettingsScreenWithTeamPreview() {
+    PreviewWrapper {
+        SettingsScreenContent(
+            user                      = fakeUser,
+            prefs                     = fakePrefs,
+            onSignOut                 = {},
+            onNavigateBack            = {},
+            onNavigateToTeamSelection = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun SettingsScreenNoTeamPreview() {
+    PreviewWrapper {
+        SettingsScreenContent(
+            user                      = fakeUser,
+            prefs                     = UserPreferences(favoriteTeamAbbr = null),
+            onSignOut                 = {},
+            onNavigateBack            = {},
+            onNavigateToTeamSelection = {}
+        )
     }
 }

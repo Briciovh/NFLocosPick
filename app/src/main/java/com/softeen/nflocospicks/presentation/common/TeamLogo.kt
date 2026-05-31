@@ -12,8 +12,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
-import com.softeen.nflocospicks.presentation.theme.BSMuted
+import coil3.compose.SubcomposeAsyncImage
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
 @Composable
 fun TeamLogo(
@@ -21,21 +21,32 @@ fun TeamLogo(
     size: Dp = 48.dp,
     modifier: Modifier = Modifier
 ) {
+    val appColors = LocalAppColors.current
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = abbr,
-            color = BSMuted,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.ExtraBold
-        )
-        AsyncImage(
-            model = espnTeamLogoUrl(abbr),
+        SubcomposeAsyncImage(
+            model              = espnTeamLogoUrl(abbr),
             contentDescription = abbr,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
+            contentScale       = ContentScale.Fit,
+            modifier           = Modifier.fillMaxSize(),
+            loading = {
+                Text(
+                    text       = abbr,
+                    color      = appColors.secondary,
+                    style      = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            },
+            error = {
+                Text(
+                    text       = abbr,
+                    color      = appColors.secondary,
+                    style      = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
         )
     }
 }

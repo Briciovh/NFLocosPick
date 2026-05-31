@@ -39,23 +39,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.presentation.common.TeamLogo
-import com.softeen.nflocospicks.presentation.theme.BSBg
-import com.softeen.nflocospicks.presentation.theme.BSCard
-import com.softeen.nflocospicks.presentation.theme.BSGold
-import com.softeen.nflocospicks.presentation.theme.BSHeader
-import com.softeen.nflocospicks.presentation.theme.BSMuted
-import com.softeen.nflocospicks.presentation.theme.BSWhite
+import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.preview.fakePickItem
+import com.softeen.nflocospicks.presentation.preview.fakePickItemLocked
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 private val kickoffDisplayFormat = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault())
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PickScreen(
     onNavigateBack: () -> Unit,
@@ -63,25 +61,48 @@ fun PickScreen(
 ) {
     val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+
+    PickScreenContent(
+        uiState        = uiState,
+        errorMessage   = errorMessage,
+        onNavigateBack = onNavigateBack,
+        onRetry        = { viewModel.loadData() },
+        onPick         = { gameId, teamAbbr, kickoffTime ->
+            viewModel.submitPick(gameId, teamAbbr, kickoffTime)
+        },
+        onErrorShown   = { viewModel.onErrorShown() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PickScreenContent(
+    uiState: PickUiState,
+    errorMessage: String?,
+    onNavigateBack: () -> Unit,
+    onRetry: () -> Unit,
+    onPick: (String, String, Long) -> Unit,
+    onErrorShown: () -> Unit
+) {
+    val appColors     = LocalAppColors.current
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Mostrar Snackbar al recibir un error
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.onErrorShown()
+            onErrorShown()
         }
     }
 
     Scaffold(
-        containerColor = BSBg,
+        containerColor = appColors.background,
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
                     snackbarData   = data,
-                    containerColor = BSCard,
-                    contentColor   = BSWhite,
-                    actionColor    = BSGold
+                    containerColor = appColors.surfaceVariant,
+                    contentColor   = appColors.onSurface,
+                    actionColor    = appColors.primary
                 )
             }
         },
@@ -91,17 +112,16 @@ fun PickScreen(
                     Column {
                         Text(
                             text       = "MIS PICKS",
-                            color      = BSGold,
+                            color      = appColors.primary,
                             fontWeight = FontWeight.ExtraBold
                         )
                         if (uiState is PickUiState.Success) {
-                            val weekLabel = (uiState as PickUiState.Success)
-                                .weekId
+                            val weekLabel = uiState.weekId
                                 .uppercase()
                                 .replace("-", " · ")
                             Text(
                                 text  = weekLabel,
-                                color = BSMuted,
+                                color = appColors.secondary,
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -112,21 +132,21 @@ fun PickScreen(
                         Icon(
                             imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Atrás",
-                            tint               = BSGold
+                            tint               = appColors.primary
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BSHeader)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = appColors.header)
             )
         }
     ) { innerPadding ->
-        when (val state = uiState) {
+        when (uiState) {
             is PickUiState.Loading -> {
                 Box(
                     modifier         = Modifier.fillMaxSize().padding(innerPadding),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = BSGold)
+                    CircularProgressIndicator(color = appColors.primary)
                 }
             }
 
@@ -140,30 +160,30 @@ fun PickScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text      = state.message,
+                        text      = uiState.message,
                         color     = MaterialTheme.colorScheme.error,
                         style     = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(16.dp))
                     Button(
-                        onClick = { viewModel.loadData() },
-                        colors  = ButtonDefaults.buttonColors(containerColor = BSGold)
+                        onClick = onRetry,
+                        colors  = ButtonDefaults.buttonColors(containerColor = appColors.primary)
                     ) {
-                        Text("Reintentar", color = BSHeader, fontWeight = FontWeight.Bold)
+                        Text("Reintentar", color = appColors.onPrimary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
             is PickUiState.Success -> {
-                if (state.items.isEmpty()) {
+                if (uiState.items.isEmpty()) {
                     Box(
                         modifier         = Modifier.fillMaxSize().padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text  = "No hay partidos esta semana.",
-                            color = BSMuted,
+                            color = appColors.secondary,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -173,15 +193,11 @@ fun PickScreen(
                         contentPadding      = PaddingValues(vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(state.items, key = { it.game.id }) { item ->
+                        items(uiState.items, key = { it.game.id }) { item ->
                             GamePickCard(
                                 item   = item,
                                 onPick = { teamAbbr ->
-                                    viewModel.submitPick(
-                                        gameId      = item.game.id,
-                                        teamAbbr    = teamAbbr,
-                                        kickoffTime = item.game.kickoffTime
-                                    )
+                                    onPick(item.game.id, teamAbbr, item.game.kickoffTime)
                                 }
                             )
                         }
@@ -198,13 +214,14 @@ private fun GamePickCard(
     onPick: (String) -> Unit
 ) {
     val game = item.game
+    val appColors = LocalAppColors.current
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape  = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = BSCard)
+        colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
@@ -216,7 +233,7 @@ private fun GamePickCard(
             ) {
                 Text(
                     text       = kickoffDisplayFormat.format(Date(game.kickoffTime)),
-                    color      = BSMuted,
+                    color      = appColors.secondary,
                     style      = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -255,7 +272,7 @@ private fun GamePickCard(
                 )
                 Text(
                     text       = "@",
-                    color      = BSMuted,
+                    color      = appColors.secondary,
                     fontWeight = FontWeight.ExtraBold
                 )
                 TeamPickButton(
@@ -282,8 +299,9 @@ private fun TeamPickButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val containerColor = if (isSelected) BSGold else BSCard
-    val contentColor   = if (isSelected) BSHeader else BSWhite
+    val appColors      = LocalAppColors.current
+    val containerColor = if (isSelected) appColors.primary else appColors.surface
+    val contentColor   = if (isSelected) appColors.onPrimary else appColors.onSurface
 
     Button(
         onClick  = onClick,
@@ -293,10 +311,10 @@ private fun TeamPickButton(
         colors   = ButtonDefaults.buttonColors(
             containerColor         = containerColor,
             contentColor           = contentColor,
-            disabledContainerColor = if (isSelected) BSGold.copy(alpha = 0.5f)
-                                     else BSCard.copy(alpha = 0.7f),
-            disabledContentColor   = if (isSelected) BSHeader.copy(alpha = 0.6f)
-                                     else BSMuted
+            disabledContainerColor = if (isSelected) appColors.primary.copy(alpha = 0.5f)
+                                     else appColors.surface.copy(alpha = 0.7f),
+            disabledContentColor   = if (isSelected) appColors.onPrimary.copy(alpha = 0.6f)
+                                     else appColors.secondary
         )
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -312,5 +330,38 @@ private fun TeamPickButton(
                 textAlign = TextAlign.Center
             )
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun PickScreenSuccessPreview() {
+    PreviewWrapper {
+        PickScreenContent(
+            uiState        = PickUiState.Success(
+                weekId = "2025-week-12",
+                items  = listOf(fakePickItem, fakePickItemLocked)
+            ),
+            errorMessage   = null,
+            onNavigateBack = {},
+            onRetry        = {},
+            onPick         = { _, _, _ -> },
+            onErrorShown   = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun PickScreenLoadingPreview() {
+    PreviewWrapper {
+        PickScreenContent(
+            uiState        = PickUiState.Loading,
+            errorMessage   = null,
+            onNavigateBack = {},
+            onRetry        = {},
+            onPick         = { _, _, _ -> },
+            onErrorShown   = {}
+        )
     }
 }

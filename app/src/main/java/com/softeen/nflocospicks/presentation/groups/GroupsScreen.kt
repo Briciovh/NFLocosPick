@@ -39,19 +39,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.Group
-import com.softeen.nflocospicks.presentation.theme.BSBg
-import com.softeen.nflocospicks.presentation.theme.BSCard
-import com.softeen.nflocospicks.presentation.theme.BSGold
-import com.softeen.nflocospicks.presentation.theme.BSHeader
-import com.softeen.nflocospicks.presentation.theme.BSMuted
-import com.softeen.nflocospicks.presentation.theme.BSSurface
-import com.softeen.nflocospicks.presentation.theme.BSWhite
+import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.preview.fakeGroup
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupsScreen(
     onNavigateToCreateGroup: () -> Unit,
@@ -63,7 +59,7 @@ fun GroupsScreen(
     onSignedOut: () -> Unit,
     viewModel: GroupViewModel = hiltViewModel()
 ) {
-    val listState        by viewModel.groupListState.collectAsStateWithLifecycle()
+    val listState by viewModel.groupListState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Consume efectos de un solo disparo (navegación + feedback de puntuación)
@@ -86,14 +82,42 @@ fun GroupsScreen(
         }
     }
 
+    GroupsScreenContent(
+        listState               = listState,
+        snackbarHostState       = snackbarHostState,
+        onNavigateToCreateGroup = onNavigateToCreateGroup,
+        onNavigateToJoinGroup   = onNavigateToJoinGroup,
+        onNavigateToSettings    = onNavigateToSettings,
+        onGroupClicked          = { viewModel.onGroupClicked(it) },
+        onPicksClicked          = { viewModel.onPicksClicked(it) },
+        onScoreClicked          = { viewModel.onScoreClicked(it) },
+        onLeaderboardClicked    = { viewModel.onLeaderboardClicked(it) }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun GroupsScreenContent(
+    listState: GroupListUiState,
+    snackbarHostState: SnackbarHostState,
+    onNavigateToCreateGroup: () -> Unit,
+    onNavigateToJoinGroup: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onGroupClicked: (String) -> Unit,
+    onPicksClicked: (String) -> Unit,
+    onScoreClicked: (String) -> Unit,
+    onLeaderboardClicked: (String) -> Unit
+) {
+    val appColors = LocalAppColors.current
+
     Scaffold(
-        containerColor = BSBg,
+        containerColor = appColors.background,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = "NFL PICKS",
-                        color = BSGold,
+                        color = appColors.primary,
                         fontWeight = FontWeight.ExtraBold
                     )
                 },
@@ -102,20 +126,20 @@ fun GroupsScreen(
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Configuración",
-                            tint = BSWhite
+                            tint = appColors.onBackground
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BSHeader)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = appColors.header)
             )
         },
         snackbarHost   = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
                     snackbarData   = data,
-                    containerColor = BSCard,
-                    contentColor   = BSWhite,
-                    actionColor    = BSGold
+                    containerColor = appColors.surfaceVariant,
+                    contentColor   = appColors.onSurface,
+                    actionColor    = appColors.primary
                 )
             }
         },
@@ -124,16 +148,16 @@ fun GroupsScreen(
                 // FAB secundario: unirse con código
                 FloatingActionButton(
                     onClick = onNavigateToJoinGroup,
-                    containerColor = BSSurface
+                    containerColor = appColors.surface
                 ) {
                     Text("🔗", style = MaterialTheme.typography.titleMedium)
                 }
                 // FAB principal: crear grupo
                 FloatingActionButton(
                     onClick = onNavigateToCreateGroup,
-                    containerColor = BSGold
+                    containerColor = appColors.primary
                 ) {
-                    Text("+", color = BSHeader, style = MaterialTheme.typography.titleLarge,
+                    Text("+", color = appColors.onPrimary, style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold)
                 }
             }
@@ -147,16 +171,16 @@ fun GroupsScreen(
         ) {
             Spacer(Modifier.height(8.dp))
 
-            when (val state = listState) {
+            when (listState) {
                 is GroupListUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = BSGold)
+                        CircularProgressIndicator(color = appColors.primary)
                     }
                 }
 
                 is GroupListUiState.Error -> {
                     Text(
-                        text = state.message,
+                        text = listState.message,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 16.dp)
@@ -164,14 +188,14 @@ fun GroupsScreen(
                 }
 
                 is GroupListUiState.Success -> {
-                    if (state.groups.isEmpty()) {
+                    if (listState.groups.isEmpty()) {
                         Box(
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = "Aún no tienes grupos.\nCrea uno o únete con un código.",
-                                color = BSMuted,
+                                color = appColors.secondary,
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = TextAlign.Center
                             )
@@ -181,18 +205,17 @@ fun GroupsScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            items(state.groups, key = { it.id }) { group ->
+                            items(listState.groups, key = { it.id }) { group ->
                                 GroupCard(
                                     group             = group,
-                                    onClick           = { viewModel.onGroupClicked(group.id) },
-                                    onPicksClick      = { viewModel.onPicksClicked(group.id) },
-                                    onScoreClick      = { viewModel.onScoreClicked(group.id) },
-                                    onLeaderboardClick = { viewModel.onLeaderboardClicked(group.id) }
+                                    onClick           = { onGroupClicked(group.id) },
+                                    onPicksClick      = { onPicksClicked(group.id) },
+                                    onScoreClick      = { onScoreClicked(group.id) },
+                                    onLeaderboardClick = { onLeaderboardClicked(group.id) }
                                 )
                             }
                         }
                     }
-
                 }
             }
         }
@@ -207,24 +230,25 @@ private fun GroupCard(
     onScoreClick       : () -> Unit,
     onLeaderboardClick : () -> Unit
 ) {
+    val appColors = LocalAppColors.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = BSCard)
+        colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = group.name,
-                color = BSWhite,
+                color = appColors.onSurface,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Código: ${group.inviteCode}  •  ${group.memberIds.size} miembro(s)",
-                color = BSMuted,
+                color = appColors.secondary,
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(8.dp))
@@ -234,15 +258,51 @@ private fun GroupCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onScoreClick) {
-                    Text("🔄 PUNTUAR", color = BSMuted, fontWeight = FontWeight.Bold)
+                    Text("🔄 PUNTUAR", color = appColors.secondary, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onLeaderboardClick) {
-                    Text("🏆 TABLA", color = BSMuted, fontWeight = FontWeight.Bold)
+                    Text("🏆 TABLA", color = appColors.secondary, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onPicksClick) {
-                    Text("🏈 MIS PICKS", color = BSGold, fontWeight = FontWeight.Bold)
+                    Text("🏈 MIS PICKS", color = appColors.primary, fontWeight = FontWeight.Bold)
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun GroupsScreenSuccessPreview() {
+    PreviewWrapper {
+        GroupsScreenContent(
+            listState               = GroupListUiState.Success(listOf(fakeGroup)),
+            snackbarHostState       = remember { SnackbarHostState() },
+            onNavigateToCreateGroup = {},
+            onNavigateToJoinGroup   = {},
+            onNavigateToSettings    = {},
+            onGroupClicked          = {},
+            onPicksClicked          = {},
+            onScoreClicked          = {},
+            onLeaderboardClicked    = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun GroupsScreenEmptyPreview() {
+    PreviewWrapper {
+        GroupsScreenContent(
+            listState               = GroupListUiState.Success(emptyList()),
+            snackbarHostState       = remember { SnackbarHostState() },
+            onNavigateToCreateGroup = {},
+            onNavigateToJoinGroup   = {},
+            onNavigateToSettings    = {},
+            onGroupClicked          = {},
+            onPicksClicked          = {},
+            onScoreClicked          = {},
+            onLeaderboardClicked    = {}
+        )
     }
 }

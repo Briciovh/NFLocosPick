@@ -47,39 +47,56 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.LeaderboardEntry
-import com.softeen.nflocospicks.presentation.theme.BSBg
-import com.softeen.nflocospicks.presentation.theme.BSCard
-import com.softeen.nflocospicks.presentation.theme.BSGold
-import com.softeen.nflocospicks.presentation.theme.BSHeader
-import com.softeen.nflocospicks.presentation.theme.BSMuted
-import com.softeen.nflocospicks.presentation.theme.BSWhite
+import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.preview.fakeLeaderboard
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
 private val SilverColor = Color(0xFFB0BEC5)
 private val BronzeColor = Color(0xFFBF8970)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LeaderboardScreen(
     onNavigateBack: () -> Unit,
     onNavigateToHistory: (groupId: String) -> Unit = {},
     viewModel: LeaderboardViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val currentUserId = viewModel.currentUserId
-    val groupId = viewModel.groupId
+    val uiState       by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentUserId  = viewModel.currentUserId
+    val groupId        = viewModel.groupId
+
+    LeaderboardScreenContent(
+        uiState             = uiState,
+        currentUserId       = currentUserId,
+        groupId             = groupId,
+        onNavigateBack      = onNavigateBack,
+        onNavigateToHistory = onNavigateToHistory
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun LeaderboardScreenContent(
+    uiState: LeaderboardUiState,
+    currentUserId: String?,
+    groupId: String,
+    onNavigateBack: () -> Unit,
+    onNavigateToHistory: (groupId: String) -> Unit
+) {
+    val appColors = LocalAppColors.current
 
     Scaffold(
-        containerColor = BSBg,
+        containerColor = appColors.background,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
                         text = "Leaderboard",
-                        color = BSWhite,
+                        color = appColors.onBackground,
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -88,21 +105,21 @@ fun LeaderboardScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Regresar",
-                            tint = BSWhite
+                            tint = appColors.onBackground
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BSHeader)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = appColors.header)
             )
         }
     ) { innerPadding ->
-        when (val state = uiState) {
+        when (uiState) {
             is LeaderboardUiState.Loading -> {
                 Box(
                     modifier = Modifier.fillMaxSize().padding(innerPadding),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = BSGold)
+                    CircularProgressIndicator(color = appColors.primary)
                 }
             }
 
@@ -112,7 +129,7 @@ fun LeaderboardScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = state.message,
+                        text = uiState.message,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
@@ -122,14 +139,14 @@ fun LeaderboardScreen(
             }
 
             is LeaderboardUiState.Success -> {
-                if (state.entries.isEmpty()) {
+                if (uiState.entries.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize().padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "Aún no hay puntuaciones.\nLos picks se puntúan automáticamente.",
-                            color = BSMuted,
+                            color = appColors.secondary,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 32.dp)
@@ -146,7 +163,7 @@ fun LeaderboardScreen(
                             .padding(horizontal = 16.dp)
                             .padding(top = 12.dp)
                     ) {
-                        items(state.entries, key = { it.userId }) { entry ->
+                        items(uiState.entries, key = { it.userId }) { entry ->
                             MemberCard(
                                 entry = entry,
                                 isExpanded = expanded[entry.userId] == true,
@@ -175,12 +192,13 @@ private fun MemberCard(
     onViewHistory: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val appColors = LocalAppColors.current
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = BSCard)
+        colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(
@@ -192,13 +210,13 @@ private fun MemberCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = entry.displayName,
-                        color = BSWhite,
+                        color = appColors.onSurface,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
                         text = "${entry.totalPoints} pts",
-                        color = BSGold,
+                        color = appColors.primary,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -206,7 +224,7 @@ private fun MemberCard(
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = BSMuted
+                    tint = appColors.secondary
                 )
             }
 
@@ -225,7 +243,7 @@ private fun MemberCard(
                         ) {
                             Text(
                                 text = "Ver historial completo",
-                                color = BSGold,
+                                color = appColors.primary,
                                 style = MaterialTheme.typography.labelMedium
                             )
                         }
@@ -238,11 +256,12 @@ private fun MemberCard(
 
 @Composable
 private fun RankBadge(rank: Int) {
+    val appColors = LocalAppColors.current
     val (bgColor, textColor) = when (rank) {
-        1    -> BSGold to BSHeader
-        2    -> SilverColor to BSHeader
-        3    -> BronzeColor to BSHeader
-        else -> BSHeader to BSMuted
+        1    -> appColors.primary to appColors.onPrimary
+        2    -> SilverColor to Color.White
+        3    -> BronzeColor to Color.White
+        else -> appColors.header to appColors.secondary
     }
     Surface(
         shape = CircleShape,
@@ -264,14 +283,15 @@ private fun RankBadge(rank: Int) {
 
 @Composable
 private fun WeeklyBreakdown(weeklyBreakdown: Map<String, Int>) {
+    val appColors = LocalAppColors.current
     if (weeklyBreakdown.isEmpty()) return
 
     Column(modifier = Modifier.padding(top = 12.dp)) {
-        HorizontalDivider(color = BSMuted.copy(alpha = 0.3f))
+        HorizontalDivider(color = appColors.secondary.copy(alpha = 0.3f))
         Spacer(Modifier.height(8.dp))
         Text(
             text = "Desglose semanal",
-            color = BSMuted,
+            color = appColors.secondary,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(bottom = 4.dp)
@@ -287,16 +307,44 @@ private fun WeeklyBreakdown(weeklyBreakdown: Map<String, Int>) {
                 ) {
                     Text(
                         text = weekId,
-                        color = BSMuted,
+                        color = appColors.secondary,
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
                         text = "$points pts",
-                        color = BSWhite,
+                        color = appColors.onSurface,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium
                     )
                 }
             }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun LeaderboardScreenSuccessPreview() {
+    PreviewWrapper {
+        LeaderboardScreenContent(
+            uiState             = LeaderboardUiState.Success(fakeLeaderboard),
+            currentUserId       = "user_1",
+            groupId             = "group_1",
+            onNavigateBack      = {},
+            onNavigateToHistory = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun LeaderboardScreenLoadingPreview() {
+    PreviewWrapper {
+        LeaderboardScreenContent(
+            uiState             = LeaderboardUiState.Loading,
+            currentUserId       = "user_1",
+            groupId             = "group_1",
+            onNavigateBack      = {},
+            onNavigateToHistory = {}
+        )
     }
 }

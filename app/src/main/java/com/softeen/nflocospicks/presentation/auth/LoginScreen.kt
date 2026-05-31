@@ -26,24 +26,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.R
-import com.softeen.nflocospicks.presentation.theme.BSBg
-import com.softeen.nflocospicks.presentation.theme.BSGold
-import com.softeen.nflocospicks.presentation.theme.BSHeader
-import com.softeen.nflocospicks.presentation.theme.BSMuted
+import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
 @Composable
 fun LoginScreen(
     onAuthenticated: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
+    val state   by viewModel.uiState.collectAsStateWithLifecycle()
+    val context  = LocalContext.current
 
-    // Collect one-shot navigation effects.
     LaunchedEffect(Unit) {
         for (effect in viewModel.effects) {
             when (effect) {
@@ -52,69 +50,101 @@ fun LoginScreen(
         }
     }
 
+    LoginScreenContent(
+        state   = state,
+        onSignIn = { viewModel.signIn(context) }
+    )
+}
+
+@Composable
+internal fun LoginScreenContent(
+    state: AuthUiState,
+    onSignIn: () -> Unit
+) {
+    val appColors = LocalAppColors.current
+
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BSBg),
+        modifier         = Modifier.fillMaxSize().background(appColors.background),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(horizontal = 32.dp)
+            modifier            = Modifier.padding(horizontal = 32.dp)
         ) {
             Image(
-                painter = painterResource(R.drawable.nflocos_picks_logo),
+                painter            = painterResource(R.drawable.nflocos_picks_logo),
                 contentDescription = "NFLocos Pick logo",
-                modifier = Modifier.size(160.dp)
+                modifier           = Modifier.size(160.dp)
             )
 
             Text(
-                text = "NFLocos Picks",
-                color = BSGold,
-                style = MaterialTheme.typography.headlineSmall,
+                text       = "NFLocos Picks",
+                color      = appColors.primary,
+                style      = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold
             )
 
             Text(
-                text = "Picks privados con tu grupo",
-                color = BSMuted,
+                text  = "Picks privados con tu grupo",
+                color = appColors.secondary,
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
             if (state is AuthUiState.Error) {
                 Text(
-                    text = (state as AuthUiState.Error).message,
+                    text  = state.message,
                     color = Color.Red,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
 
             Button(
-                onClick = { viewModel.signIn(context) },
-                enabled = state !is AuthUiState.Loading,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = BSGold),
-                shape = RoundedCornerShape(12.dp)
+                onClick  = onSignIn,
+                enabled  = state !is AuthUiState.Loading,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
+                shape    = RoundedCornerShape(12.dp)
             ) {
                 if (state is AuthUiState.Loading) {
                     CircularProgressIndicator(
-                        color = BSHeader,
-                        modifier = Modifier.size(24.dp),
+                        color       = appColors.onPrimary,
+                        modifier    = Modifier.size(24.dp),
                         strokeWidth = 2.dp
                     )
                 } else {
                     Text(
-                        text = "Iniciar sesión con Google",
-                        color = BSHeader,
+                        text       = "Iniciar sesión con Google",
+                        color      = appColors.onPrimary,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun LoginScreenIdlePreview() {
+    PreviewWrapper { LoginScreenContent(state = AuthUiState.Idle, onSignIn = {}) }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun LoginScreenLoadingPreview() {
+    PreviewWrapper { LoginScreenContent(state = AuthUiState.Loading, onSignIn = {}) }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun LoginScreenErrorPreview() {
+    PreviewWrapper {
+        LoginScreenContent(
+            state   = AuthUiState.Error("No se pudo iniciar sesión. Intenta de nuevo."),
+            onSignIn = {}
+        )
     }
 }

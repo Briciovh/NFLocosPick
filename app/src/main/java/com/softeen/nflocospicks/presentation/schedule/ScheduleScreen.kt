@@ -34,25 +34,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.presentation.common.TeamLogo
-import com.softeen.nflocospicks.presentation.theme.BSBg
-import com.softeen.nflocospicks.presentation.theme.BSCard
-import com.softeen.nflocospicks.presentation.theme.BSGold
-import com.softeen.nflocospicks.presentation.theme.BSHeader
-import com.softeen.nflocospicks.presentation.theme.BSMuted
-import com.softeen.nflocospicks.presentation.theme.BSWhite
+import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.preview.fakeGame
+import com.softeen.nflocospicks.presentation.preview.fakeGameLive
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 private val kickoffDisplayFormat = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault())
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(
     onNavigateBack: () -> Unit,
@@ -60,25 +58,40 @@ fun ScheduleScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    ScheduleScreenContent(
+        uiState        = uiState,
+        onNavigateBack = onNavigateBack,
+        onRetry        = { viewModel.loadGames() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ScheduleScreenContent(
+    uiState: ScheduleUiState,
+    onNavigateBack: () -> Unit,
+    onRetry: () -> Unit
+) {
+    val appColors = LocalAppColors.current
+
     Scaffold(
-        containerColor = BSBg,
+        containerColor = appColors.background,
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Text(
-                            text = "NFL PICKS",
-                            color = BSGold,
+                            text       = "NFL PICKS",
+                            color      = appColors.primary,
                             fontWeight = FontWeight.ExtraBold
                         )
                         if (uiState is ScheduleUiState.Success) {
-                            val weekLabel = (uiState as ScheduleUiState.Success)
-                                .weekId
+                            val weekLabel = uiState.weekId
                                 .uppercase()
                                 .replace("-", " · ")
                             Text(
-                                text = weekLabel,
-                                color = BSMuted,
+                                text  = weekLabel,
+                                color = appColors.secondary,
                                 style = MaterialTheme.typography.labelSmall
                             )
                         }
@@ -89,21 +102,21 @@ fun ScheduleScreen(
                         Icon(
                             imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Atrás",
-                            tint               = BSGold
+                            tint               = appColors.primary
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BSHeader)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = appColors.header)
             )
         }
     ) { innerPadding ->
-        when (val state = uiState) {
+        when (uiState) {
             is ScheduleUiState.Loading -> {
                 Box(
-                    modifier          = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment  = Alignment.Center
+                    modifier         = Modifier.fillMaxSize().padding(innerPadding),
+                    contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = BSGold)
+                    CircularProgressIndicator(color = appColors.primary)
                 }
             }
 
@@ -117,29 +130,29 @@ fun ScheduleScreen(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text  = state.message,
+                        text  = uiState.message,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(Modifier.height(16.dp))
                     Button(
-                        onClick = { viewModel.loadGames() },
-                        colors  = ButtonDefaults.buttonColors(containerColor = BSGold)
+                        onClick = onRetry,
+                        colors  = ButtonDefaults.buttonColors(containerColor = appColors.primary)
                     ) {
-                        Text("Reintentar", color = BSHeader, fontWeight = FontWeight.Bold)
+                        Text("Reintentar", color = appColors.onPrimary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
             is ScheduleUiState.Success -> {
-                if (state.games.isEmpty()) {
+                if (uiState.games.isEmpty()) {
                     Box(
                         modifier         = Modifier.fillMaxSize().padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text  = "No hay partidos esta semana.",
-                            color = BSMuted,
+                            color = appColors.secondary,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -149,7 +162,7 @@ fun ScheduleScreen(
                         contentPadding      = PaddingValues(vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(state.games, key = { it.id }) { game ->
+                        items(uiState.games, key = { it.id }) { game ->
                             GameCard(game = game)
                         }
                     }
@@ -161,24 +174,25 @@ fun ScheduleScreen(
 
 @Composable
 private fun GameCard(game: Game) {
+    val appColors = LocalAppColors.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape  = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = BSCard)
+        colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
             // Hora de kickoff + estado
             Row(
-                modifier             = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment    = Alignment.CenterVertically
+                verticalAlignment     = Alignment.CenterVertically
             ) {
                 Text(
                     text       = kickoffDisplayFormat.format(Date(game.kickoffTime)),
-                    color      = BSMuted,
+                    color      = appColors.secondary,
                     style      = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -202,7 +216,7 @@ private fun GameCard(game: Game) {
                 )
                 Text(
                     text       = "@",
-                    color      = BSMuted,
+                    color      = appColors.secondary,
                     fontWeight = FontWeight.ExtraBold
                 )
                 TeamColumn(
@@ -225,26 +239,27 @@ private fun TeamColumn(
     label: String,
     modifier: Modifier = Modifier
 ) {
+    val appColors = LocalAppColors.current
     Column(
         modifier            = modifier,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text       = label,
-            color      = BSMuted,
+            color      = appColors.secondary,
             style      = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.ExtraBold
         )
         TeamLogo(abbr = abbr, size = 48.dp)
         Text(
             text  = name,
-            color = BSMuted,
+            color = appColors.secondary,
             style = MaterialTheme.typography.labelSmall
         )
         score?.let {
             Text(
                 text       = it.toString(),
-                color      = BSGold,
+                color      = appColors.primary,
                 style      = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -254,9 +269,10 @@ private fun TeamColumn(
 
 @Composable
 private fun StatusChip(status: GameStatus) {
+    val appColors = LocalAppColors.current
     val (label, tint) = when (status) {
-        GameStatus.SCHEDULED   -> "PROG"    to BSMuted
-        GameStatus.IN_PROGRESS -> "EN VIVO" to BSGold
+        GameStatus.SCHEDULED   -> "PROG"    to appColors.secondary
+        GameStatus.IN_PROGRESS -> "EN VIVO" to appColors.primary
         GameStatus.FINAL       -> "FINAL"   to MaterialTheme.colorScheme.error
     }
     Surface(
@@ -269,6 +285,33 @@ private fun StatusChip(status: GameStatus) {
             style      = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.ExtraBold,
             modifier   = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun ScheduleScreenSuccessPreview() {
+    PreviewWrapper {
+        ScheduleScreenContent(
+            uiState        = ScheduleUiState.Success(
+                weekId = "2025-week-12",
+                games  = listOf(fakeGame, fakeGameLive)
+            ),
+            onNavigateBack = {},
+            onRetry        = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun ScheduleScreenLoadingPreview() {
+    PreviewWrapper {
+        ScheduleScreenContent(
+            uiState        = ScheduleUiState.Loading,
+            onNavigateBack = {},
+            onRetry        = {}
         )
     }
 }

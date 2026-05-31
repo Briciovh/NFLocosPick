@@ -4,28 +4,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 
-// Blue Steel is the single, forced color scheme for the entire app.
-// Dynamic color (Material You) is intentionally disabled — this is a designed theme.
-private val BlueSteelColorScheme = darkColorScheme(
-    primary                = BSGold,
-    onPrimary              = BSHeader,
-    primaryContainer       = BSCardSelected,
-    onPrimaryContainer     = BSWhite,
-    secondary              = BSMuted,
-    onSecondary            = BSWhite,
-    background             = BSBg,
-    onBackground           = BSWhite,
-    surface                = BSSurface,
-    onSurface              = BSWhite,
-    surfaceVariant         = BSCard,
-    onSurfaceVariant       = BSMuted
-)
-
 @Composable
-fun NFLocosPickTheme(content: @Composable () -> Unit) {
+fun NFLocosPickTheme(
+    appColors: AppColors = LocalAppColors.current,
+    content: @Composable () -> Unit
+) {
+    val dynamicColorScheme = darkColorScheme(
+        primary = appColors.primary,
+        onPrimary = appColors.onPrimary,
+        primaryContainer = appColors.primaryContainer,
+        onPrimaryContainer = appColors.onPrimaryContainer,
+        secondary = appColors.secondary,
+        onSecondary = appColors.onSecondary,
+        background = appColors.background,
+        onBackground = appColors.onBackground,
+        surface = appColors.surface,
+        onSurface = appColors.onSurface,
+        surfaceVariant = appColors.surfaceVariant,
+        onSurfaceVariant = appColors.onSurfaceVariant
+    )
+
     MaterialTheme(
-        colorScheme = BlueSteelColorScheme,
-        typography  = Typography,
-        content     = content
+        colorScheme = dynamicColorScheme,
+        typography = Typography,
+        content = content
     )
 }

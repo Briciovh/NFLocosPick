@@ -27,26 +27,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.softeen.nflocospicks.presentation.theme.BSBg
-import com.softeen.nflocospicks.presentation.theme.BSGold
-import com.softeen.nflocospicks.presentation.theme.BSHeader
-import com.softeen.nflocospicks.presentation.theme.BSMuted
-import com.softeen.nflocospicks.presentation.theme.BSWhite
+import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
-/**
- * El ViewModel se pasa desde NavGraph scoped al back-stack entry de Groups,
- * de modo que esta pantalla comparte la misma instancia que GroupsScreen.
- * La navegación de regreso se maneja vía [LaunchedEffect] sobre [actionState]
- * (no vía el Channel de efectos, para evitar contención con GroupsScreen).
- */
 @Composable
 fun CreateGroupScreen(
     onNavigateBack: () -> Unit,
     viewModel: GroupViewModel
 ) {
-    var groupName by remember { mutableStateOf("") }
     val actionState by viewModel.actionState.collectAsStateWithLifecycle()
 
     // Navegar de regreso cuando la acción sea exitosa
@@ -57,17 +48,33 @@ fun CreateGroupScreen(
         }
     }
 
+    CreateGroupScreenContent(
+        actionState    = actionState,
+        onNavigateBack = onNavigateBack,
+        onCreateGroup  = { viewModel.createGroup(it) }
+    )
+}
+
+@Composable
+internal fun CreateGroupScreenContent(
+    actionState: GroupActionUiState,
+    onNavigateBack: () -> Unit,
+    onCreateGroup: (String) -> Unit
+) {
+    var groupName by remember { mutableStateOf("") }
+    val appColors   = LocalAppColors.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BSBg)
+            .background(appColors.background)
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = "Crear Grupo",
-            color = BSGold,
+            color = appColors.primary,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.ExtraBold
         )
@@ -77,15 +84,15 @@ fun CreateGroupScreen(
         OutlinedTextField(
             value = groupName,
             onValueChange = { groupName = it },
-            label = { Text("Nombre del grupo", color = BSMuted) },
+            label = { Text("Nombre del grupo", color = appColors.secondary) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = BSGold,
-                unfocusedBorderColor = BSMuted,
-                focusedTextColor = BSWhite,
-                unfocusedTextColor = BSWhite,
-                cursorColor = BSGold
+                focusedBorderColor = appColors.primary,
+                unfocusedBorderColor = appColors.secondary,
+                focusedTextColor = appColors.onBackground,
+                unfocusedTextColor = appColors.onBackground,
+                cursorColor = appColors.primary
             )
         )
 
@@ -93,7 +100,7 @@ fun CreateGroupScreen(
 
         if (actionState is GroupActionUiState.Error) {
             Text(
-                text = (actionState as GroupActionUiState.Error).message,
+                text = actionState.message,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )
@@ -102,29 +109,53 @@ fun CreateGroupScreen(
         Spacer(Modifier.height(16.dp))
 
         Button(
-            onClick = { viewModel.createGroup(groupName) },
+            onClick = { onCreateGroup(groupName) },
             enabled = groupName.isNotBlank() && actionState !is GroupActionUiState.Loading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = BSGold),
+            colors = ButtonDefaults.buttonColors(containerColor = appColors.primary),
             shape = RoundedCornerShape(12.dp)
         ) {
             if (actionState is GroupActionUiState.Loading) {
                 CircularProgressIndicator(
-                    color = BSHeader,
+                    color = appColors.onPrimary,
                     modifier = Modifier.size(24.dp),
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Crear", color = BSHeader, fontWeight = FontWeight.Bold)
+                Text("Crear", color = appColors.onPrimary, fontWeight = FontWeight.Bold)
             }
         }
 
         Spacer(Modifier.height(8.dp))
 
         TextButton(onClick = onNavigateBack) {
-            Text("Cancelar", color = BSMuted)
+            Text("Cancelar", color = appColors.secondary)
         }
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun CreateGroupScreenIdlePreview() {
+    PreviewWrapper {
+        CreateGroupScreenContent(
+            actionState    = GroupActionUiState.Idle,
+            onNavigateBack = {},
+            onCreateGroup  = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun CreateGroupScreenLoadingPreview() {
+    PreviewWrapper {
+        CreateGroupScreenContent(
+            actionState    = GroupActionUiState.Loading,
+            onNavigateBack = {},
+            onCreateGroup  = {}
+        )
     }
 }

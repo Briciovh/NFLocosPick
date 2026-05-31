@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.theme.BSBg
 import com.softeen.nflocospicks.presentation.theme.BSCard
 import com.softeen.nflocospicks.presentation.theme.BSGold
@@ -304,11 +305,7 @@ private fun TeamPickButton(
                 style      = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.ExtraBold
             )
-            Text(
-                text       = abbr,
-                style      = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold
-            )
+            TeamLogo(abbr = abbr, size = 40.dp)
             Text(
                 text      = name,
                 style     = MaterialTheme.typography.labelSmall,

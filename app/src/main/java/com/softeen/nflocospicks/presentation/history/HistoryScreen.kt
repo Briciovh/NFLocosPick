@@ -43,6 +43,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.GamePickResult
 import com.softeen.nflocospicks.domain.model.WeekHistoryEntry
+import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.theme.BSBg
 import com.softeen.nflocospicks.presentation.theme.BSCard
 import com.softeen.nflocospicks.presentation.theme.BSGold
@@ -218,18 +219,31 @@ private fun GamePickRow(result: GamePickResult) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "${result.game.awayTeamAbbr} @ ${result.game.homeTeamAbbr}",
-                color = BSMuted,
-                style = MaterialTheme.typography.labelSmall
-            )
-            if (result.pickedTeam != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                TeamLogo(abbr = result.game.awayTeamAbbr, size = 20.dp)
                 Text(
-                    text = result.pickedTeam,
-                    color = BSGold,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
+                    text = "${result.game.awayTeamAbbr} @ ${result.game.homeTeamAbbr}",
+                    color = BSMuted,
+                    style = MaterialTheme.typography.labelSmall
                 )
+                TeamLogo(abbr = result.game.homeTeamAbbr, size = 20.dp)
+            }
+            if (result.pickedTeam != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    TeamLogo(abbr = result.pickedTeam, size = 20.dp)
+                    Text(
+                        text = result.pickedTeam,
+                        color = BSGold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             } else {
                 Text(
                     text = "Sin pick",

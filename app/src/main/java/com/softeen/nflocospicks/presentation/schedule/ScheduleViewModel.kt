@@ -17,7 +17,6 @@ class ScheduleViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // groupId viene de la ruta de navegación "schedule/{groupId}" vía SavedStateHandle
     private val groupId: String = checkNotNull(savedStateHandle["groupId"])
 
     private val _uiState = MutableStateFlow<ScheduleUiState>(ScheduleUiState.Loading)

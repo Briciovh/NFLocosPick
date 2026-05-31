@@ -39,6 +39,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.GameStatus
+import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.theme.BSBg
 import com.softeen.nflocospicks.presentation.theme.BSCard
 import com.softeen.nflocospicks.presentation.theme.BSGold
@@ -234,12 +235,7 @@ private fun TeamColumn(
             style      = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.ExtraBold
         )
-        Text(
-            text       = abbr,
-            color      = BSWhite,
-            style      = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold
-        )
+        TeamLogo(abbr = abbr, size = 48.dp)
         Text(
             text  = name,
             color = BSMuted,

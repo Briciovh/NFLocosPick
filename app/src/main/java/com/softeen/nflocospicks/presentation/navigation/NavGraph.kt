@@ -22,6 +22,8 @@ import com.softeen.nflocospicks.presentation.history.HistoryScreen
 import com.softeen.nflocospicks.presentation.leaderboard.LeaderboardScreen
 import com.softeen.nflocospicks.presentation.picks.PickScreen
 import com.softeen.nflocospicks.presentation.schedule.ScheduleScreen
+import com.softeen.nflocospicks.presentation.settings.SettingsScreen
+import com.softeen.nflocospicks.presentation.settings.SettingsViewModel
 
 @Composable
 fun NavGraph() {
@@ -65,12 +67,28 @@ fun NavGraph() {
                 onNavigateToLeaderboard = { groupId ->
                     navController.navigate("leaderboard/$groupId")
                 },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
+                },
                 onSignedOut = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Groups.route) { inclusive = true }
                     }
                 }
             )
+        }
+
+        composable(Screen.Settings.route) {
+            val settingsViewModel: SettingsViewModel = hiltViewModel()
+            val user = (authState as? AuthUiState.Authenticated)?.user
+            if (user != null) {
+                SettingsScreen(
+                    user           = user,
+                    viewModel      = settingsViewModel,
+                    onSignOut      = { authViewModel.signOut() },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
 
         composable(Screen.CreateGroup.route) { navBackStackEntry ->
@@ -135,13 +153,20 @@ fun NavGraph() {
         }
     }
 
-    // Redirección por restauración de sesión (cold start con sesión existente).
+    // Redirección por restauración de sesión y cierre de sesión.
     LaunchedEffect(authState) {
-        if (authState is AuthUiState.Authenticated &&
-            navController.currentDestination?.route == Screen.Login.route
-        ) {
-            navController.navigate(Screen.Groups.route) {
-                popUpTo(Screen.Login.route) { inclusive = true }
+        when {
+            authState is AuthUiState.Authenticated &&
+                navController.currentDestination?.route == Screen.Login.route -> {
+                navController.navigate(Screen.Groups.route) {
+                    popUpTo(Screen.Login.route) { inclusive = true }
+                }
+            }
+            authState is AuthUiState.Idle &&
+                navController.currentDestination?.route != Screen.Login.route -> {
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                }
             }
         }
     }

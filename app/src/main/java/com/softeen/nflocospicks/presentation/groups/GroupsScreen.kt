@@ -13,10 +13,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -24,6 +29,8 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,6 +51,7 @@ import com.softeen.nflocospicks.presentation.theme.BSMuted
 import com.softeen.nflocospicks.presentation.theme.BSSurface
 import com.softeen.nflocospicks.presentation.theme.BSWhite
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupsScreen(
     onNavigateToCreateGroup: () -> Unit,
@@ -51,6 +59,7 @@ fun GroupsScreen(
     onNavigateToSchedule: (String) -> Unit,
     onNavigateToPicks: (String) -> Unit,
     onNavigateToLeaderboard: (String) -> Unit,
+    onNavigateToSettings: () -> Unit,
     onSignedOut: () -> Unit,
     viewModel: GroupViewModel = hiltViewModel()
 ) {
@@ -79,6 +88,27 @@ fun GroupsScreen(
 
     Scaffold(
         containerColor = BSBg,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "NFL PICKS",
+                        color = BSGold,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Configuración",
+                            tint = BSWhite
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BSHeader)
+            )
+        },
         snackbarHost   = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
@@ -115,13 +145,7 @@ fun GroupsScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            Text(
-                text = "Mis Grupos",
-                color = BSGold,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(vertical = 16.dp)
-            )
+            Spacer(Modifier.height(8.dp))
 
             when (val state = listState) {
                 is GroupListUiState.Loading -> {
@@ -169,15 +193,6 @@ fun GroupsScreen(
                         }
                     }
 
-                    // Cerrar sesión al fondo de la pantalla
-                    TextButton(
-                        onClick = { viewModel.onSignOut() },
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(bottom = 8.dp)
-                    ) {
-                        Text("Cerrar sesión", color = BSMuted)
-                    }
                 }
             }
         }

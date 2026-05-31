@@ -1,6 +1,7 @@
 package com.softeen.nflocospicks.di
 
 import com.softeen.nflocospicks.data.repository.GroupRepositoryImpl
+import com.softeen.nflocospicks.data.repository.UserPreferencesRepositoryImpl
 import com.softeen.nflocospicks.data.repository.HistoryRepositoryImpl
 import com.softeen.nflocospicks.data.repository.LeaderboardRepositoryImpl
 import com.softeen.nflocospicks.data.repository.PickRepositoryImpl
@@ -8,6 +9,7 @@ import com.softeen.nflocospicks.data.repository.ScheduleRepositoryImpl
 import com.softeen.nflocospicks.data.repository.ScoringRepositoryImpl
 import com.softeen.nflocospicks.data.repository.UserRepositoryImpl
 import com.softeen.nflocospicks.domain.repository.GroupRepository
+import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.HistoryRepository
 import com.softeen.nflocospicks.domain.repository.LeaderboardRepository
 import com.softeen.nflocospicks.domain.repository.PickRepository
@@ -51,4 +53,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindHistoryRepository(impl: HistoryRepositoryImpl): HistoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUserPreferencesRepository(impl: UserPreferencesRepositoryImpl): UserPreferencesRepository
 }

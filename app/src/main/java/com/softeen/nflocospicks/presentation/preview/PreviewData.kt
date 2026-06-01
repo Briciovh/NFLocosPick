@@ -9,6 +9,7 @@ import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.model.LeaderboardEntry
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
+import com.softeen.nflocospicks.domain.model.UserRole
 import com.softeen.nflocospicks.domain.model.WeekHistoryEntry
 import com.softeen.nflocospicks.presentation.picks.GamePickItem
 import com.softeen.nflocospicks.presentation.theme.AppColors
@@ -117,7 +118,8 @@ internal val fakeHistory = listOf(
     )
 )
 
-internal val fakePrefs = UserPreferences(favoriteTeamAbbr = "KC")
+internal val fakePrefs        = UserPreferences(favoriteTeamAbbr = "KC")
+internal val fakeUserInsider  = fakeUser.copy(role = UserRole.INSIDER)
 
 // ── Preview wrapper ───────────────────────────────────────────────────────────
 

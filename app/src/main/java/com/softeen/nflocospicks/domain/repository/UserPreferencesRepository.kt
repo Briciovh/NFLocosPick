@@ -6,4 +6,6 @@ import kotlinx.coroutines.flow.Flow
 interface UserPreferencesRepository {
     val preferencesFlow: Flow<UserPreferences>
     suspend fun setFavoriteTeam(abbr: String?)
+    suspend fun setUseTestingData(enabled: Boolean)
+    suspend fun setSimulateGamesStarted(enabled: Boolean)
 }

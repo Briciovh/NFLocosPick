@@ -9,8 +9,9 @@ sealed class Screen(val route: String) {
     data object Picks       : Screen("picks/{groupId}")
     data object Leaderboard : Screen("leaderboard/{groupId}")
     data object History     : Screen("history/{groupId}")
-    data object Settings       : Screen("settings")
-    data object TeamSelection  : Screen("team_selection")
+    data object Settings        : Screen("settings")
+    data object TeamSelection   : Screen("team_selection")
+    data object UserManagement  : Screen("user_management")
 
     // Proposals (UI design reference — no eliminar hasta PR final)
     data object Proposal1 : Screen("proposal1")

@@ -29,6 +29,7 @@ import com.softeen.nflocospicks.presentation.schedule.ScheduleScreen
 import com.softeen.nflocospicks.presentation.settings.SettingsScreen
 import com.softeen.nflocospicks.presentation.settings.SettingsViewModel
 import com.softeen.nflocospicks.presentation.teamselection.TeamSelectionScreen
+import com.softeen.nflocospicks.presentation.usermanagement.UserManagementScreen
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 import com.softeen.nflocospicks.presentation.theme.NFLocosPickTheme
 
@@ -97,11 +98,12 @@ fun NavGraph() {
                     val user = (authState as? AuthUiState.Authenticated)?.user
                     if (user != null) {
                         SettingsScreen(
-                            user                      = user,
-                            viewModel                 = settingsViewModel,
-                            onSignOut                 = { authViewModel.signOut() },
-                            onNavigateBack            = { navController.popBackStack() },
-                            onNavigateToTeamSelection = { navController.navigate(Screen.TeamSelection.route) }
+                            user                       = user,
+                            viewModel                  = settingsViewModel,
+                            onSignOut                  = { authViewModel.signOut() },
+                            onNavigateBack             = { navController.popBackStack() },
+                            onNavigateToTeamSelection  = { navController.navigate(Screen.TeamSelection.route) },
+                            onNavigateToUserManagement = { navController.navigate(Screen.UserManagement.route) }
                         )
                     }
                 }
@@ -168,6 +170,15 @@ fun NavGraph() {
                     arguments = listOf(navArgument("groupId") { type = NavType.StringType })
                 ) {
                     HistoryScreen(onNavigateBack = { navController.popBackStack() })
+                }
+
+                composable(Screen.UserManagement.route) {
+                    val currentUid = (authState as? AuthUiState.Authenticated)?.user?.uid
+                        ?: return@composable
+                    UserManagementScreen(
+                        currentUserUid = currentUid,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
                 }
             }
         }

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,10 +28,14 @@ class AuthViewModel @Inject constructor(
      */
     val effects = Channel<AuthUiEffect>(Channel.BUFFERED)
 
+    private var roleWatcherJob: Job? = null
+
     init {
-        // Restore session synchronously — FirebaseAuth.currentUser is in-memory, no I/O.
+        // Phase 1 — synchronous restore: FirebaseAuth.currentUser is in-memory, no I/O.
         userRepository.getCurrentUser()?.let { user ->
             _uiState.value = AuthUiState.Authenticated(user)
+            // Phase 2 — async role sync: delivers the real Firestore role within seconds.
+            watchRole(user.uid)
         }
     }
 
@@ -40,6 +45,7 @@ class AuthViewModel @Inject constructor(
             try {
                 val user = userRepository.signInWithGoogle(context)
                 _uiState.value = AuthUiState.Authenticated(user)
+                watchRole(user.uid)
                 effects.send(AuthUiEffect.NavigateToGroups)
             } catch (e: GetCredentialCancellationException) {
                 // User dismissed the picker — silently return to Idle, no error shown.
@@ -51,9 +57,22 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signOut() {
+        roleWatcherJob?.cancel()
+        roleWatcherJob = null
         viewModelScope.launch {
             userRepository.signOut()
             _uiState.value = AuthUiState.Idle
+        }
+    }
+
+    private fun watchRole(uid: String) {
+        roleWatcherJob?.cancel()
+        roleWatcherJob = viewModelScope.launch {
+            userRepository.watchCurrentUser(uid).collect { freshUser ->
+                if (_uiState.value is AuthUiState.Authenticated) {
+                    _uiState.value = AuthUiState.Authenticated(freshUser)
+                }
+            }
         }
     }
 }

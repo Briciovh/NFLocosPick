@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -42,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
+import com.softeen.nflocospicks.domain.model.UserRole
 import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.common.nflTeams
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
@@ -56,7 +58,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel,
     onSignOut: () -> Unit,
     onNavigateBack: () -> Unit,
-    onNavigateToTeamSelection: () -> Unit
+    onNavigateToTeamSelection: () -> Unit,
+    onNavigateToUserManagement: () -> Unit
 ) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
 
@@ -65,7 +68,9 @@ fun SettingsScreen(
         prefs                     = prefs,
         onSignOut                 = onSignOut,
         onNavigateBack            = onNavigateBack,
-        onNavigateToTeamSelection = onNavigateToTeamSelection
+        onNavigateToTeamSelection = onNavigateToTeamSelection,
+        onToggleTestingData       = { viewModel.setUseTestingData(it) },
+        onNavigateToUserManagement = onNavigateToUserManagement
     )
 }
 
@@ -76,7 +81,9 @@ internal fun SettingsScreenContent(
     prefs: UserPreferences,
     onSignOut: () -> Unit,
     onNavigateBack: () -> Unit,
-    onNavigateToTeamSelection: () -> Unit
+    onNavigateToTeamSelection: () -> Unit,
+    onToggleTestingData: (Boolean) -> Unit,
+    onNavigateToUserManagement: () -> Unit
 ) {
     val appColors    = LocalAppColors.current
     val favoriteTeam = nflTeams.find { it.abbr == prefs.favoriteTeamAbbr }
@@ -178,6 +185,16 @@ internal fun SettingsScreenContent(
 
             Spacer(Modifier.height(8.dp))
             HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+
+            if (user.role == UserRole.INSIDER) {
+                InsiderSection(
+                    useTestingData = prefs.useTestingData,
+                    onToggle       = onToggleTestingData,
+                    onManageUsers  = onNavigateToUserManagement,
+                    appColors      = appColors
+                )
+            }
+
             Spacer(Modifier.height(8.dp))
 
             TextButton(
@@ -189,6 +206,62 @@ internal fun SettingsScreenContent(
             Spacer(Modifier.height(16.dp))
         }
     }
+}
+
+@Composable
+private fun InsiderSection(
+    useTestingData: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onManageUsers: () -> Unit,
+    appColors: AppColors
+) {
+    Spacer(Modifier.height(16.dp))
+    SectionHeader("MODO INSIDER", appColors.primary)
+    Spacer(Modifier.height(4.dp))
+
+    Row(
+        modifier          = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text  = "Datos de testing",
+                color = appColors.onBackground,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text  = "Usa datos de prueba en lugar de datos reales",
+                color = appColors.secondary,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+        Switch(checked = useTestingData, onCheckedChange = onToggle)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onManageUsers)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text     = "Gestión de usuarios",
+            color    = appColors.onBackground,
+            style    = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint               = appColors.secondary
+        )
+    }
+
+    Spacer(Modifier.height(8.dp))
+    HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
 }
 
 @Composable
@@ -232,11 +305,13 @@ private fun UserAvatar(user: User, size: Int, appColors: AppColors) {
 private fun SettingsScreenWithTeamPreview() {
     PreviewWrapper {
         SettingsScreenContent(
-            user                      = fakeUser,
-            prefs                     = fakePrefs,
-            onSignOut                 = {},
-            onNavigateBack            = {},
-            onNavigateToTeamSelection = {}
+            user                       = fakeUser,
+            prefs                      = fakePrefs,
+            onSignOut                  = {},
+            onNavigateBack             = {},
+            onNavigateToTeamSelection  = {},
+            onToggleTestingData        = {},
+            onNavigateToUserManagement = {}
         )
     }
 }
@@ -246,11 +321,29 @@ private fun SettingsScreenWithTeamPreview() {
 private fun SettingsScreenNoTeamPreview() {
     PreviewWrapper {
         SettingsScreenContent(
-            user                      = fakeUser,
-            prefs                     = UserPreferences(favoriteTeamAbbr = null),
-            onSignOut                 = {},
-            onNavigateBack            = {},
-            onNavigateToTeamSelection = {}
+            user                       = fakeUser,
+            prefs                      = UserPreferences(favoriteTeamAbbr = null),
+            onSignOut                  = {},
+            onNavigateBack             = {},
+            onNavigateToTeamSelection  = {},
+            onToggleTestingData        = {},
+            onNavigateToUserManagement = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun SettingsScreenInsiderPreview() {
+    PreviewWrapper {
+        SettingsScreenContent(
+            user                       = fakeUser.copy(role = UserRole.INSIDER),
+            prefs                      = fakePrefs,
+            onSignOut                  = {},
+            onNavigateBack             = {},
+            onNavigateToTeamSelection  = {},
+            onToggleTestingData        = {},
+            onNavigateToUserManagement = {}
         )
     }
 }

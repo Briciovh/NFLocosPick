@@ -25,4 +25,8 @@ class SettingsViewModel @Inject constructor(
     fun setFavoriteTeam(abbr: String?) {
         viewModelScope.launch { repo.setFavoriteTeam(abbr) }
     }
+
+    fun setUseTestingData(enabled: Boolean) {
+        viewModelScope.launch { repo.setUseTestingData(enabled) }
+    }
 }

@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.data.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.softeen.nflocospicks.domain.model.UserPreferences
@@ -17,12 +18,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 ) : UserPreferencesRepository {
 
     private object Keys {
-        val favoriteTeam = stringPreferencesKey("favorite_team")
+        val favoriteTeam   = stringPreferencesKey("favorite_team")
+        val useTestingData = booleanPreferencesKey("use_testing_data")
     }
 
     override val preferencesFlow: Flow<UserPreferences> = dataStore.data.map { prefs ->
         UserPreferences(
-            favoriteTeamAbbr = prefs[Keys.favoriteTeam]
+            favoriteTeamAbbr = prefs[Keys.favoriteTeam],
+            useTestingData   = prefs[Keys.useTestingData] ?: false
         )
     }
 
@@ -31,5 +34,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             if (abbr != null) prefs[Keys.favoriteTeam] = abbr
             else prefs.remove(Keys.favoriteTeam)
         }
+    }
+
+    override suspend fun setUseTestingData(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.useTestingData] = enabled }
     }
 }

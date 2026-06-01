@@ -258,7 +258,7 @@ private fun GroupCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = onScoreClick) {
-                    Text("🔄 PUNTUAR", color = appColors.secondary, fontWeight = FontWeight.Bold)
+                    Text("🔄 SINCRONIZAR", color = appColors.secondary, fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onLeaderboardClick) {
                     Text("🏆 TABLA", color = appColors.secondary, fontWeight = FontWeight.Bold)

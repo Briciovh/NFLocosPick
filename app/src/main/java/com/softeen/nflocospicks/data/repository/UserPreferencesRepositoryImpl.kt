@@ -18,14 +18,16 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 ) : UserPreferencesRepository {
 
     private object Keys {
-        val favoriteTeam   = stringPreferencesKey("favorite_team")
-        val useTestingData = booleanPreferencesKey("use_testing_data")
+        val favoriteTeam         = stringPreferencesKey("favorite_team")
+        val useTestingData       = booleanPreferencesKey("use_testing_data")
+        val simulateGamesStarted = booleanPreferencesKey("simulate_games_started")
     }
 
     override val preferencesFlow: Flow<UserPreferences> = dataStore.data.map { prefs ->
         UserPreferences(
-            favoriteTeamAbbr = prefs[Keys.favoriteTeam],
-            useTestingData   = prefs[Keys.useTestingData] ?: false
+            favoriteTeamAbbr     = prefs[Keys.favoriteTeam],
+            useTestingData       = prefs[Keys.useTestingData]       ?: false,
+            simulateGamesStarted = prefs[Keys.simulateGamesStarted] ?: false
         )
     }
 
@@ -38,5 +40,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setUseTestingData(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.useTestingData] = enabled }
+    }
+
+    override suspend fun setSimulateGamesStarted(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[Keys.simulateGamesStarted] = enabled }
     }
 }

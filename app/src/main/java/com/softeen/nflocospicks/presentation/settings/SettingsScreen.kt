@@ -64,12 +64,13 @@ fun SettingsScreen(
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
 
     SettingsScreenContent(
-        user                      = user,
-        prefs                     = prefs,
-        onSignOut                 = onSignOut,
-        onNavigateBack            = onNavigateBack,
-        onNavigateToTeamSelection = onNavigateToTeamSelection,
-        onToggleTestingData       = { viewModel.setUseTestingData(it) },
+        user                       = user,
+        prefs                      = prefs,
+        onSignOut                  = onSignOut,
+        onNavigateBack             = onNavigateBack,
+        onNavigateToTeamSelection  = onNavigateToTeamSelection,
+        onToggleTestingData        = { viewModel.setUseTestingData(it) },
+        onToggleSimulateGames      = { viewModel.setSimulateGamesStarted(it) },
         onNavigateToUserManagement = onNavigateToUserManagement
     )
 }
@@ -83,6 +84,7 @@ internal fun SettingsScreenContent(
     onNavigateBack: () -> Unit,
     onNavigateToTeamSelection: () -> Unit,
     onToggleTestingData: (Boolean) -> Unit,
+    onToggleSimulateGames: (Boolean) -> Unit,
     onNavigateToUserManagement: () -> Unit
 ) {
     val appColors    = LocalAppColors.current
@@ -188,10 +190,12 @@ internal fun SettingsScreenContent(
 
             if (user.role == UserRole.INSIDER) {
                 InsiderSection(
-                    useTestingData = prefs.useTestingData,
-                    onToggle       = onToggleTestingData,
-                    onManageUsers  = onNavigateToUserManagement,
-                    appColors      = appColors
+                    useTestingData        = prefs.useTestingData,
+                    simulateGamesStarted  = prefs.simulateGamesStarted,
+                    onToggleTesting       = onToggleTestingData,
+                    onToggleSimulate      = onToggleSimulateGames,
+                    onManageUsers         = onNavigateToUserManagement,
+                    appColors             = appColors
                 )
             }
 
@@ -210,35 +214,38 @@ internal fun SettingsScreenContent(
 
 @Composable
 private fun InsiderSection(
-    useTestingData: Boolean,
-    onToggle: (Boolean) -> Unit,
-    onManageUsers: () -> Unit,
-    appColors: AppColors
+    useTestingData:       Boolean,
+    simulateGamesStarted: Boolean,
+    onToggleTesting:      (Boolean) -> Unit,
+    onToggleSimulate:     (Boolean) -> Unit,
+    onManageUsers:        () -> Unit,
+    appColors:            AppColors
 ) {
     Spacer(Modifier.height(16.dp))
     SectionHeader("MODO INSIDER", appColors.primary)
     Spacer(Modifier.height(4.dp))
 
-    Row(
-        modifier          = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text  = "Datos de testing",
-                color = appColors.onBackground,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text  = "Usa datos de prueba en lugar de datos reales",
-                color = appColors.secondary,
-                style = MaterialTheme.typography.labelSmall
-            )
-        }
-        Switch(checked = useTestingData, onCheckedChange = onToggle)
+    // Toggle: datos de testing
+    ToggleRow(
+        title       = "Datos de testing",
+        description = "Usa un grupo y juegos de prueba",
+        checked     = useTestingData,
+        onToggle    = onToggleTesting,
+        appColors   = appColors
+    )
+
+    // Toggle: simular resultados (sólo visible cuando testing está activo)
+    if (useTestingData) {
+        ToggleRow(
+            title       = "Simular resultados",
+            description = "Bloquea los juegos y genera marcadores aleatorios",
+            checked     = simulateGamesStarted,
+            onToggle    = onToggleSimulate,
+            appColors   = appColors
+        )
     }
 
+    // Fila: gestión de usuarios
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -262,6 +269,35 @@ private fun InsiderSection(
 
     Spacer(Modifier.height(8.dp))
     HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+}
+
+@Composable
+private fun ToggleRow(
+    title:     String,
+    description: String,
+    checked:   Boolean,
+    onToggle:  (Boolean) -> Unit,
+    appColors: AppColors
+) {
+    Row(
+        modifier          = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text       = title,
+                color      = appColors.onBackground,
+                style      = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text  = description,
+                color = appColors.secondary,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onToggle)
+    }
 }
 
 @Composable
@@ -311,6 +347,7 @@ private fun SettingsScreenWithTeamPreview() {
             onNavigateBack             = {},
             onNavigateToTeamSelection  = {},
             onToggleTestingData        = {},
+            onToggleSimulateGames      = {},
             onNavigateToUserManagement = {}
         )
     }
@@ -327,22 +364,43 @@ private fun SettingsScreenNoTeamPreview() {
             onNavigateBack             = {},
             onNavigateToTeamSelection  = {},
             onToggleTestingData        = {},
+            onToggleSimulateGames      = {},
             onNavigateToUserManagement = {}
         )
     }
 }
 
+// Testing OFF — sección INSIDER sin sub-toggles
 @Preview(showBackground = true, backgroundColor = 0xFF0B2156)
 @Composable
 private fun SettingsScreenInsiderPreview() {
     PreviewWrapper {
         SettingsScreenContent(
             user                       = fakeUser.copy(role = UserRole.INSIDER),
-            prefs                      = fakePrefs,
+            prefs                      = fakePrefs.copy(useTestingData = true),
             onSignOut                  = {},
             onNavigateBack             = {},
             onNavigateToTeamSelection  = {},
             onToggleTestingData        = {},
+            onToggleSimulateGames      = {},
+            onNavigateToUserManagement = {}
+        )
+    }
+}
+
+// Simulación activa — ambos toggles ON
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun SettingsScreenInsiderSimulatingPreview() {
+    PreviewWrapper {
+        SettingsScreenContent(
+            user  = fakeUser.copy(role = UserRole.INSIDER),
+            prefs = fakePrefs.copy(useTestingData = true, simulateGamesStarted = true),
+            onSignOut                  = {},
+            onNavigateBack             = {},
+            onNavigateToTeamSelection  = {},
+            onToggleTestingData        = {},
+            onToggleSimulateGames      = {},
             onNavigateToUserManagement = {}
         )
     }

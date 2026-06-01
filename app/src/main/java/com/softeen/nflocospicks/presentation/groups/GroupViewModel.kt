@@ -9,6 +9,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.softeen.nflocospicks.data.worker.ScoringWorker
+import com.softeen.nflocospicks.data.mock.MockDataProvider
+import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -33,6 +36,7 @@ class GroupViewModel @Inject constructor(
     private val getGroupsForUserUseCase : GetGroupsForUserUseCase,
     private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
     private val userRepository          : UserRepository,
+    private val preferencesRepository   : UserPreferencesRepository,
     private val workManager             : WorkManager
 ) : ViewModel() {
 
@@ -59,11 +63,26 @@ class GroupViewModel @Inject constructor(
     }
 
     private fun observeGroups(userId: String) {
-        getGroupsForUserUseCase(userId)
+        combine(
+            getGroupsForUserUseCase(userId),
+            preferencesRepository.preferencesFlow
+        ) { realGroups, prefs ->
+            if (prefs.useTestingData) {
+                // Inyectar el grupo mock al inicio de la lista, con el UID real incluido.
+                val mockGroup = MockDataProvider.MOCK_GROUP.copy(
+                    memberIds = listOf(userId) + MockDataProvider.MOCK_GROUP.memberIds
+                )
+                listOf(mockGroup) + realGroups
+            } else {
+                realGroups
+            }
+        }
             .onEach { groups ->
                 _groupListState.value = GroupListUiState.Success(groups)
-                // Encola una tarea periódica por cada grupo (idempotente por KEEP policy)
-                groups.forEach { group -> enqueuePeriodicScoring(group.id) }
+                // Solo encolar scoring para grupos reales (no mock).
+                groups
+                    .filter { it.id != MockDataProvider.MOCK_GROUP_ID }
+                    .forEach { group -> enqueuePeriodicScoring(group.id) }
             }
             .catch { e -> _groupListState.value = GroupListUiState.Error(e.message ?: "Error al cargar grupos") }
             .launchIn(viewModelScope)

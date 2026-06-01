@@ -2,7 +2,9 @@ package com.softeen.nflocospicks.presentation.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.UserPreferences
+import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,12 +15,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val repo: UserPreferencesRepository
+    private val repo:            UserPreferencesRepository,
+    private val mockSessionRepo: MockSessionRepository
 ) : ViewModel() {
 
     val preferences: StateFlow<UserPreferences> = repo.preferencesFlow.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
+        scope        = viewModelScope,
+        started      = SharingStarted.WhileSubscribed(5_000),
         initialValue = UserPreferences()
     )
 
@@ -27,6 +30,25 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setUseTestingData(enabled: Boolean) {
-        viewModelScope.launch { repo.setUseTestingData(enabled) }
+        viewModelScope.launch {
+            // Al desactivar testing, limpiar también la simulación.
+            if (!enabled) {
+                mockSessionRepo.clearSession()
+                repo.setSimulateGamesStarted(false)
+            }
+            repo.setUseTestingData(enabled)
+        }
+    }
+
+    fun setSimulateGamesStarted(enabled: Boolean) {
+        viewModelScope.launch {
+            if (enabled) {
+                // Generar scores primero para que estén listos al activar el flag.
+                mockSessionRepo.generateAndSaveScores(MockDataProvider.MOCK_GAMES)
+            } else {
+                mockSessionRepo.clearSession()
+            }
+            repo.setSimulateGamesStarted(enabled)
+        }
     }
 }

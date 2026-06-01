@@ -3,6 +3,9 @@ package com.softeen.nflocospicks.presentation.picks
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.data.mock.MockDataProvider
+import com.softeen.nflocospicks.domain.repository.MockSessionRepository
+import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.GetCurrentWeekGamesUseCase
 import com.softeen.nflocospicks.domain.usecase.GetWeekPicksUseCase
@@ -11,6 +14,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,9 +25,11 @@ import javax.inject.Inject
 @HiltViewModel
 class PickViewModel @Inject constructor(
     private val getCurrentWeekGamesUseCase: GetCurrentWeekGamesUseCase,
-    private val getWeekPicksUseCase: GetWeekPicksUseCase,
-    private val submitPickUseCase: SubmitPickUseCase,
-    private val userRepository: UserRepository,
+    private val getWeekPicksUseCase:        GetWeekPicksUseCase,
+    private val submitPickUseCase:          SubmitPickUseCase,
+    private val userRepository:             UserRepository,
+    private val preferencesRepository:      UserPreferencesRepository,
+    private val mockSessionRepository:      MockSessionRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -33,22 +42,26 @@ class PickViewModel @Inject constructor(
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     init {
-        loadData()
+        if (groupId == MockDataProvider.MOCK_GROUP_ID) observeMockPicks()
+        else loadData()
     }
 
+    // ── Ruta real ─────────────────────────────────────────────────────────────
+
     fun loadData() {
+        if (groupId == MockDataProvider.MOCK_GROUP_ID) return
         val userId = userRepository.getCurrentUser()?.uid ?: return
         viewModelScope.launch {
             _uiState.value = PickUiState.Loading
             try {
-                val games = getCurrentWeekGamesUseCase(groupId)
+                val games  = getCurrentWeekGamesUseCase(groupId)
                 val weekId = games.firstOrNull()?.weekId ?: ""
                 val picks  = if (weekId.isNotEmpty()) {
                     getWeekPicksUseCase(groupId, weekId, userId)
                 } else {
                     emptyMap()
                 }
-                val now = System.currentTimeMillis()
+                val now   = System.currentTimeMillis()
                 val items = games.map { game ->
                     GamePickItem(
                         game       = game,
@@ -65,18 +78,61 @@ class PickViewModel @Inject constructor(
         }
     }
 
+    // ── Ruta mock ─────────────────────────────────────────────────────────────
+
+    // Reactiva: se actualiza cuando el usuario hace un pick o cuando simulateGamesStarted cambia.
+    private fun observeMockPicks() {
+        combine(
+            preferencesRepository.preferencesFlow,
+            mockSessionRepository.sessionFlow
+        ) { prefs, session ->
+            val games = if (prefs.simulateGamesStarted)
+                MockDataProvider.applyScores(MockDataProvider.MOCK_GAMES, session.simulatedScores)
+            else
+                MockDataProvider.MOCK_GAMES
+
+            val items = games.map { game ->
+                GamePickItem(
+                    game       = game,
+                    pickedTeam = session.realUserPicks[game.id],
+                    isLocked   = prefs.simulateGamesStarted  // bloqueado si se está simulando
+                )
+            }
+            Pair(items, MockDataProvider.MOCK_WEEK_ID)
+        }
+            .onEach { (items, weekId) ->
+                _uiState.value = PickUiState.Success(items, weekId)
+            }
+            .catch { e ->
+                _uiState.value = PickUiState.Error(
+                    e.message ?: "Error al cargar partidos de prueba"
+                )
+            }
+            .launchIn(viewModelScope)
+    }
+
+    // ── Submit pick (bifurcado) ───────────────────────────────────────────────
+
     /**
-     * Envía el pick para [gameId] con [teamAbbr]. Aplica un update optimista
-     * para respuesta inmediata en la UI. Revierte si la escritura falla.
+     * Envía el pick para [gameId] con [teamAbbr].
+     * - Ruta mock: escribe en MockSessionRepository (flow reactivo actualiza la UI).
+     * - Ruta real: update optimista + escritura Firestore con revert en caso de error.
      */
     fun submitPick(gameId: String, teamAbbr: String, kickoffTime: Long) {
         val userId = userRepository.getCurrentUser()?.uid ?: return
-        val currentState = _uiState.value as? PickUiState.Success ?: return
 
-        // Guardar el estado anterior para poder revertir
+        if (groupId == MockDataProvider.MOCK_GROUP_ID) {
+            viewModelScope.launch {
+                mockSessionRepository.saveRealUserPick(gameId, teamAbbr)
+                // observeMockPicks() recibe la emisión del sessionFlow y actualiza la UI.
+            }
+            return
+        }
+
+        // Ruta real — update optimista con revert en caso de error.
+        val currentState = _uiState.value as? PickUiState.Success ?: return
         val previousItems = currentState.items
 
-        // Update optimista
         _uiState.update { state ->
             if (state !is PickUiState.Success) return@update state
             state.copy(
@@ -97,11 +153,8 @@ class PickViewModel @Inject constructor(
                     kickoffTime = kickoffTime
                 )
             } catch (e: Exception) {
-                // Revertir al estado anterior
                 _uiState.update { state ->
-                    if (state is PickUiState.Success) {
-                        state.copy(items = previousItems)
-                    } else state
+                    if (state is PickUiState.Success) state.copy(items = previousItems) else state
                 }
                 _errorMessage.value = e.message ?: "No se pudo guardar tu pick"
             }

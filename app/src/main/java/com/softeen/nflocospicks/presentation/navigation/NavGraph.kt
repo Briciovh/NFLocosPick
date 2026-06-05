@@ -74,9 +74,6 @@ fun NavGraph() {
                         onNavigateToJoinGroup = {
                             navController.navigate(Screen.JoinGroup.route)
                         },
-                        onNavigateToSchedule = { groupId ->
-                            navController.navigate("schedule/$groupId")
-                        },
                         onNavigateToPicks = { groupId ->
                             navController.navigate("picks/$groupId")
                         },

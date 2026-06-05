@@ -10,5 +10,7 @@ data class Game(
     val kickoffTime: Long,      // UTC millis
     val homeScore: Int?,        // null mientras el juego no ha comenzado
     val awayScore: Int?,
-    val status: GameStatus
+    val status: GameStatus,
+    val homeTeamRecord: String? = null,  // e.g. "10-3", null fuera de temporada regular
+    val awayTeamRecord: String? = null
 )

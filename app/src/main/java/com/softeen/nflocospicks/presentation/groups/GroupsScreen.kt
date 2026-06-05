@@ -52,7 +52,6 @@ import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 fun GroupsScreen(
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToJoinGroup: () -> Unit,
-    onNavigateToSchedule: (String) -> Unit,
     onNavigateToPicks: (String) -> Unit,
     onNavigateToLeaderboard: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -66,7 +65,6 @@ fun GroupsScreen(
     LaunchedEffect(Unit) {
         for (effect in viewModel.effects) {
             when (effect) {
-                is GroupUiEffect.NavigateToSchedule    -> onNavigateToSchedule(effect.groupId)
                 is GroupUiEffect.NavigateToPicks       -> onNavigateToPicks(effect.groupId)
                 is GroupUiEffect.NavigateToLeaderboard -> onNavigateToLeaderboard(effect.groupId)
                 GroupUiEffect.NavigateToLogin          -> onSignedOut()
@@ -89,7 +87,6 @@ fun GroupsScreen(
         onNavigateToJoinGroup   = onNavigateToJoinGroup,
         onNavigateToSettings    = onNavigateToSettings,
         onGroupClicked          = { viewModel.onGroupClicked(it) },
-        onPicksClicked          = { viewModel.onPicksClicked(it) },
         onScoreClicked          = { viewModel.onScoreClicked(it) },
         onLeaderboardClicked    = { viewModel.onLeaderboardClicked(it) }
     )
@@ -104,7 +101,6 @@ internal fun GroupsScreenContent(
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onGroupClicked: (String) -> Unit,
-    onPicksClicked: (String) -> Unit,
     onScoreClicked: (String) -> Unit,
     onLeaderboardClicked: (String) -> Unit
 ) {
@@ -207,10 +203,9 @@ internal fun GroupsScreenContent(
                         ) {
                             items(listState.groups, key = { it.id }) { group ->
                                 GroupCard(
-                                    group             = group,
-                                    onClick           = { onGroupClicked(group.id) },
-                                    onPicksClick      = { onPicksClicked(group.id) },
-                                    onScoreClick      = { onScoreClicked(group.id) },
+                                    group              = group,
+                                    onClick            = { onGroupClicked(group.id) },
+                                    onScoreClick       = { onScoreClicked(group.id) },
                                     onLeaderboardClick = { onLeaderboardClicked(group.id) }
                                 )
                             }
@@ -226,7 +221,6 @@ internal fun GroupsScreenContent(
 private fun GroupCard(
     group              : Group,
     onClick            : () -> Unit,
-    onPicksClick       : () -> Unit,
     onScoreClick       : () -> Unit,
     onLeaderboardClick : () -> Unit
 ) {
@@ -263,9 +257,6 @@ private fun GroupCard(
                 TextButton(onClick = onLeaderboardClick) {
                     Text("🏆 TABLA", color = appColors.secondary, fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = onPicksClick) {
-                    Text("🏈 MIS PICKS", color = appColors.primary, fontWeight = FontWeight.Bold)
-                }
             }
         }
     }
@@ -282,7 +273,6 @@ private fun GroupsScreenSuccessPreview() {
             onNavigateToJoinGroup   = {},
             onNavigateToSettings    = {},
             onGroupClicked          = {},
-            onPicksClicked          = {},
             onScoreClicked          = {},
             onLeaderboardClicked    = {}
         )
@@ -300,7 +290,6 @@ private fun GroupsScreenEmptyPreview() {
             onNavigateToJoinGroup   = {},
             onNavigateToSettings    = {},
             onGroupClicked          = {},
-            onPicksClicked          = {},
             onScoreClicked          = {},
             onLeaderboardClicked    = {}
         )

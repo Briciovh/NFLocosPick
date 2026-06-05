@@ -28,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -43,6 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakePickItem
@@ -111,7 +113,7 @@ internal fun PickScreenContent(
                 title = {
                     Column {
                         Text(
-                            text       = "MIS PICKS",
+                            text       = "NFL PICKS",
                             color      = appColors.primary,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -225,7 +227,7 @@ private fun GamePickCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // Hora + chip CERRADO (si aplica)
+            // Hora + chip de estado
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -237,20 +239,7 @@ private fun GamePickCard(
                     style      = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
-                if (item.isLocked) {
-                    androidx.compose.material3.Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text       = "🔒 CERRADO",
-                            color      = MaterialTheme.colorScheme.error,
-                            style      = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier   = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                        )
-                    }
-                }
+                GameStatusChip(status = game.status, isLocked = item.isLocked)
             }
 
             Spacer(Modifier.height(10.dp))
@@ -264,6 +253,8 @@ private fun GamePickCard(
                 TeamPickButton(
                     abbr       = game.awayTeamAbbr,
                     name       = game.awayTeam,
+                    record     = game.awayTeamRecord,
+                    score      = game.awayScore,
                     label      = "VISITANTE",
                     isSelected = item.pickedTeam == game.awayTeamAbbr,
                     isLocked   = item.isLocked,
@@ -278,6 +269,8 @@ private fun GamePickCard(
                 TeamPickButton(
                     abbr       = game.homeTeamAbbr,
                     name       = game.homeTeam,
+                    record     = game.homeTeamRecord,
+                    score      = game.homeScore,
                     label      = "LOCAL",
                     isSelected = item.pickedTeam == game.homeTeamAbbr,
                     isLocked   = item.isLocked,
@@ -293,6 +286,8 @@ private fun GamePickCard(
 private fun TeamPickButton(
     abbr: String,
     name: String,
+    record: String?,
+    score: Int?,
     label: String,
     isSelected: Boolean,
     isLocked: Boolean,
@@ -329,7 +324,47 @@ private fun TeamPickButton(
                 style     = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center
             )
+            if (record != null) {
+                Text(
+                    text      = "($record)",
+                    style     = MaterialTheme.typography.labelSmall,
+                    color     = contentColor.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center
+                )
+            }
+            if (score != null) {
+                Text(
+                    text       = score.toString(),
+                    style      = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color      = contentColor,
+                    textAlign  = TextAlign.Center
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun GameStatusChip(status: GameStatus, isLocked: Boolean) {
+    val appColors = LocalAppColors.current
+    val (label, tint) = when {
+        status == GameStatus.FINAL       -> "FINAL"      to MaterialTheme.colorScheme.error
+        status == GameStatus.IN_PROGRESS -> "EN VIVO"    to appColors.primary
+        isLocked                         -> "🔒 CERRADO" to MaterialTheme.colorScheme.error
+        else                             -> return
+    }
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = tint.copy(alpha = 0.15f)
+    ) {
+        Text(
+            text       = label,
+            color      = tint,
+            style      = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            modifier   = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+        )
     }
 }
 

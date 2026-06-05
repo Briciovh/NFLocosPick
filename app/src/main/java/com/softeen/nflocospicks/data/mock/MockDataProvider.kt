@@ -52,21 +52,43 @@ object MockDataProvider {
         User(uid = "mock_user_9", displayName = "Quinn Reyes",   email = "mock9@test.com", photoUrl = null),
     )
 
+    // Récords de prueba para semana 13 de temporada regular (W-L).
+    private val mockRecords = mapOf(
+        "KC"  to "10-2", "DEN" to "5-7",
+        "BUF" to "9-3",  "NE"  to "3-9",
+        "MIA" to "6-6",  "NYJ" to "4-8",
+        "BAL" to "9-3",  "CLE" to "3-9",
+        "PIT" to "7-5",  "CIN" to "6-6",
+        "HOU" to "7-5",  "IND" to "5-7",
+        "JAX" to "4-8",  "TEN" to "3-9",
+        "LV"  to "3-9",  "LAC" to "8-4",
+        "PHI" to "10-2", "DAL" to "6-6",
+        "NYG" to "2-10", "WSH" to "7-5",
+        "GB"  to "8-4",  "CHI" to "4-8",
+        "DET" to "11-1", "MIN" to "9-3",
+        "TB"  to "7-5",  "ATL" to "6-6",
+        "NO"  to "4-8",  "CAR" to "2-10",
+        "LAR" to "7-5",  "SEA" to "7-5",
+        "SF"  to "6-6",  "ARI" to "5-7",
+    )
+
     // Juegos siempre en el futuro mientras no se simule (2 días + 1h por juego).
     val MOCK_GAMES: List<Game> get() {
         val base = System.currentTimeMillis() + 2 * 24 * 3_600_000L
         return matchups.mapIndexed { index, (home, away) ->
             Game(
-                id           = "mock_game_${index + 1}",
-                weekId       = MOCK_WEEK_ID,
-                homeTeam     = home.second,
-                awayTeam     = away.second,
-                homeTeamAbbr = home.first,
-                awayTeamAbbr = away.first,
-                kickoffTime  = base + index * 3_600_000L,
-                homeScore    = null,
-                awayScore    = null,
-                status       = GameStatus.SCHEDULED
+                id             = "mock_game_${index + 1}",
+                weekId         = MOCK_WEEK_ID,
+                homeTeam       = home.second,
+                awayTeam       = away.second,
+                homeTeamAbbr   = home.first,
+                awayTeamAbbr   = away.first,
+                kickoffTime    = base + index * 3_600_000L,
+                homeScore      = null,
+                awayScore      = null,
+                status         = GameStatus.SCHEDULED,
+                homeTeamRecord = mockRecords[home.first],
+                awayTeamRecord = mockRecords[away.first],
             )
         }
     }

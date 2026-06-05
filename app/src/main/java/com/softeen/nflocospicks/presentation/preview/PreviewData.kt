@@ -19,29 +19,33 @@ import com.softeen.nflocospicks.presentation.theme.NFLocosPickTheme
 // ── Fake domain objects ───────────────────────────────────────────────────────
 
 internal val fakeGame = Game(
-    id           = "game_1",
-    weekId       = "2025-week-12",
-    homeTeam     = "Kansas City Chiefs",
-    awayTeam     = "Dallas Cowboys",
-    homeTeamAbbr = "KC",
-    awayTeamAbbr = "DAL",
-    kickoffTime  = System.currentTimeMillis() + 7_200_000L,
-    homeScore    = null,
-    awayScore    = null,
-    status       = GameStatus.SCHEDULED
+    id             = "game_1",
+    weekId         = "2025-week-12",
+    homeTeam       = "Kansas City Chiefs",
+    awayTeam       = "Dallas Cowboys",
+    homeTeamAbbr   = "KC",
+    awayTeamAbbr   = "DAL",
+    kickoffTime    = System.currentTimeMillis() + 7_200_000L,
+    homeScore      = null,
+    awayScore      = null,
+    status         = GameStatus.SCHEDULED,
+    homeTeamRecord = "10-3",
+    awayTeamRecord = "7-6"
 )
 
 internal val fakeGameLive = Game(
-    id           = "game_2",
-    weekId       = "2025-week-12",
-    homeTeam     = "Green Bay Packers",
-    awayTeam     = "Chicago Bears",
-    homeTeamAbbr = "GB",
-    awayTeamAbbr = "CHI",
-    kickoffTime  = System.currentTimeMillis() - 3_600_000L,
-    homeScore    = 17,
-    awayScore    = 14,
-    status       = GameStatus.IN_PROGRESS
+    id             = "game_2",
+    weekId         = "2025-week-12",
+    homeTeam       = "Green Bay Packers",
+    awayTeam       = "Chicago Bears",
+    homeTeamAbbr   = "GB",
+    awayTeamAbbr   = "CHI",
+    kickoffTime    = System.currentTimeMillis() - 3_600_000L,
+    homeScore      = 17,
+    awayScore      = 14,
+    status         = GameStatus.IN_PROGRESS,
+    homeTeamRecord = "8-5",
+    awayTeamRecord = "4-9"
 )
 
 internal val fakeUser = User(

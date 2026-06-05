@@ -22,7 +22,6 @@ sealed class GroupActionUiState {
 // ── Efectos de un solo disparo (navegación, toasts) ───────────────────────────
 
 sealed class GroupUiEffect {
-    data class NavigateToSchedule(val groupId: String)    : GroupUiEffect()
     data class NavigateToPicks(val groupId: String)       : GroupUiEffect()
     data class NavigateToLeaderboard(val groupId: String) : GroupUiEffect()
     data object NavigateToLogin                           : GroupUiEffect()

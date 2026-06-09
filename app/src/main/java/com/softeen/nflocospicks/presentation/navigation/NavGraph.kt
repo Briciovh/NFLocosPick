@@ -74,11 +74,8 @@ fun NavGraph() {
                         onNavigateToJoinGroup = {
                             navController.navigate(Screen.JoinGroup.route)
                         },
-                        onNavigateToPicks = { groupId ->
-                            navController.navigate("picks/$groupId")
-                        },
-                        onNavigateToLeaderboard = { groupId ->
-                            navController.navigate("leaderboard/$groupId")
+                        onNavigateToGroup = { groupId ->
+                            navController.navigate(Screen.GroupSession.createRoute(groupId))
                         },
                         onNavigateToSettings = {
                             navController.navigate(Screen.Settings.route)
@@ -167,6 +164,18 @@ fun NavGraph() {
                     arguments = listOf(navArgument("groupId") { type = NavType.StringType })
                 ) {
                     HistoryScreen(onNavigateBack = { navController.popBackStack() })
+                }
+
+                composable(
+                    route     = Screen.GroupSession.route,
+                    arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+                    GroupSessionScreen(
+                        groupId             = groupId,
+                        onNavigateBack      = { navController.popBackStack() },
+                        onNavigateToHistory = { gId -> navController.navigate("history/$gId") }
+                    )
                 }
 
                 composable(Screen.UserManagement.route) {

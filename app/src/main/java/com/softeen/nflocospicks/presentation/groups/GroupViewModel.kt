@@ -143,7 +143,7 @@ class GroupViewModel @Inject constructor(
     }
 
     fun onGroupClicked(groupId: String) {
-        viewModelScope.launch { effects.send(GroupUiEffect.NavigateToPicks(groupId)) }
+        viewModelScope.launch { effects.send(GroupUiEffect.NavigateToGroupSession(groupId)) }
     }
 
     /**
@@ -160,10 +160,6 @@ class GroupViewModel @Inject constructor(
                 effects.send(GroupUiEffect.ScoringError(e.message ?: "Error al puntuar"))
             }
         }
-    }
-
-    fun onLeaderboardClicked(groupId: String) {
-        viewModelScope.launch { effects.send(GroupUiEffect.NavigateToLeaderboard(groupId)) }
     }
 
     fun onSignOut() {

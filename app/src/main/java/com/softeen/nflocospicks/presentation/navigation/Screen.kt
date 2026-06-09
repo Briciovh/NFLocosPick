@@ -12,6 +12,9 @@ sealed class Screen(val route: String) {
     data object Settings        : Screen("settings")
     data object TeamSelection   : Screen("team_selection")
     data object UserManagement  : Screen("user_management")
+    data object GroupSession    : Screen("group_session/{groupId}") {
+        fun createRoute(groupId: String) = "group_session/$groupId"
+    }
 
     // Proposals (UI design reference — no eliminar hasta PR final)
     data object Proposal1 : Screen("proposal1")

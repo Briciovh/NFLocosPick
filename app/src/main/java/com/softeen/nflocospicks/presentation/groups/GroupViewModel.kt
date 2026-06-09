@@ -143,10 +143,6 @@ class GroupViewModel @Inject constructor(
     }
 
     fun onGroupClicked(groupId: String) {
-        viewModelScope.launch { effects.send(GroupUiEffect.NavigateToSchedule(groupId)) }
-    }
-
-    fun onPicksClicked(groupId: String) {
         viewModelScope.launch { effects.send(GroupUiEffect.NavigateToPicks(groupId)) }
     }
 

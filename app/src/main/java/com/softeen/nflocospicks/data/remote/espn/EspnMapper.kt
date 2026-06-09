@@ -37,16 +37,18 @@ private fun EspnEvent.toGame(weekNumber: Int): Game {
     val weekId = "$year-week-${weekNumber.toString().padStart(2, '0')}"
 
     return Game(
-        id           = id,
-        weekId       = weekId,
-        homeTeam     = home.team.displayName,
-        awayTeam     = away.team.displayName,
-        homeTeamAbbr = home.team.abbreviation,
-        awayTeamAbbr = away.team.abbreviation,
-        kickoffTime  = kickoffMillis,
-        homeScore    = home.score?.toIntOrNull(),
-        awayScore    = away.score?.toIntOrNull(),
-        status       = competition.status.type.toGameStatus()
+        id             = id,
+        weekId         = weekId,
+        homeTeam       = home.team.displayName,
+        awayTeam       = away.team.displayName,
+        homeTeamAbbr   = home.team.abbreviation,
+        awayTeamAbbr   = away.team.abbreviation,
+        kickoffTime    = kickoffMillis,
+        homeScore      = home.score?.toIntOrNull(),
+        awayScore      = away.score?.toIntOrNull(),
+        status         = competition.status.type.toGameStatus(),
+        homeTeamRecord = home.records?.firstOrNull { it.name == "overall" }?.summary,
+        awayTeamRecord = away.records?.firstOrNull { it.name == "overall" }?.summary
     )
 }
 

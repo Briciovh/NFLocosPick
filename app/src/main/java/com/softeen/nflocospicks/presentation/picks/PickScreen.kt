@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -69,6 +70,7 @@ fun PickScreen(
         errorMessage   = errorMessage,
         onNavigateBack = onNavigateBack,
         onRetry        = { viewModel.loadData() },
+        onSync         = { viewModel.triggerSync() },
         onPick         = { gameId, teamAbbr, kickoffTime ->
             viewModel.submitPick(gameId, teamAbbr, kickoffTime)
         },
@@ -83,6 +85,7 @@ internal fun PickScreenContent(
     errorMessage: String?,
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
+    onSync: () -> Unit,
     onPick: (String, String, Long) -> Unit,
     onErrorShown: () -> Unit
 ) {
@@ -135,6 +138,15 @@ internal fun PickScreenContent(
                             imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Atrás",
                             tint               = appColors.primary
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onSync) {
+                        Icon(
+                            imageVector        = Icons.Default.Refresh,
+                            contentDescription = "Sincronizar",
+                            tint               = appColors.onBackground
                         )
                     }
                 },
@@ -380,6 +392,7 @@ private fun PickScreenSuccessPreview() {
             errorMessage   = null,
             onNavigateBack = {},
             onRetry        = {},
+            onSync         = {},
             onPick         = { _, _, _ -> },
             onErrorShown   = {}
         )
@@ -395,6 +408,7 @@ private fun PickScreenLoadingPreview() {
             errorMessage   = null,
             onNavigateBack = {},
             onRetry        = {},
+            onSync         = {},
             onPick         = { _, _, _ -> },
             onErrorShown   = {}
         )

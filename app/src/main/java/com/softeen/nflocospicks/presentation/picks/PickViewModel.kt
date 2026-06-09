@@ -9,6 +9,7 @@ import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.GetCurrentWeekGamesUseCase
 import com.softeen.nflocospicks.domain.usecase.GetWeekPicksUseCase
+import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SubmitPickUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,7 @@ class PickViewModel @Inject constructor(
     private val getCurrentWeekGamesUseCase: GetCurrentWeekGamesUseCase,
     private val getWeekPicksUseCase:        GetWeekPicksUseCase,
     private val submitPickUseCase:          SubmitPickUseCase,
+    private val scoreWeekPicksUseCase:      ScoreWeekPicksUseCase,
     private val userRepository:             UserRepository,
     private val preferencesRepository:      UserPreferencesRepository,
     private val mockSessionRepository:      MockSessionRepository,
@@ -163,5 +165,17 @@ class PickViewModel @Inject constructor(
 
     fun onErrorShown() {
         _errorMessage.value = null
+    }
+
+    fun triggerSync() {
+        if (groupId == MockDataProvider.MOCK_GROUP_ID) return
+        viewModelScope.launch {
+            try {
+                scoreWeekPicksUseCase(groupId)
+                loadData()
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "Error al sincronizar"
+            }
+        }
     }
 }

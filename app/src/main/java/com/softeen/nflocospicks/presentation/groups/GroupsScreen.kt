@@ -28,7 +28,6 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -52,8 +51,7 @@ import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 fun GroupsScreen(
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToJoinGroup: () -> Unit,
-    onNavigateToPicks: (String) -> Unit,
-    onNavigateToLeaderboard: (String) -> Unit,
+    onNavigateToGroup: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
     onSignedOut: () -> Unit,
     viewModel: GroupViewModel = hiltViewModel()
@@ -65,9 +63,8 @@ fun GroupsScreen(
     LaunchedEffect(Unit) {
         for (effect in viewModel.effects) {
             when (effect) {
-                is GroupUiEffect.NavigateToPicks       -> onNavigateToPicks(effect.groupId)
-                is GroupUiEffect.NavigateToLeaderboard -> onNavigateToLeaderboard(effect.groupId)
-                GroupUiEffect.NavigateToLogin          -> onSignedOut()
+                is GroupUiEffect.NavigateToGroupSession -> onNavigateToGroup(effect.groupId)
+                GroupUiEffect.NavigateToLogin           -> onSignedOut()
                 is GroupUiEffect.ScoringResult      -> {
                     val msg = if (effect.newlyScoredCount == 0)
                         "No hay picks nuevos que puntuar"
@@ -86,9 +83,7 @@ fun GroupsScreen(
         onNavigateToCreateGroup = onNavigateToCreateGroup,
         onNavigateToJoinGroup   = onNavigateToJoinGroup,
         onNavigateToSettings    = onNavigateToSettings,
-        onGroupClicked          = { viewModel.onGroupClicked(it) },
-        onScoreClicked          = { viewModel.onScoreClicked(it) },
-        onLeaderboardClicked    = { viewModel.onLeaderboardClicked(it) }
+        onGroupClicked          = { viewModel.onGroupClicked(it) }
     )
 }
 
@@ -100,9 +95,7 @@ internal fun GroupsScreenContent(
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onGroupClicked: (String) -> Unit,
-    onScoreClicked: (String) -> Unit,
-    onLeaderboardClicked: (String) -> Unit
+    onGroupClicked: (String) -> Unit
 ) {
     val appColors = LocalAppColors.current
 
@@ -203,10 +196,8 @@ internal fun GroupsScreenContent(
                         ) {
                             items(listState.groups, key = { it.id }) { group ->
                                 GroupCard(
-                                    group              = group,
-                                    onClick            = { onGroupClicked(group.id) },
-                                    onScoreClick       = { onScoreClicked(group.id) },
-                                    onLeaderboardClick = { onLeaderboardClicked(group.id) }
+                                    group   = group,
+                                    onClick = { onGroupClicked(group.id) }
                                 )
                             }
                         }
@@ -219,10 +210,8 @@ internal fun GroupsScreenContent(
 
 @Composable
 private fun GroupCard(
-    group              : Group,
-    onClick            : () -> Unit,
-    onScoreClick       : () -> Unit,
-    onLeaderboardClick : () -> Unit
+    group   : Group,
+    onClick : () -> Unit
 ) {
     val appColors = LocalAppColors.current
     Card(
@@ -245,19 +234,6 @@ private fun GroupCard(
                 color = appColors.secondary,
                 style = MaterialTheme.typography.bodySmall
             )
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(onClick = onScoreClick) {
-                    Text("🔄 SINCRONIZAR", color = appColors.secondary, fontWeight = FontWeight.Bold)
-                }
-                TextButton(onClick = onLeaderboardClick) {
-                    Text("🏆 TABLA", color = appColors.secondary, fontWeight = FontWeight.Bold)
-                }
-            }
         }
     }
 }
@@ -272,9 +248,7 @@ private fun GroupsScreenSuccessPreview() {
             onNavigateToCreateGroup = {},
             onNavigateToJoinGroup   = {},
             onNavigateToSettings    = {},
-            onGroupClicked          = {},
-            onScoreClicked          = {},
-            onLeaderboardClicked    = {}
+            onGroupClicked          = {}
         )
     }
 }
@@ -289,9 +263,7 @@ private fun GroupsScreenEmptyPreview() {
             onNavigateToCreateGroup = {},
             onNavigateToJoinGroup   = {},
             onNavigateToSettings    = {},
-            onGroupClicked          = {},
-            onScoreClicked          = {},
-            onLeaderboardClicked    = {}
+            onGroupClicked          = {}
         )
     }
 }

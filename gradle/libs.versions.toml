@@ -21,6 +21,7 @@ googleid = "1.1.1"
 hiltNavigationCompose = "1.2.0"
 work                  = "2.10.0"
 hiltExt               = "1.2.0"
+appcompat             = "1.7.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -70,6 +71,7 @@ androidx-hilt-work                = { group = "androidx.hilt", name = "hilt-work
 androidx-hilt-compiler            = { group = "androidx.hilt", name = "hilt-compiler",        version.ref = "hiltExt" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

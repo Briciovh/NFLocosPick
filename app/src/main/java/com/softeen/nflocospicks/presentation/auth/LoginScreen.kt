@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -74,7 +75,7 @@ internal fun LoginScreenContent(
         ) {
             Image(
                 painter            = painterResource(R.drawable.nflocos_picks_logo),
-                contentDescription = "NFLocos Pick logo",
+                contentDescription = stringResource(R.string.cd_app_logo),
                 modifier           = Modifier.size(160.dp)
             )
 
@@ -86,7 +87,7 @@ internal fun LoginScreenContent(
             )
 
             Text(
-                text  = "Picks privados con tu grupo",
+                text  = stringResource(R.string.login_tagline),
                 color = appColors.secondary,
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -116,7 +117,7 @@ internal fun LoginScreenContent(
                     )
                 } else {
                     Text(
-                        text       = "Iniciar sesión con Google",
+                        text       = stringResource(R.string.login_sign_in_google),
                         color      = appColors.onPrimary,
                         fontWeight = FontWeight.Bold
                     )

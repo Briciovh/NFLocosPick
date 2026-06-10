@@ -1,3 +1,68 @@
 <resources>
     <string name="app_name">NFLocos Pick</string>
+
+    <!-- Accesibilidad / Shared -->
+    <string name="cd_back">Regresar</string>
+    <string name="cd_settings">Configuración</string>
+    <string name="cd_sync">Sincronizar</string>
+    <string name="cd_app_logo">Logo de NFLocos Pick</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_my_picks">Mis Picks</string>
+    <string name="nav_leaderboard">Leaderboard</string>
+
+    <!-- Login -->
+    <string name="login_tagline">Picks privados con tu grupo</string>
+    <string name="login_sign_in_google">Iniciar sesión con Google</string>
+
+    <!-- Groups -->
+    <string name="groups_title">NFL PICKS</string>
+    <string name="groups_empty">Aún no tienes grupos.\nCrea uno o únete con un código.</string>
+    <string name="group_info">Código: %1$s  •  %2$d miembro(s)</string>
+    <string name="scoring_none">No hay picks nuevos que puntuar</string>
+    <string name="scoring_result">%1$d pick(s) puntuados 🏆</string>
+
+    <!-- Create Group -->
+    <string name="create_group_heading">Crear Grupo</string>
+    <string name="create_group_name_hint">Nombre del grupo</string>
+    <string name="create_group_btn">Crear</string>
+    <string name="btn_cancel">Cancelar</string>
+
+    <!-- Join Group -->
+    <string name="join_group_heading">Unirse a Grupo</string>
+    <string name="join_group_code_hint">Código de invitación</string>
+    <string name="join_group_btn">Unirme</string>
+
+    <!-- Picks -->
+    <string name="picks_no_games">No hay partidos esta semana.</string>
+    <string name="picks_retry">Reintentar</string>
+    <string name="picks_team_away">VISITANTE</string>
+    <string name="picks_team_home">LOCAL</string>
+    <string name="game_status_live">EN VIVO</string>
+    <string name="game_status_locked">🔒 CERRADO</string>
+    <string name="game_status_final">FINAL</string>
+
+    <!-- Leaderboard -->
+    <string name="leaderboard_title">Leaderboard</string>
+    <string name="leaderboard_empty">Aún no hay puntuaciones.\nLos picks se puntúan automáticamente.</string>
+    <string name="leaderboard_weekly_breakdown">Desglose semanal</string>
+    <string name="leaderboard_view_history">Ver historial completo</string>
+    <string name="points_format">%1$d pts</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Configuración</string>
+    <string name="settings_section_account">MI CUENTA</string>
+    <string name="settings_section_fav_team">EQUIPO FAVORITO</string>
+    <string name="settings_no_team">Ninguno</string>
+    <string name="settings_sign_out">Cerrar sesión</string>
+    <string name="settings_section_language">IDIOMA</string>
+    <string name="settings_lang_system">Sistema</string>
+    <string name="settings_lang_spanish">Español</string>
+    <string name="settings_lang_english">English</string>
+    <string name="settings_section_insider">MODO INSIDER</string>
+    <string name="settings_testing_title">Datos de testing</string>
+    <string name="settings_testing_desc">Usa un grupo y juegos de prueba</string>
+    <string name="settings_simulate_title">Simular resultados</string>
+    <string name="settings_simulate_desc">Bloquea los juegos y genera marcadores aleatorios</string>
+    <string name="settings_user_management">Gestión de usuarios</string>
 </resources>

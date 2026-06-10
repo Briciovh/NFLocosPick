@@ -1,9 +1,12 @@
 package com.softeen.nflocospicks.presentation.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.ui.res.stringResource
+import com.softeen.nflocospicks.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -27,9 +30,9 @@ import com.softeen.nflocospicks.presentation.leaderboard.LeaderboardScreen
 import com.softeen.nflocospicks.presentation.picks.PickScreen
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
-sealed class BottomNavItem(val route: String, val title: String, val icon: ImageVector) {
-    object Picks : BottomNavItem("picks_content/{groupId}", "Mis Picks", Icons.AutoMirrored.Filled.List)
-    object Leaderboard : BottomNavItem("leaderboard_content/{groupId}", "Leaderboard", Icons.Default.Star)
+sealed class BottomNavItem(val route: String, @StringRes val titleRes: Int, val icon: ImageVector) {
+    object Picks       : BottomNavItem("picks_content/{groupId}",       R.string.nav_my_picks,    Icons.AutoMirrored.Filled.List)
+    object Leaderboard : BottomNavItem("leaderboard_content/{groupId}", R.string.nav_leaderboard, Icons.Default.Star)
 }
 
 @Composable
@@ -59,8 +62,8 @@ fun GroupSessionScreen(
                     val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
                     
                     NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.title) },
-                        label = { Text(item.title) },
+                        icon = { Icon(item.icon, contentDescription = stringResource(item.titleRes)) },
+                        label = { Text(stringResource(item.titleRes)) },
                         selected = selected,
                         onClick = {
                             navController.navigate(routeWithId) {

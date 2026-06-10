@@ -39,10 +39,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.softeen.nflocospicks.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.GameStatus
@@ -136,7 +138,7 @@ internal fun PickScreenContent(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Atrás",
+                            contentDescription = stringResource(R.string.cd_back),
                             tint               = appColors.primary
                         )
                     }
@@ -145,7 +147,7 @@ internal fun PickScreenContent(
                     IconButton(onClick = onSync) {
                         Icon(
                             imageVector        = Icons.Default.Refresh,
-                            contentDescription = "Sincronizar",
+                            contentDescription = stringResource(R.string.cd_sync),
                             tint               = appColors.onBackground
                         )
                     }
@@ -184,7 +186,7 @@ internal fun PickScreenContent(
                         onClick = onRetry,
                         colors  = ButtonDefaults.buttonColors(containerColor = appColors.primary)
                     ) {
-                        Text("Reintentar", color = appColors.onPrimary, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.picks_retry), color = appColors.onPrimary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -196,7 +198,7 @@ internal fun PickScreenContent(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text  = "No hay partidos esta semana.",
+                            text  = stringResource(R.string.picks_no_games),
                             color = appColors.secondary,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -267,7 +269,7 @@ private fun GamePickCard(
                     name       = game.awayTeam,
                     record     = game.awayTeamRecord,
                     score      = game.awayScore,
-                    label      = "VISITANTE",
+                    label      = stringResource(R.string.picks_team_away),
                     isSelected = item.pickedTeam == game.awayTeamAbbr,
                     isLocked   = item.isLocked,
                     modifier   = Modifier.weight(1f),
@@ -283,7 +285,7 @@ private fun GamePickCard(
                     name       = game.homeTeam,
                     record     = game.homeTeamRecord,
                     score      = game.homeScore,
-                    label      = "LOCAL",
+                    label      = stringResource(R.string.picks_team_home),
                     isSelected = item.pickedTeam == game.homeTeamAbbr,
                     isLocked   = item.isLocked,
                     modifier   = Modifier.weight(1f),
@@ -361,9 +363,9 @@ private fun TeamPickButton(
 private fun GameStatusChip(status: GameStatus, isLocked: Boolean) {
     val appColors = LocalAppColors.current
     val (label, tint) = when {
-        status == GameStatus.FINAL       -> "FINAL"      to MaterialTheme.colorScheme.error
-        status == GameStatus.IN_PROGRESS -> "EN VIVO"    to appColors.primary
-        isLocked                         -> "🔒 CERRADO" to MaterialTheme.colorScheme.error
+        status == GameStatus.FINAL       -> stringResource(R.string.game_status_final)  to MaterialTheme.colorScheme.error
+        status == GameStatus.IN_PROGRESS -> stringResource(R.string.game_status_live)   to appColors.primary
+        isLocked                         -> stringResource(R.string.game_status_locked) to MaterialTheme.colorScheme.error
         else                             -> return
     }
     Surface(

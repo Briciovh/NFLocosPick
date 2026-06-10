@@ -36,10 +36,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.softeen.nflocospicks.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.Group
@@ -58,6 +61,7 @@ fun GroupsScreen(
 ) {
     val listState by viewModel.groupListState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     // Consume efectos de un solo disparo (navegación + feedback de puntuación)
     LaunchedEffect(Unit) {
@@ -67,9 +71,9 @@ fun GroupsScreen(
                 GroupUiEffect.NavigateToLogin           -> onSignedOut()
                 is GroupUiEffect.ScoringResult      -> {
                     val msg = if (effect.newlyScoredCount == 0)
-                        "No hay picks nuevos que puntuar"
+                        context.getString(R.string.scoring_none)
                     else
-                        "${effect.newlyScoredCount} pick(s) puntuados 🏆"
+                        context.getString(R.string.scoring_result, effect.newlyScoredCount)
                     snackbarHostState.showSnackbar(msg)
                 }
                 is GroupUiEffect.ScoringError       -> snackbarHostState.showSnackbar(effect.message)
@@ -114,7 +118,7 @@ internal fun GroupsScreenContent(
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Configuración",
+                            contentDescription = stringResource(R.string.cd_settings),
                             tint = appColors.onBackground
                         )
                     }
@@ -183,7 +187,7 @@ internal fun GroupsScreenContent(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Aún no tienes grupos.\nCrea uno o únete con un código.",
+                                text = stringResource(R.string.groups_empty),
                                 color = appColors.secondary,
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = TextAlign.Center
@@ -230,7 +234,7 @@ private fun GroupCard(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Código: ${group.inviteCode}  •  ${group.memberIds.size} miembro(s)",
+                text = stringResource(R.string.group_info, group.inviteCode, group.memberIds.size),
                 color = appColors.secondary,
                 style = MaterialTheme.typography.bodySmall
             )

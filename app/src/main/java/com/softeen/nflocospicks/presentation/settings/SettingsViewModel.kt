@@ -1,5 +1,7 @@
 package com.softeen.nflocospicks.presentation.settings
 
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.softeen.nflocospicks.data.mock.MockDataProvider
@@ -49,6 +51,15 @@ class SettingsViewModel @Inject constructor(
                 mockSessionRepo.clearSession()
             }
             repo.setSimulateGamesStarted(enabled)
+        }
+    }
+
+    fun setLanguage(tag: String?) {
+        viewModelScope.launch {
+            repo.setLanguage(tag)
+            val localeList = if (tag.isNullOrEmpty()) LocaleListCompat.getEmptyLocaleList()
+                             else LocaleListCompat.forLanguageTags(tag)
+            AppCompatDelegate.setApplicationLocales(localeList)
         }
     }
 }

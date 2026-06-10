@@ -8,4 +8,5 @@ interface UserPreferencesRepository {
     suspend fun setFavoriteTeam(abbr: String?)
     suspend fun setUseTestingData(enabled: Boolean)
     suspend fun setSimulateGamesStarted(enabled: Boolean)
+    suspend fun setLanguage(tag: String?)
 }

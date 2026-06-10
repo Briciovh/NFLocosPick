@@ -21,13 +21,15 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val favoriteTeam         = stringPreferencesKey("favorite_team")
         val useTestingData       = booleanPreferencesKey("use_testing_data")
         val simulateGamesStarted = booleanPreferencesKey("simulate_games_started")
+        val languageTag          = stringPreferencesKey("language_tag")
     }
 
     override val preferencesFlow: Flow<UserPreferences> = dataStore.data.map { prefs ->
         UserPreferences(
             favoriteTeamAbbr     = prefs[Keys.favoriteTeam],
             useTestingData       = prefs[Keys.useTestingData]       ?: false,
-            simulateGamesStarted = prefs[Keys.simulateGamesStarted] ?: false
+            simulateGamesStarted = prefs[Keys.simulateGamesStarted] ?: false,
+            languageTag          = prefs[Keys.languageTag]
         )
     }
 
@@ -44,5 +46,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setSimulateGamesStarted(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.simulateGamesStarted] = enabled }
+    }
+
+    override suspend fun setLanguage(tag: String?) {
+        dataStore.edit { prefs ->
+            if (tag != null) prefs[Keys.languageTag] = tag
+            else prefs.remove(Keys.languageTag)
+        }
     }
 }

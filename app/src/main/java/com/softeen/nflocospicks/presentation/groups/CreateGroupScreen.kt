@@ -26,9 +26,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.softeen.nflocospicks.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
@@ -73,7 +75,7 @@ internal fun CreateGroupScreenContent(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Crear Grupo",
+            text = stringResource(R.string.create_group_heading),
             color = appColors.primary,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.ExtraBold
@@ -84,7 +86,7 @@ internal fun CreateGroupScreenContent(
         OutlinedTextField(
             value = groupName,
             onValueChange = { groupName = it },
-            label = { Text("Nombre del grupo", color = appColors.secondary) },
+            label = { Text(stringResource(R.string.create_group_name_hint), color = appColors.secondary) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
@@ -124,14 +126,14 @@ internal fun CreateGroupScreenContent(
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Crear", color = appColors.onPrimary, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.create_group_btn), color = appColors.onPrimary, fontWeight = FontWeight.Bold)
             }
         }
 
         Spacer(Modifier.height(8.dp))
 
         TextButton(onClick = onNavigateBack) {
-            Text("Cancelar", color = appColors.secondary)
+            Text(stringResource(R.string.btn_cancel), color = appColors.secondary)
         }
     }
 }

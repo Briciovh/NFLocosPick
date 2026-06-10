@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.presentation.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,9 +39,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.softeen.nflocospicks.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.softeen.nflocospicks.domain.model.User
@@ -71,7 +76,9 @@ fun SettingsScreen(
         onNavigateToTeamSelection  = onNavigateToTeamSelection,
         onToggleTestingData        = { viewModel.setUseTestingData(it) },
         onToggleSimulateGames      = { viewModel.setSimulateGamesStarted(it) },
-        onNavigateToUserManagement = onNavigateToUserManagement
+        onNavigateToUserManagement = onNavigateToUserManagement,
+        currentLanguageTag         = prefs.languageTag,
+        onLanguageSelected         = { viewModel.setLanguage(it) }
     )
 }
 
@@ -85,7 +92,9 @@ internal fun SettingsScreenContent(
     onNavigateToTeamSelection: () -> Unit,
     onToggleTestingData: (Boolean) -> Unit,
     onToggleSimulateGames: (Boolean) -> Unit,
-    onNavigateToUserManagement: () -> Unit
+    onNavigateToUserManagement: () -> Unit,
+    currentLanguageTag: String?,
+    onLanguageSelected: (String?) -> Unit
 ) {
     val appColors    = LocalAppColors.current
     val favoriteTeam = nflTeams.find { it.abbr == prefs.favoriteTeamAbbr }
@@ -95,13 +104,13 @@ internal fun SettingsScreenContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = "Configuración", color = appColors.onBackground, fontWeight = FontWeight.Bold)
+                    Text(text = stringResource(R.string.settings_title), color = appColors.onBackground, fontWeight = FontWeight.Bold)
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Regresar",
+                            contentDescription = stringResource(R.string.cd_back),
                             tint               = appColors.onBackground
                         )
                     }
@@ -117,7 +126,7 @@ internal fun SettingsScreenContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            SectionHeader("MI CUENTA", appColors.primary)
+            SectionHeader(stringResource(R.string.settings_section_account), appColors.primary)
 
             Row(
                 modifier          = Modifier.fillMaxWidth().padding(vertical = 12.dp),
@@ -139,7 +148,7 @@ internal fun SettingsScreenContent(
             HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
             Spacer(Modifier.height(16.dp))
 
-            SectionHeader("EQUIPO FAVORITO", appColors.primary)
+            SectionHeader(stringResource(R.string.settings_section_fav_team), appColors.primary)
             Spacer(Modifier.height(4.dp))
 
             Row(
@@ -172,7 +181,7 @@ internal fun SettingsScreenContent(
                     }
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        text     = "Ninguno",
+                        text     = stringResource(R.string.settings_no_team),
                         color    = appColors.secondary,
                         style    = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f)
@@ -186,6 +195,18 @@ internal fun SettingsScreenContent(
             }
 
             Spacer(Modifier.height(8.dp))
+            HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+            Spacer(Modifier.height(16.dp))
+
+            SectionHeader(stringResource(R.string.settings_section_language), appColors.primary)
+            Spacer(Modifier.height(8.dp))
+            LanguageSelector(
+                current    = currentLanguageTag,
+                onSelected = onLanguageSelected,
+                appColors  = appColors
+            )
+
+            Spacer(Modifier.height(16.dp))
             HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
 
             if (user.role == UserRole.INSIDER) {
@@ -205,7 +226,7 @@ internal fun SettingsScreenContent(
                 onClick  = onSignOut,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
-                Text(text = "Cerrar sesión", color = MaterialTheme.colorScheme.error)
+                Text(text = stringResource(R.string.settings_sign_out), color = MaterialTheme.colorScheme.error)
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -222,13 +243,13 @@ private fun InsiderSection(
     appColors:            AppColors
 ) {
     Spacer(Modifier.height(16.dp))
-    SectionHeader("MODO INSIDER", appColors.primary)
+    SectionHeader(stringResource(R.string.settings_section_insider), appColors.primary)
     Spacer(Modifier.height(4.dp))
 
     // Toggle: datos de testing
     ToggleRow(
-        title       = "Datos de testing",
-        description = "Usa un grupo y juegos de prueba",
+        title       = stringResource(R.string.settings_testing_title),
+        description = stringResource(R.string.settings_testing_desc),
         checked     = useTestingData,
         onToggle    = onToggleTesting,
         appColors   = appColors
@@ -237,8 +258,8 @@ private fun InsiderSection(
     // Toggle: simular resultados (sólo visible cuando testing está activo)
     if (useTestingData) {
         ToggleRow(
-            title       = "Simular resultados",
-            description = "Bloquea los juegos y genera marcadores aleatorios",
+            title       = stringResource(R.string.settings_simulate_title),
+            description = stringResource(R.string.settings_simulate_desc),
             checked     = simulateGamesStarted,
             onToggle    = onToggleSimulate,
             appColors   = appColors
@@ -255,7 +276,7 @@ private fun InsiderSection(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text     = "Gestión de usuarios",
+            text     = stringResource(R.string.settings_user_management),
             color    = appColors.onBackground,
             style    = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f)
@@ -336,6 +357,40 @@ private fun UserAvatar(user: User, size: Int, appColors: AppColors) {
     }
 }
 
+@Composable
+private fun LanguageSelector(
+    current: String?,
+    onSelected: (String?) -> Unit,
+    appColors: AppColors
+) {
+    val options = listOf(
+        null to stringResource(R.string.settings_lang_system),
+        "es" to stringResource(R.string.settings_lang_spanish),
+        "en" to stringResource(R.string.settings_lang_english)
+    )
+    Row(
+        modifier              = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { (tag, label) ->
+            val isSelected     = current == tag
+            val containerColor = if (isSelected) appColors.primary else appColors.surface
+            val contentColor   = if (isSelected) appColors.onPrimary else appColors.secondary
+            Button(
+                onClick  = { onSelected(tag) },
+                modifier = Modifier.weight(1f),
+                shape    = RoundedCornerShape(8.dp),
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor = containerColor,
+                    contentColor   = contentColor
+                )
+            ) {
+                Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true, backgroundColor = 0xFF0B2156)
 @Composable
 private fun SettingsScreenWithTeamPreview() {
@@ -348,7 +403,9 @@ private fun SettingsScreenWithTeamPreview() {
             onNavigateToTeamSelection  = {},
             onToggleTestingData        = {},
             onToggleSimulateGames      = {},
-            onNavigateToUserManagement = {}
+            onNavigateToUserManagement = {},
+            currentLanguageTag         = null,
+            onLanguageSelected         = {}
         )
     }
 }
@@ -365,7 +422,9 @@ private fun SettingsScreenNoTeamPreview() {
             onNavigateToTeamSelection  = {},
             onToggleTestingData        = {},
             onToggleSimulateGames      = {},
-            onNavigateToUserManagement = {}
+            onNavigateToUserManagement = {},
+            currentLanguageTag         = null,
+            onLanguageSelected         = {}
         )
     }
 }
@@ -383,7 +442,9 @@ private fun SettingsScreenInsiderPreview() {
             onNavigateToTeamSelection  = {},
             onToggleTestingData        = {},
             onToggleSimulateGames      = {},
-            onNavigateToUserManagement = {}
+            onNavigateToUserManagement = {},
+            currentLanguageTag         = "es",
+            onLanguageSelected         = {}
         )
     }
 }
@@ -401,7 +462,9 @@ private fun SettingsScreenInsiderSimulatingPreview() {
             onNavigateToTeamSelection  = {},
             onToggleTestingData        = {},
             onToggleSimulateGames      = {},
-            onNavigateToUserManagement = {}
+            onNavigateToUserManagement = {},
+            currentLanguageTag         = "en",
+            onLanguageSelected         = {}
         )
     }
 }

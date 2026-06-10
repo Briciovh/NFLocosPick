@@ -45,10 +45,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.softeen.nflocospicks.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.LeaderboardEntry
@@ -95,7 +97,7 @@ internal fun LeaderboardScreenContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Leaderboard",
+                        text = stringResource(R.string.leaderboard_title),
                         color = appColors.onBackground,
                         fontWeight = FontWeight.Bold
                     )
@@ -104,7 +106,7 @@ internal fun LeaderboardScreenContent(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Regresar",
+                            contentDescription = stringResource(R.string.cd_back),
                             tint = appColors.onBackground
                         )
                     }
@@ -145,7 +147,7 @@ internal fun LeaderboardScreenContent(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Aún no hay puntuaciones.\nLos picks se puntúan automáticamente.",
+                            text = stringResource(R.string.leaderboard_empty),
                             color = appColors.secondary,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
@@ -215,7 +217,7 @@ private fun MemberCard(
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = "${entry.totalPoints} pts",
+                        text = stringResource(R.string.points_format, entry.totalPoints),
                         color = appColors.primary,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold
@@ -242,7 +244,7 @@ private fun MemberCard(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                text = "Ver historial completo",
+                                text = stringResource(R.string.leaderboard_view_history),
                                 color = appColors.primary,
                                 style = MaterialTheme.typography.labelMedium
                             )
@@ -290,7 +292,7 @@ private fun WeeklyBreakdown(weeklyBreakdown: Map<String, Int>) {
         HorizontalDivider(color = appColors.secondary.copy(alpha = 0.3f))
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Desglose semanal",
+            text = stringResource(R.string.leaderboard_weekly_breakdown),
             color = appColors.secondary,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
@@ -311,7 +313,7 @@ private fun WeeklyBreakdown(weeklyBreakdown: Map<String, Int>) {
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        text = "$points pts",
+                        text = stringResource(R.string.points_format, points),
                         color = appColors.onSurface,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium

@@ -1,0 +1,63 @@
+<resources>
+    <!-- Accesibilidad / Shared -->
+    <string name="cd_back">Back</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_sync">Sync</string>
+    <string name="cd_app_logo">NFLocos Pick logo</string>
+
+    <!-- Bottom Navigation -->
+    <string name="nav_my_picks">My Picks</string>
+    <!-- nav_leaderboard: "Leaderboard" es igual en ambos idiomas -->
+
+    <!-- Login -->
+    <string name="login_tagline">Private picks with your group</string>
+    <string name="login_sign_in_google">Sign in with Google</string>
+
+    <!-- Groups -->
+    <!-- groups_title: "NFL PICKS" es igual en ambos idiomas -->
+    <string name="groups_empty">You don\'t have any groups yet.\nCreate one or join with a code.</string>
+    <string name="group_info">Code: %1$s  •  %2$d member(s)</string>
+    <string name="scoring_none">No new picks to score</string>
+    <string name="scoring_result">%1$d pick(s) scored 🏆</string>
+
+    <!-- Create Group -->
+    <string name="create_group_heading">Create Group</string>
+    <string name="create_group_name_hint">Group name</string>
+    <string name="create_group_btn">Create</string>
+    <string name="btn_cancel">Cancel</string>
+
+    <!-- Join Group -->
+    <string name="join_group_heading">Join Group</string>
+    <string name="join_group_code_hint">Invite code</string>
+    <string name="join_group_btn">Join</string>
+
+    <!-- Picks -->
+    <string name="picks_no_games">No games this week.</string>
+    <string name="picks_retry">Retry</string>
+    <string name="picks_team_away">AWAY</string>
+    <string name="picks_team_home">HOME</string>
+    <string name="game_status_live">LIVE</string>
+    <string name="game_status_locked">🔒 LOCKED</string>
+    <!-- game_status_final: "FINAL" es igual en ambos idiomas -->
+
+    <!-- Leaderboard -->
+    <!-- leaderboard_title: "Leaderboard" es igual en ambos idiomas -->
+    <string name="leaderboard_empty">No scores yet.\nPicks are scored automatically.</string>
+    <string name="leaderboard_weekly_breakdown">Weekly breakdown</string>
+    <string name="leaderboard_view_history">View full history</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_account">MY ACCOUNT</string>
+    <string name="settings_section_fav_team">FAVORITE TEAM</string>
+    <string name="settings_no_team">None</string>
+    <string name="settings_sign_out">Sign out</string>
+    <string name="settings_section_language">LANGUAGE</string>
+    <!-- settings_lang_spanish y settings_lang_english siempre en su propio idioma, no se traducen -->
+    <string name="settings_section_insider">INSIDER MODE</string>
+    <string name="settings_testing_title">Testing data</string>
+    <string name="settings_testing_desc">Use a test group and games</string>
+    <string name="settings_simulate_title">Simulate results</string>
+    <string name="settings_simulate_desc">Lock games and generate random scores</string>
+    <string name="settings_user_management">User management</string>
+</resources>

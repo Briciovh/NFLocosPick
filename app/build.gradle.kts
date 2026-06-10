@@ -93,6 +93,8 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     // DataStore
     implementation(libs.datastore.preferences)
+    // AppCompat (AppCompatDelegate para locale dinámico)
+    implementation(libs.androidx.appcompat)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

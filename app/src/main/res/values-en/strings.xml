@@ -60,4 +60,20 @@
     <string name="settings_simulate_title">Simulate results</string>
     <string name="settings_simulate_desc">Lock games and generate random scores</string>
     <string name="settings_user_management">User management</string>
+
+    <!-- Board -->
+    <string name="nav_board">Board</string>
+    <string name="board_title">Group board</string>
+    <string name="board_empty">No messages yet.\nBe the first to write.</string>
+    <string name="board_hint">Write a message…</string>
+    <string name="board_send">Send</string>
+    <string name="board_announcement_badge">ANNOUNCEMENT</string>
+    <string name="board_edited_label">(edited)</string>
+    <string name="board_editing_label">Editing message…</string>
+    <string name="board_menu_edit">Edit</string>
+    <string name="board_menu_delete">Delete</string>
+    <string name="board_mark_announcement">Mark as announcement</string>
+    <string name="board_unmark_announcement">Remove announcement</string>
+    <string name="board_delete_confirm_title">Delete message?</string>
+    <string name="board_delete_confirm_ok">Delete</string>
 </resources>

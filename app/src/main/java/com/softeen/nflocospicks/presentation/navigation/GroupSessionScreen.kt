@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.res.stringResource
 import com.softeen.nflocospicks.R
@@ -26,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.softeen.nflocospicks.presentation.board.BoardScreen
 import com.softeen.nflocospicks.presentation.leaderboard.LeaderboardScreen
 import com.softeen.nflocospicks.presentation.picks.PickScreen
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
@@ -33,6 +35,7 @@ import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 sealed class BottomNavItem(val route: String, @StringRes val titleRes: Int, val icon: ImageVector) {
     object Picks       : BottomNavItem("picks_content/{groupId}",       R.string.nav_my_picks,    Icons.AutoMirrored.Filled.List)
     object Leaderboard : BottomNavItem("leaderboard_content/{groupId}", R.string.nav_leaderboard, Icons.Default.Star)
+    object Board       : BottomNavItem("board_content/{groupId}",       R.string.nav_board,       Icons.Default.Notifications)
 }
 
 @Composable
@@ -46,7 +49,8 @@ fun GroupSessionScreen(
 
     val items = listOf(
         BottomNavItem.Picks,
-        BottomNavItem.Leaderboard
+        BottomNavItem.Leaderboard,
+        BottomNavItem.Board
     )
 
     Scaffold(
@@ -107,6 +111,12 @@ fun GroupSessionScreen(
                     onNavigateBack = onNavigateBack,
                     onNavigateToHistory = onNavigateToHistory
                 )
+            }
+            composable(
+                route = BottomNavItem.Board.route,
+                arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+            ) {
+                BoardScreen(onNavigateBack = onNavigateBack)
             }
         }
     }

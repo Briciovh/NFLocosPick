@@ -10,6 +10,7 @@ import com.softeen.nflocospicks.domain.model.LeaderboardEntry
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.domain.model.UserRole
+import com.softeen.nflocospicks.domain.model.BoardMessage
 import com.softeen.nflocospicks.domain.model.WeekHistoryEntry
 import com.softeen.nflocospicks.presentation.picks.GamePickItem
 import com.softeen.nflocospicks.presentation.theme.AppColors
@@ -124,6 +125,47 @@ internal val fakeHistory = listOf(
 
 internal val fakePrefs        = UserPreferences(favoriteTeamAbbr = "KC")
 internal val fakeUserInsider  = fakeUser.copy(role = UserRole.INSIDER)
+
+internal val fakeBoardMessages = listOf(
+    BoardMessage(
+        id             = "msg_1",
+        groupId        = "group_1",
+        senderId       = "user_1",
+        senderName     = "Bricio Velázquez",
+        senderPhotoUrl = null,
+        content        = "¡Bienvenidos a la semana 13! Recuerden hacer sus picks antes del jueves 🏈",
+        timestamp      = System.currentTimeMillis() - 6 * 3_600_000L,
+        isAnnouncement = true
+    ),
+    BoardMessage(
+        id             = "msg_2",
+        groupId        = "group_1",
+        senderId       = "user_2",
+        senderName     = "Juan",
+        senderPhotoUrl = null,
+        content        = "Gracias! Ya mandé los míos. KC toda la vida 🔥",
+        timestamp      = System.currentTimeMillis() - 4 * 3_600_000L
+    ),
+    BoardMessage(
+        id             = "msg_3",
+        groupId        = "group_1",
+        senderId       = "user_3",
+        senderName     = "María",
+        senderPhotoUrl = null,
+        content        = "Yo sigo con los Eagles este año, no me arrepiento de nada jaja",
+        timestamp      = System.currentTimeMillis() - 2 * 3_600_000L,
+        editedAt       = System.currentTimeMillis() - 1 * 3_600_000L
+    ),
+    BoardMessage(
+        id             = "msg_4",
+        groupId        = "group_1",
+        senderId       = "user_1",
+        senderName     = "Bricio Velázquez",
+        senderPhotoUrl = null,
+        content        = "Los picks cierran el jueves a las 8pm. ¡No se confíen!",
+        timestamp      = System.currentTimeMillis() - 30 * 60_000L
+    ),
+)
 
 // ── Preview wrapper ───────────────────────────────────────────────────────────
 

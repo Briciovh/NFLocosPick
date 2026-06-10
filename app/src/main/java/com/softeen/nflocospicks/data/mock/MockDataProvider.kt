@@ -1,5 +1,6 @@
 package com.softeen.nflocospicks.data.mock
 
+import com.softeen.nflocospicks.domain.model.BoardMessage
 import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.domain.model.Group
@@ -99,6 +100,70 @@ object MockDataProvider {
             val score = scores[game.id] ?: return@map game
             game.copy(homeScore = score.first, awayScore = score.second, status = GameStatus.FINAL)
         }
+
+    // Mensajes de prueba para el tablero del grupo mock.
+    // mock_user_1 es el admin (MOCK_GROUP.createdBy), así que su primer mensaje es un anuncio.
+    val MOCK_BOARD_MESSAGES: List<BoardMessage> get() {
+        val now = System.currentTimeMillis()
+        return listOf(
+            BoardMessage(
+                id             = "mock_msg_1",
+                groupId        = MOCK_GROUP_ID,
+                senderId       = "mock_user_1",
+                senderName     = "Alex Morgan",
+                senderPhotoUrl = null,
+                content        = "¡Bienvenidos a la semana 13! Recuerden hacer sus picks antes del jueves. Suerte a todos 🏈",
+                timestamp      = now - 6 * 3_600_000L,
+                isAnnouncement = true
+            ),
+            BoardMessage(
+                id             = "mock_msg_2",
+                groupId        = MOCK_GROUP_ID,
+                senderId       = "mock_user_3",
+                senderName     = "Sam Rivera",
+                senderPhotoUrl = null,
+                content        = "Gracias Alex! Ya mandé los míos. KC toda la vida 🔥",
+                timestamp      = now - 5 * 3_600_000L
+            ),
+            BoardMessage(
+                id             = "mock_msg_3",
+                groupId        = MOCK_GROUP_ID,
+                senderId       = "mock_user_2",
+                senderName     = "Jordan Lee",
+                senderPhotoUrl = null,
+                content        = "Yo sigo con los Eagles, no me arrepiento de nada jaja",
+                timestamp      = now - 4 * 3_600_000L
+            ),
+            BoardMessage(
+                id             = "mock_msg_4",
+                groupId        = MOCK_GROUP_ID,
+                senderId       = "mock_user_5",
+                senderName     = "Taylor Kim",
+                senderPhotoUrl = null,
+                content        = "¿Alguien más va con Detroit esta semana?",
+                timestamp      = now - 2 * 3_600_000L,
+                editedAt       = now - 1 * 3_600_000L
+            ),
+            BoardMessage(
+                id             = "mock_msg_5",
+                groupId        = MOCK_GROUP_ID,
+                senderId       = "mock_user_7",
+                senderName     = "Jamie Chen",
+                senderPhotoUrl = null,
+                content        = "Yo Taylor! Lions están imparables esta temporada 🦁",
+                timestamp      = now - 45 * 60_000L
+            ),
+            BoardMessage(
+                id             = "mock_msg_6",
+                groupId        = MOCK_GROUP_ID,
+                senderId       = "mock_user_1",
+                senderName     = "Alex Morgan",
+                senderPhotoUrl = null,
+                content        = "Los picks cierran el jueves a las 8pm. ¡No se confíen!",
+                timestamp      = now - 10 * 60_000L
+            ),
+        )
+    }
 
     // Picks determinísticos para mock users: par → home, impar → away.
     fun getPicksForMockUser(userIndex: Int, games: List<Game>): Map<String, String> =

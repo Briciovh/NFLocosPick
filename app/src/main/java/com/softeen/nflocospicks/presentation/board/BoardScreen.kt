@@ -163,7 +163,7 @@ internal fun BoardScreenContent(
                 title = {
                     Text(
                         text = stringResource(R.string.board_title),
-                        color = appColors.onBackground,
+                        color = appColors.primary,
                         fontWeight = FontWeight.Bold
                     )
                 },

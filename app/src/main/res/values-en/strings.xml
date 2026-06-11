@@ -7,7 +7,7 @@
 
     <!-- Bottom Navigation -->
     <string name="nav_my_picks">My Picks</string>
-    <!-- nav_leaderboard: "Leaderboard" es igual en ambos idiomas -->
+    <string name="nav_leaderboard">Leaderboard</string>
 
     <!-- Login -->
     <string name="login_tagline">Private picks with your group</string>
@@ -41,7 +41,7 @@
     <!-- game_status_final: "FINAL" es igual en ambos idiomas -->
 
     <!-- Leaderboard -->
-    <!-- leaderboard_title: "Leaderboard" es igual en ambos idiomas -->
+    <string name="leaderboard_title">Leaderboard</string>
     <string name="leaderboard_empty">No scores yet.\nPicks are scored automatically.</string>
     <string name="leaderboard_weekly_breakdown">Weekly breakdown</string>
     <string name="leaderboard_view_history">View full history</string>
@@ -62,8 +62,8 @@
     <string name="settings_user_management">User management</string>
 
     <!-- Board -->
-    <string name="nav_board">Board</string>
-    <string name="board_title">Group board</string>
+    <string name="nav_board">Message Board</string>
+    <string name="board_title">Group Message Board</string>
     <string name="board_empty">No messages yet.\nBe the first to write.</string>
     <string name="board_hint">Write a message…</string>
     <string name="board_send">Send</string>

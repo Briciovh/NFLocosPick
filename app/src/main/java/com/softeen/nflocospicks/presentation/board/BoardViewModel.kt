@@ -3,6 +3,8 @@ package com.softeen.nflocospicks.presentation.board
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.BoardMessage
 import com.softeen.nflocospicks.domain.repository.GroupRepository
@@ -12,7 +14,6 @@ import com.softeen.nflocospicks.domain.usecase.SendBoardMessageUseCase
 import com.softeen.nflocospicks.domain.usecase.SetBoardAnnouncementUseCase
 import com.softeen.nflocospicks.domain.usecase.UpdateBoardMessageUseCase
 import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
-import android.util.Log
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -34,7 +36,8 @@ class BoardViewModel @Inject constructor(
     private val deleteBoardMessage:      DeleteBoardMessageUseCase,
     private val setBoardAnnouncement:    SetBoardAnnouncementUseCase,
     private val userRepository:          UserRepository,
-    private val groupRepository:         GroupRepository
+    private val groupRepository:         GroupRepository,
+    private val logger:                  AppLogger
 ) : ViewModel() {
 
     val groupId: String = checkNotNull(savedStateHandle["groupId"])
@@ -60,13 +63,13 @@ class BoardViewModel @Inject constructor(
         viewModelScope.launch {
             val currentUser = userRepository.getCurrentUser()
             val currentUserId = currentUser?.uid.orEmpty()
-            Log.d(TAG, "loadInitialData: groupId=$groupId currentUserId=$currentUserId isMockMode=$isMockMode")
+            Timber.d("loadInitialData: groupId=$groupId currentUserId=$currentUserId isMockMode=$isMockMode")
 
             val isGroupAdmin = if (isMockMode) {
                 false // Real user is never mock_user_1
             } else {
                 runCatching { groupRepository.getGroupById(groupId).createdBy == currentUserId }
-                    .onFailure { Log.w(TAG, "getGroupById failed", it) }
+                    .onFailure { Timber.w(it, "getGroupById failed") }
                     .getOrDefault(false)
             }
 
@@ -108,10 +111,10 @@ class BoardViewModel @Inject constructor(
         val editing = _uiState.value.editingMessage
         val currentUser = userRepository.getCurrentUser()
         if (currentUser == null) {
-            Log.e(TAG, "sendOrSaveMessage: currentUser is null — user not authenticated?")
+            Timber.e("sendOrSaveMessage: currentUser is null — user not authenticated?")
             return
         }
-        Log.d(TAG, "sendOrSaveMessage: groupId=$groupId senderId=${currentUser.uid} editing=${editing?.id}")
+        Timber.d("sendOrSaveMessage: groupId=$groupId senderId=${currentUser.uid} editing=${editing?.id}")
 
         viewModelScope.launch {
             runCatching {
@@ -139,14 +142,15 @@ class BoardViewModel @Inject constructor(
                     if (isMockMode) {
                         _mockMessages.update { it + newMessage.copy(id = "mock_msg_${System.currentTimeMillis()}") }
                     } else {
-                        Log.d(TAG, "sendOrSaveMessage: calling Firestore add on groups/$groupId/board")
+                        Timber.d("sendOrSaveMessage: calling Firestore add on groups/$groupId/board")
                         sendBoardMessage(newMessage)
-                        Log.d(TAG, "sendOrSaveMessage: Firestore add succeeded")
+                        Timber.d("sendOrSaveMessage: Firestore add succeeded")
                     }
+                    logger.logEvent(AppEvent.BoardMessageSent(groupId, "chat"))
                     _uiState.update { it.copy(inputText = "") }
                 }
             }.onFailure { e ->
-                Log.e(TAG, "sendOrSaveMessage failed: ${e::class.simpleName} — ${e.message}", e)
+                Timber.e(e, "sendOrSaveMessage failed: ${e::class.simpleName} — ${e.message}")
                 _uiState.update { it.copy(snackbarMessage = e.message) }
             }
         }
@@ -174,8 +178,9 @@ class BoardViewModel @Inject constructor(
                 } else {
                     deleteBoardMessage(groupId, message.id)
                 }
+                logger.logEvent(AppEvent.BoardMessageDeleted(groupId))
             }.onFailure { e ->
-                Log.e(TAG, "deleteMessage failed: ${e.message}", e)
+                Timber.e(e, "deleteMessage failed: ${e.message}")
                 _uiState.update { it.copy(snackbarMessage = e.message) }
             }
         }
@@ -196,14 +201,11 @@ class BoardViewModel @Inject constructor(
                 } else {
                     setBoardAnnouncement(groupId, message.id, newValue)
                 }
+                logger.logEvent(AppEvent.BoardAnnouncementToggled(groupId, newValue))
             }.onFailure { e ->
-                Log.e(TAG, "toggleAnnouncement failed: ${e.message}", e)
+                Timber.e(e, "toggleAnnouncement failed: ${e.message}")
                 _uiState.update { it.copy(snackbarMessage = e.message) }
             }
         }
-    }
-
-    companion object {
-        private const val TAG = "BoardViewModel"
     }
 }

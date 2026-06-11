@@ -1,6 +1,7 @@
 package com.softeen.nflocospicks.domain.repository
 
 import android.content.Context
+import com.softeen.nflocospicks.domain.model.SignInResult
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserRole
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
  */
 interface UserRepository {
     /** Sign in with Google via CredentialManager and persist the user profile. */
-    suspend fun signInWithGoogle(activityContext: Context): User
+    suspend fun signInWithGoogle(activityContext: Context): SignInResult
 
     /** Clear the Firebase Auth session. */
     suspend fun signOut()

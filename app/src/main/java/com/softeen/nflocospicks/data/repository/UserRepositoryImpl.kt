@@ -4,6 +4,7 @@ import android.content.Context
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.softeen.nflocospicks.data.remote.firebase.FirebaseAuthDataSource
+import com.softeen.nflocospicks.domain.model.SignInResult
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserRole
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -18,7 +19,7 @@ class UserRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore
 ) : UserRepository {
 
-    override suspend fun signInWithGoogle(activityContext: Context): User {
+    override suspend fun signInWithGoogle(activityContext: Context): SignInResult {
         val fbUser = authDataSource.signIn(activityContext)
         val ref = firestore.collection("users").document(fbUser.uid)
 
@@ -34,8 +35,9 @@ class UserRepositoryImpl @Inject constructor(
 
         // Read the doc to determine role; set REGULAR on first login (no role field yet).
         val snap = ref.get().await()
+        val isNewUser = !snap.contains("role")
         val role: UserRole
-        if (!snap.contains("role")) {
+        if (isNewUser) {
             ref.update("role", UserRole.REGULAR.name).await()
             role = UserRole.REGULAR
         } else {
@@ -44,12 +46,15 @@ class UserRepositoryImpl @Inject constructor(
                 ?: UserRole.REGULAR
         }
 
-        return User(
-            uid         = fbUser.uid,
-            displayName = fbUser.displayName.orEmpty(),
-            email       = fbUser.email.orEmpty(),
-            photoUrl    = fbUser.photoUrl?.toString(),
-            role        = role
+        return SignInResult(
+            user = User(
+                uid         = fbUser.uid,
+                displayName = fbUser.displayName.orEmpty(),
+                email       = fbUser.email.orEmpty(),
+                photoUrl    = fbUser.photoUrl?.toString(),
+                role        = role
+            ),
+            isNewUser = isNewUser
         )
     }
 

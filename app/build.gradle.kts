@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 android {
@@ -39,6 +40,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -61,6 +63,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.crashlytics)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -95,6 +98,8 @@ dependencies {
     implementation(libs.datastore.preferences)
     // AppCompat (AppCompatDelegate para locale dinámico)
     implementation(libs.androidx.appcompat)
+    // Logging
+    implementation(libs.timber)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

@@ -8,6 +8,8 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.worker.ScoringWorker
 import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
@@ -37,7 +39,8 @@ class GroupViewModel @Inject constructor(
     private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
     private val userRepository          : UserRepository,
     private val preferencesRepository   : UserPreferencesRepository,
-    private val workManager             : WorkManager
+    private val workManager             : WorkManager,
+    private val logger                  : AppLogger
 ) : ViewModel() {
 
     private val _groupListState = MutableStateFlow<GroupListUiState>(GroupListUiState.Loading)
@@ -116,6 +119,7 @@ class GroupViewModel @Inject constructor(
             try {
                 val group = createGroupUseCase(name, userId)
                 _actionState.value = GroupActionUiState.Success(group)
+                logger.logEvent(AppEvent.GroupCreated(group.id))
             } catch (e: Exception) {
                 _actionState.value = GroupActionUiState.Error(e.message ?: "Error al crear el grupo")
             }
@@ -129,6 +133,7 @@ class GroupViewModel @Inject constructor(
             try {
                 val group = joinGroupUseCase(inviteCode, userId)
                 _actionState.value = GroupActionUiState.Success(group)
+                logger.logEvent(AppEvent.GroupJoined(group.id))
             } catch (e: NoSuchElementException) {
                 _actionState.value = GroupActionUiState.Error("Código de invitación inválido")
             } catch (e: Exception) {
@@ -143,6 +148,7 @@ class GroupViewModel @Inject constructor(
     }
 
     fun onGroupClicked(groupId: String) {
+        logger.logEvent(AppEvent.GroupOpened(groupId))
         viewModelScope.launch { effects.send(GroupUiEffect.NavigateToGroupSession(groupId)) }
     }
 
@@ -156,6 +162,7 @@ class GroupViewModel @Inject constructor(
             try {
                 val count = scoreWeekPicksUseCase(groupId)
                 effects.send(GroupUiEffect.ScoringResult(groupId, count))
+                logger.logEvent(AppEvent.ScoringCompleted(groupId, count))
             } catch (e: Exception) {
                 effects.send(GroupUiEffect.ScoringError(e.message ?: "Error al puntuar"))
             }

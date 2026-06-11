@@ -3,6 +3,8 @@ package com.softeen.nflocospicks.presentation.picks
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
@@ -32,6 +34,7 @@ class PickViewModel @Inject constructor(
     private val userRepository:             UserRepository,
     private val preferencesRepository:      UserPreferencesRepository,
     private val mockSessionRepository:      MockSessionRepository,
+    private val logger:                     AppLogger,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -154,6 +157,7 @@ class PickViewModel @Inject constructor(
                     teamAbbr    = teamAbbr,
                     kickoffTime = kickoffTime
                 )
+                logger.logEvent(AppEvent.PickSubmitted(groupId, currentState.weekId, gameId, teamAbbr))
             } catch (e: Exception) {
                 _uiState.update { state ->
                     if (state is PickUiState.Success) state.copy(items = previousItems) else state

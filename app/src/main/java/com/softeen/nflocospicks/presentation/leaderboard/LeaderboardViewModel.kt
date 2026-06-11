@@ -11,6 +11,8 @@ import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.usecase.GetLeaderboardUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +30,8 @@ class LeaderboardViewModel @Inject constructor(
     private val getLeaderboardUseCase: GetLeaderboardUseCase,
     private val userRepository:        UserRepository,
     private val preferencesRepository: UserPreferencesRepository,
-    private val mockSessionRepository: MockSessionRepository
+    private val mockSessionRepository: MockSessionRepository,
+    private val logger:                AppLogger
 ) : ViewModel() {
 
     val groupId: String = checkNotNull(savedStateHandle["groupId"])
@@ -39,7 +42,10 @@ class LeaderboardViewModel @Inject constructor(
 
     init {
         if (groupId == MockDataProvider.MOCK_GROUP_ID) observeMockLeaderboard()
-        else observeRealLeaderboard()
+        else {
+            logger.logEvent(AppEvent.LeaderboardViewed(groupId))
+            observeRealLeaderboard()
+        }
     }
 
     // ── Ruta real ─────────────────────────────────────────────────────────────

@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -16,7 +18,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val logger: AppLogger
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
@@ -43,10 +46,12 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AuthUiState.Loading
             try {
-                val user = userRepository.signInWithGoogle(context)
-                _uiState.value = AuthUiState.Authenticated(user)
-                watchRole(user.uid)
+                val result = userRepository.signInWithGoogle(context)
+                _uiState.value = AuthUiState.Authenticated(result.user)
+                watchRole(result.user.uid)
                 effects.send(AuthUiEffect.NavigateToGroups)
+                logger.logEvent(AppEvent.SignIn)
+                if (result.isNewUser) logger.logEvent(AppEvent.SignUp)
             } catch (e: GetCredentialCancellationException) {
                 // User dismissed the picker — silently return to Idle, no error shown.
                 _uiState.value = AuthUiState.Idle
@@ -61,6 +66,7 @@ class AuthViewModel @Inject constructor(
         roleWatcherJob = null
         viewModelScope.launch {
             userRepository.signOut()
+            logger.logEvent(AppEvent.SignOut)
             _uiState.value = AuthUiState.Idle
         }
     }

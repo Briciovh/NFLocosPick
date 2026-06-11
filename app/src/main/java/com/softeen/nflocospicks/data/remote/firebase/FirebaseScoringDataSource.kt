@@ -1,7 +1,7 @@
 package com.softeen.nflocospicks.data.remote.firebase
 
-import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
+import timber.log.Timber
 import com.softeen.nflocospicks.domain.repository.ScoringRepository
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -10,9 +10,6 @@ class FirebaseScoringDataSource @Inject constructor(
     private val firestore    : FirebaseFirestore,
     private val pickDataSource: FirebasePickDataSource
 ) {
-    companion object {
-        private const val TAG = "FirebaseScoringDS"
-    }
 
     /**
      * Para cada miembro del grupo:
@@ -93,7 +90,7 @@ class FirebaseScoringDataSource @Inject constructor(
 
         if (scored > 0) {
             batch.commit().await()
-            Log.d(TAG, "Puntuados $scored picks — grupo=$groupId semana=$weekId")
+            Timber.d("Puntuados $scored picks — grupo=$groupId semana=$weekId")
         }
         return scored
     }

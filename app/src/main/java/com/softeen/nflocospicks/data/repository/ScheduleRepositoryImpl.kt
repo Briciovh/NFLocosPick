@@ -1,7 +1,7 @@
 package com.softeen.nflocospicks.data.repository
 
-import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
+import timber.log.Timber
 import com.softeen.nflocospicks.data.remote.espn.EspnApiService
 import com.softeen.nflocospicks.data.remote.espn.toDomain
 import com.softeen.nflocospicks.domain.model.Game
@@ -15,8 +15,6 @@ class ScheduleRepositoryImpl @Inject constructor(
 ) : ScheduleRepository {
 
     companion object {
-        private const val TAG = "ScheduleRepository"
-
         /**
          * SOLO para desarrollo: desplaza el kickoffTime N horas al futuro para
          * poder testear picks durante la temporada muerta.
@@ -71,7 +69,7 @@ class ScheduleRepositoryImpl @Inject constructor(
                 .set(mapOf("games" to serialized))
                 .await()
         } catch (e: Exception) {
-            Log.w(TAG, "No se pudo cachear juegos en Firestore (no fatal)", e)
+            Timber.w(e, "No se pudo cachear juegos en Firestore (no fatal)")
         }
     }
 }

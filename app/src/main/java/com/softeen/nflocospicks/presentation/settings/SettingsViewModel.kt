@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.UserPreferences
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +20,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repo:            UserPreferencesRepository,
-    private val mockSessionRepo: MockSessionRepository
+    private val mockSessionRepo: MockSessionRepository,
+    private val logger:          AppLogger
 ) : ViewModel() {
 
     val preferences: StateFlow<UserPreferences> = repo.preferencesFlow.stateIn(
@@ -28,7 +31,10 @@ class SettingsViewModel @Inject constructor(
     )
 
     fun setFavoriteTeam(abbr: String?) {
-        viewModelScope.launch { repo.setFavoriteTeam(abbr) }
+        viewModelScope.launch {
+            repo.setFavoriteTeam(abbr)
+            if (abbr != null) logger.logEvent(AppEvent.FavoriteTeamSet(abbr))
+        }
     }
 
     fun setUseTestingData(enabled: Boolean) {
@@ -60,6 +66,7 @@ class SettingsViewModel @Inject constructor(
             val localeList = if (tag.isNullOrEmpty()) LocaleListCompat.getEmptyLocaleList()
                              else LocaleListCompat.forLanguageTags(tag)
             AppCompatDelegate.setApplicationLocales(localeList)
+            if (!tag.isNullOrEmpty()) logger.logEvent(AppEvent.LanguageChanged(tag))
         }
     }
 }

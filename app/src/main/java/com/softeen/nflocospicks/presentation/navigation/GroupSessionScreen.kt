@@ -1,5 +1,6 @@
 package com.softeen.nflocospicks.presentation.navigation
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
@@ -54,6 +55,7 @@ fun GroupSessionScreen(
     )
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NavigationBar(
                 containerColor = appColors.header,

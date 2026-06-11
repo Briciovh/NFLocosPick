@@ -1,5 +1,6 @@
 package com.softeen.nflocospicks.di
 
+import com.softeen.nflocospicks.data.repository.BoardRepositoryImpl
 import com.softeen.nflocospicks.data.repository.GroupRepositoryImpl
 import com.softeen.nflocospicks.data.repository.MockSessionRepositoryImpl
 import com.softeen.nflocospicks.data.repository.UserPreferencesRepositoryImpl
@@ -9,6 +10,7 @@ import com.softeen.nflocospicks.data.repository.PickRepositoryImpl
 import com.softeen.nflocospicks.data.repository.ScheduleRepositoryImpl
 import com.softeen.nflocospicks.data.repository.ScoringRepositoryImpl
 import com.softeen.nflocospicks.data.repository.UserRepositoryImpl
+import com.softeen.nflocospicks.domain.repository.BoardRepository
 import com.softeen.nflocospicks.domain.repository.GroupRepository
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
@@ -27,6 +29,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindBoardRepository(impl: BoardRepositoryImpl): BoardRepository
 
     @Binds
     @Singleton

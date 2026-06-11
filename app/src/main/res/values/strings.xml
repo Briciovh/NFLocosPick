@@ -65,4 +65,20 @@
     <string name="settings_simulate_title">Simular resultados</string>
     <string name="settings_simulate_desc">Bloquea los juegos y genera marcadores aleatorios</string>
     <string name="settings_user_management">Gestión de usuarios</string>
+
+    <!-- Board / Tablero -->
+    <string name="nav_board">Tablero</string>
+    <string name="board_title">Tablero del grupo</string>
+    <string name="board_empty">Aún no hay mensajes.\nSé el primero en escribir.</string>
+    <string name="board_hint">Escribe un mensaje…</string>
+    <string name="board_send">Enviar</string>
+    <string name="board_announcement_badge">ANUNCIO</string>
+    <string name="board_edited_label">(editado)</string>
+    <string name="board_editing_label">Editando mensaje…</string>
+    <string name="board_menu_edit">Editar</string>
+    <string name="board_menu_delete">Eliminar</string>
+    <string name="board_mark_announcement">Marcar como anuncio</string>
+    <string name="board_unmark_announcement">Quitar anuncio</string>
+    <string name="board_delete_confirm_title">¿Eliminar mensaje?</string>
+    <string name="board_delete_confirm_ok">Eliminar</string>
 </resources>

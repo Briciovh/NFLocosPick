@@ -24,8 +24,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import com.softeen.nflocospicks.presentation.common.TestTags
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -105,14 +107,14 @@ internal fun LoginScreenContent(
             Button(
                 onClick  = onSignIn,
                 enabled  = state !is AuthUiState.Loading,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp).testTag(TestTags.LOGIN_SIGN_IN_BUTTON),
                 colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
                 shape    = RoundedCornerShape(12.dp)
             ) {
                 if (state is AuthUiState.Loading) {
                     CircularProgressIndicator(
                         color       = appColors.onPrimary,
-                        modifier    = Modifier.size(24.dp),
+                        modifier    = Modifier.size(24.dp).testTag(TestTags.LOADING_INDICATOR),
                         strokeWidth = 2.dp
                     )
                 } else {

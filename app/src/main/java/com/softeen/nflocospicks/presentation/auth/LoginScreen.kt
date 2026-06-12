@@ -60,7 +60,7 @@ fun LoginScreen(
 }
 
 @Composable
-internal fun LoginScreenContent(
+fun LoginScreenContent(
     state: AuthUiState,
     onSignIn: () -> Unit
 ) {

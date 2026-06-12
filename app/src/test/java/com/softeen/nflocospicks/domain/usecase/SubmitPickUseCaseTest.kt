@@ -1,96 +1,48 @@
 package com.softeen.nflocospicks.domain.usecase
 
-import com.softeen.nflocospicks.domain.model.Pick
+import com.google.common.truth.Truth.assertThat
 import com.softeen.nflocospicks.domain.repository.PickRepository
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
-
-// ── Fake ─────────────────────────────────────────────────────────────────────
-
-private class FakePickRepository : PickRepository {
-    var submitCalled = false
-    var lastTeamAbbr: String? = null
-
-    override suspend fun submitPick(
-        groupId: String, weekId: String, userId: String,
-        gameId: String, teamAbbr: String
-    ) {
-        submitCalled = true
-        lastTeamAbbr = teamAbbr
-    }
-
-    override suspend fun getPicksForWeek(
-        groupId: String, weekId: String, userId: String
-    ): Map<String, Pick> = emptyMap()
-}
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 class SubmitPickUseCaseTest {
 
+    private val pickRepository = mockk<PickRepository>()
+    private val useCase = SubmitPickUseCase(pickRepository)
+
     @Test
-    fun `pick before kickoff calls submitPick on the repository`() = runBlocking {
-        val repo = FakePickRepository()
-        val useCase = SubmitPickUseCase(repo)
+    fun `invoke calls repository when kickoff is in the future`() = runBlocking {
+        // Given
+        val futureKickoff = System.currentTimeMillis() + 100_000
+        coEvery { 
+            pickRepository.submitPick(any(), any(), any(), any(), any()) 
+        } returns Unit
 
-        useCase(
-            groupId     = "g1",
-            weekId      = "2025-week-12",
-            userId      = "user1",
-            gameId      = "game1",
-            teamAbbr    = "KC",
-            kickoffTime = Long.MAX_VALUE   // muy en el futuro — nunca llegará
-        )
+        // When
+        useCase("group1", "2025-week-01", "user1", "game1", "KC", futureKickoff)
 
-        assertTrue("submitPick debe llamarse cuando el partido no ha comenzado", repo.submitCalled)
-        assertEquals("KC", repo.lastTeamAbbr)
+        // Then
+        coVerify { 
+            pickRepository.submitPick("group1", "2025-week-01", "user1", "game1", "KC") 
+        }
     }
 
     @Test
-    fun `pick after kickoff throws IllegalStateException without calling the repository`() = runBlocking {
-        val repo = FakePickRepository()
-        val useCase = SubmitPickUseCase(repo)
+    fun `invoke throws IllegalStateException when kickoff has passed`() = runBlocking {
+        // Given
+        val pastKickoff = System.currentTimeMillis() - 100_000
 
-        var thrown: IllegalStateException? = null
-        try {
-            useCase(
-                groupId     = "g1",
-                weekId      = "2025-week-12",
-                userId      = "user1",
-                gameId      = "game1",
-                teamAbbr    = "KC",
-                kickoffTime = 0L   // epoch — definitivamente en el pasado
-            )
-        } catch (e: IllegalStateException) {
-            thrown = e
+        // When / Then
+        val exception = assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                useCase("group1", "2025-week-01", "user1", "game1", "KC", pastKickoff)
+            }
         }
-
-        assertNotNull("Debe lanzar IllegalStateException", thrown)
-        assertFalse("No debe llamar al repositorio si el partido ya comenzó", repo.submitCalled)
-    }
-
-    @Test
-    fun `exception carries the expected Spanish message`() = runBlocking {
-        val useCase = SubmitPickUseCase(FakePickRepository())
-
-        var message: String? = null
-        try {
-            useCase(
-                groupId     = "g1",
-                weekId      = "2025-week-12",
-                userId      = "user1",
-                gameId      = "game1",
-                teamAbbr    = "KC",
-                kickoffTime = 0L
-            )
-        } catch (e: IllegalStateException) {
-            message = e.message
-        }
-
-        assertEquals("El partido ya comenzó, no puedes cambiar tu pick", message)
+        assertThat(exception.message).contains("ya comenzó")
+        coVerify(exactly = 0) { pickRepository.submitPick(any(), any(), any(), any(), any()) }
     }
 }

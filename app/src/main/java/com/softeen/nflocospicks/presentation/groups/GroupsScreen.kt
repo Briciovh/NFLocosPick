@@ -37,7 +37,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import com.softeen.nflocospicks.presentation.common.TestTags
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -167,16 +169,19 @@ internal fun GroupsScreenContent(
             when (listState) {
                 is GroupListUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = appColors.primary)
+                        CircularProgressIndicator(
+                            color    = appColors.primary,
+                            modifier = Modifier.testTag(TestTags.LOADING_INDICATOR)
+                        )
                     }
                 }
 
                 is GroupListUiState.Error -> {
                     Text(
-                        text = listState.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 16.dp)
+                        text     = listState.message,
+                        color    = MaterialTheme.colorScheme.error,
+                        style    = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 16.dp).testTag(TestTags.ERROR_MESSAGE)
                     )
                 }
 
@@ -187,10 +192,11 @@ internal fun GroupsScreenContent(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = stringResource(R.string.groups_empty),
-                                color = appColors.secondary,
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center
+                                text      = stringResource(R.string.groups_empty),
+                                color     = appColors.secondary,
+                                style     = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                modifier  = Modifier.testTag(TestTags.GROUPS_EMPTY_STATE)
                             )
                         }
                     } else {
@@ -221,6 +227,7 @@ private fun GroupCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag(TestTags.GROUPS_GROUP_CARD)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)

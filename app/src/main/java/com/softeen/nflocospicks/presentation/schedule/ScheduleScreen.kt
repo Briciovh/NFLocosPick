@@ -33,9 +33,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.softeen.nflocospicks.presentation.common.TestTags
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.Game
@@ -116,7 +118,10 @@ internal fun ScheduleScreenContent(
                     modifier         = Modifier.fillMaxSize().padding(innerPadding),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = appColors.primary)
+                    CircularProgressIndicator(
+                        color    = appColors.primary,
+                        modifier = Modifier.testTag(TestTags.LOADING_INDICATOR)
+                    )
                 }
             }
 
@@ -130,14 +135,16 @@ internal fun ScheduleScreenContent(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text  = uiState.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+                        text     = uiState.message,
+                        color    = MaterialTheme.colorScheme.error,
+                        style    = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag(TestTags.ERROR_MESSAGE)
                     )
                     Spacer(Modifier.height(16.dp))
                     Button(
-                        onClick = onRetry,
-                        colors  = ButtonDefaults.buttonColors(containerColor = appColors.primary)
+                        onClick  = onRetry,
+                        modifier = Modifier.testTag(TestTags.RETRY_BUTTON),
+                        colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary)
                     ) {
                         Text("Reintentar", color = appColors.onPrimary, fontWeight = FontWeight.Bold)
                     }
@@ -178,7 +185,8 @@ private fun GameCard(game: Game) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp)
+            .testTag(TestTags.SCHEDULE_GAME_CARD),
         shape  = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {

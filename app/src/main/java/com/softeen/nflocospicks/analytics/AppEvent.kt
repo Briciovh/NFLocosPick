@@ -45,6 +45,17 @@ sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap(
     data class LanguageChanged(val languageTag: String) :
         AppEvent("language_changed", mapOf("language_tag" to languageTag))
 
+    // ── Errors & Performance ──────────────────────────────────────────────────
+    data class ErrorOccurred(val feature: String, val message: String) :
+        AppEvent("error_occurred", mapOf("feature" to feature, "message" to message))
+
+    data class ApiLatency(val endpoint: String, val latencyMs: Long) :
+        AppEvent("api_latency", mapOf("endpoint" to endpoint, "latency_ms" to latencyMs))
+
+    // ── Screen Tracking ───────────────────────────────────────────────────────
+    data class ScreenViewed(val screenName: String) :
+        AppEvent("screen_viewed", mapOf("screen_name" to screenName))
+
     // ── Board ─────────────────────────────────────────────────────────────────
     data class BoardMessageSent(val groupId: String, val messageType: String) :
         AppEvent("board_message_sent", mapOf("group_id" to groupId, "message_type" to messageType))

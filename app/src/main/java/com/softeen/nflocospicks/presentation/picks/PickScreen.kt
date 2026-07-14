@@ -39,7 +39,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import com.softeen.nflocospicks.presentation.common.TestTags
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -162,7 +164,10 @@ internal fun PickScreenContent(
                     modifier         = Modifier.fillMaxSize().padding(innerPadding),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = appColors.primary)
+                    CircularProgressIndicator(
+                        color    = appColors.primary,
+                        modifier = Modifier.testTag(TestTags.LOADING_INDICATOR)
+                    )
                 }
             }
 
@@ -179,12 +184,14 @@ internal fun PickScreenContent(
                         text      = uiState.message,
                         color     = MaterialTheme.colorScheme.error,
                         style     = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        modifier  = Modifier.testTag(TestTags.ERROR_MESSAGE)
                     )
                     Spacer(Modifier.height(16.dp))
                     Button(
-                        onClick = onRetry,
-                        colors  = ButtonDefaults.buttonColors(containerColor = appColors.primary)
+                        onClick  = onRetry,
+                        modifier = Modifier.testTag(TestTags.RETRY_BUTTON),
+                        colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary)
                     ) {
                         Text(stringResource(R.string.picks_retry), color = appColors.onPrimary, fontWeight = FontWeight.Bold)
                     }
@@ -235,7 +242,8 @@ private fun GamePickCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp)
+            .testTag(TestTags.PICK_GAME_CARD),
         shape  = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {
@@ -315,7 +323,7 @@ private fun TeamPickButton(
     Button(
         onClick  = onClick,
         enabled  = !isLocked,
-        modifier = modifier,
+        modifier = modifier.testTag("${TestTags.PICK_TEAM_BUTTON}_$abbr"),
         shape    = RoundedCornerShape(8.dp),
         colors   = ButtonDefaults.buttonColors(
             containerColor         = containerColor,

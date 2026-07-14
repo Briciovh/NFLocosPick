@@ -1,0 +1,53 @@
+{
+  "week": { "number": 12 },
+  "events": [
+    {
+      "id": "401671876",
+      "date": "2025-11-24T18:00Z",
+      "competitions": [
+        {
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "28",
+              "team": { "displayName": "Kansas City Chiefs", "abbreviation": "KC" },
+              "records": [{ "name": "overall", "summary": "10-1" }]
+            },
+            {
+              "homeAway": "away",
+              "score": "14",
+              "team": { "displayName": "Las Vegas Raiders", "abbreviation": "LV" },
+              "records": [{ "name": "overall", "summary": "2-9" }]
+            }
+          ],
+          "status": {
+            "type": { "name": "STATUS_FINAL", "completed": true }
+          }
+        }
+      ]
+    },
+    {
+      "id": "401671877",
+      "date": "2025-11-24T21:30Z",
+      "competitions": [
+        {
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": null,
+              "team": { "displayName": "San Francisco 49ers", "abbreviation": "SF" }
+            },
+            {
+              "homeAway": "away",
+              "score": null,
+              "team": { "displayName": "Dallas Cowboys", "abbreviation": "DAL" }
+            }
+          ],
+          "status": {
+            "type": { "name": "STATUS_SCHEDULED", "completed": false }
+          }
+        }
+      ]
+    }
+  ]
+}

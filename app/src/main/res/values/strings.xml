@@ -1,5 +1,6 @@
 <resources>
-    <string name="app_name">NFLocos Pick</string>
+    <!-- Nombre de marca — igual en todos los idiomas, no se traduce -->
+    <string name="app_name" translatable="false">NFLocos Pick</string>
 
     <!-- Accesibilidad / Shared -->
     <string name="cd_back">Regresar</string>
@@ -14,9 +15,9 @@
     <!-- Login -->
     <string name="login_tagline">Picks privados con tu grupo</string>
     <string name="login_sign_in_google">Iniciar sesión con Google</string>
+    <string name="login_no_google_account">No se encontró ninguna cuenta de Google en este dispositivo. Agrega una en Ajustes.</string>
 
     <!-- Groups -->
-    <string name="groups_title">NFL PICKS</string>
     <string name="groups_empty">Aún no tienes grupos.\nCrea uno o únete con un código.</string>
     <string name="group_info">Código: %1$s  •  %2$d miembro(s)</string>
     <string name="scoring_none">No hay picks nuevos que puntuar</string>
@@ -40,7 +41,8 @@
     <string name="picks_team_home">LOCAL</string>
     <string name="game_status_live">EN VIVO</string>
     <string name="game_status_locked">🔒 CERRADO</string>
-    <string name="game_status_final">FINAL</string>
+    <!-- Terminología de fútbol americano — igual en todos los idiomas -->
+    <string name="game_status_final" translatable="false">FINAL</string>
 
     <!-- Leaderboard -->
     <string name="leaderboard_title">Líderes del Grupo</string>
@@ -57,8 +59,9 @@
     <string name="settings_sign_out">Cerrar sesión</string>
     <string name="settings_section_language">IDIOMA</string>
     <string name="settings_lang_system">Sistema</string>
-    <string name="settings_lang_spanish">Español</string>
-    <string name="settings_lang_english">English</string>
+    <!-- Nombres de idioma — siempre en su propio idioma, no se traducen -->
+    <string name="settings_lang_spanish" translatable="false">Español</string>
+    <string name="settings_lang_english" translatable="false">English</string>
     <string name="settings_section_insider">MODO INSIDER</string>
     <string name="settings_testing_title">Datos de testing</string>
     <string name="settings_testing_desc">Usa un grupo y juegos de prueba</string>

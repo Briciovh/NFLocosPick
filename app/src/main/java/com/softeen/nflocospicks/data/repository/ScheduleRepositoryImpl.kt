@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.data.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
 import timber.log.Timber
+import com.softeen.nflocospicks.BuildConfig
 import com.softeen.nflocospicks.data.remote.espn.EspnApiService
 import com.softeen.nflocospicks.data.remote.espn.toDomain
 import com.softeen.nflocospicks.domain.model.Game
@@ -16,9 +17,11 @@ class ScheduleRepositoryImpl @Inject constructor(
 
     companion object {
         /**
-         * SOLO para desarrollo: desplaza el kickoffTime N horas al futuro para
-         * poder testear picks durante la temporada muerta.
-         * Cambiar a 0L en producción / cuando arranque la temporada real.
+         * SOLO para builds debug: desplaza el kickoffTime 24h al futuro para
+         * poder testear picks durante la temporada muerta. Nunca se aplica en
+         * release — de lo contrario los picks quedarían desbloqueados 24h
+         * después del kickoff real, dejando elegir equipo con el resultado
+         * ya conocido.
          */
         private const val DEBUG_KICKOFF_OFFSET_MS = 24 * 60 * 60 * 1000L  // 24 h hacia el futuro
     }
@@ -26,9 +29,7 @@ class ScheduleRepositoryImpl @Inject constructor(
     override suspend fun getCurrentWeekGames(groupId: String): List<Game> {
         val response = espnApiService.getScoreboard()
         val games = response.toDomain().map { game ->
-            // En debug desplazamos el kickoff para que los picks estén desbloqueados.
-            // Quitar este bloque (o poner DEBUG_KICKOFF_OFFSET_MS = 0) para producción.
-            if (DEBUG_KICKOFF_OFFSET_MS > 0L) {
+            if (BuildConfig.DEBUG) {
                 game.copy(kickoffTime = System.currentTimeMillis() + DEBUG_KICKOFF_OFFSET_MS)
             } else {
                 game

@@ -18,8 +18,8 @@ import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 @Composable
 fun TeamLogo(
     abbr: String,
-    size: Dp = 48.dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    size: Dp = 48.dp
 ) {
     val appColors = LocalAppColors.current
     Box(

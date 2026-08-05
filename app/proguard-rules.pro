@@ -19,3 +19,20 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ── Retrofit / Gson ──────────────────────────────────────────────────────────
+# Retrofit and OkHttp ship their own consumer ProGuard rules; Gson needs help
+# from the app because it reflects over our own DTOs at runtime.
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn sun.misc.**
+
+# ESPN response DTOs are (de)serialized by Gson via reflection — keep field
+# names so JSON keys still match after obfuscation.
+-keep class com.softeen.nflocospicks.data.remote.espn.** { <fields>; }
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer

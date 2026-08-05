@@ -11,10 +11,15 @@ class FirebasePickDataSource @Inject constructor(
 ) {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private fun picksDoc(groupId: String, weekId: String, userId: String) =
+    private fun weekDoc(groupId: String, weekId: String) =
         firestore.collection("groups").document(groupId)
             .collection("weeks").document(weekId)
-            .collection("picks").document(userId)
+
+    private fun picksDoc(groupId: String, weekId: String, userId: String) =
+        weekDoc(groupId, weekId).collection("picks").document(userId)
+
+    private fun resultsDoc(groupId: String, weekId: String, userId: String) =
+        weekDoc(groupId, weekId).collection("results").document(userId)
 
     // ── Operaciones ───────────────────────────────────────────────────────────
 
@@ -37,22 +42,28 @@ class FirebasePickDataSource @Inject constructor(
     }
 
     /**
-     * Lee todos los picks del usuario para la semana dada.
-     * Cada campo del documento es un gameId que mapea a sus datos de pick.
+     * Lee todos los picks del usuario para la semana dada, combinando
+     * picks/{userId} (pickedTeam, escrito por el usuario) con
+     * results/{userId} (isCorrect/scoredAt, escrito solo por la Cloud
+     * Function de scoring — ver firestore.rules).
      */
     suspend fun getPicksForWeek(
         groupId: String,
         weekId: String,
         userId: String
     ): Map<String, Pick> {
-        val snapshot = picksDoc(groupId, weekId, userId).get().await()
-        if (!snapshot.exists()) return emptyMap()
+        val picksSnapshot = picksDoc(groupId, weekId, userId).get().await()
+        if (!picksSnapshot.exists()) return emptyMap()
 
-        return snapshot.data.orEmpty().mapNotNull { (gameId, value) ->
+        val resultsSnapshot = resultsDoc(groupId, weekId, userId).get().await()
+        val results = resultsSnapshot.data.orEmpty()
+
+        return picksSnapshot.data.orEmpty().mapNotNull { (gameId, value) ->
             val pickData = value as? Map<*, *> ?: return@mapNotNull null
             val pickedTeam = pickData["pickedTeam"] as? String ?: return@mapNotNull null
-            val isCorrect  = pickData["isCorrect"] as? Boolean
-            val scoredAt   = (pickData["scoredAt"] as? Number)?.toLong()
+            val resultData = results[gameId] as? Map<*, *>
+            val isCorrect  = resultData?.get("isCorrect") as? Boolean
+            val scoredAt   = (resultData?.get("scoredAt") as? Number)?.toLong()
             gameId to Pick(
                 gameId     = gameId,
                 pickedTeam = pickedTeam,

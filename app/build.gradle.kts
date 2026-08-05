@@ -1,10 +1,32 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
-    alias(libs.plugins.firebase.crashlytics)
+    alias(libs.plugins.google.services) apply false
+    alias(libs.plugins.firebase.crashlytics) apply false
+}
+
+// google-services.json is gitignored (contains the Firebase project config)
+// and absent on a fresh clone or CI without secrets. Only wire up Firebase's
+// build-time plugins when the file is actually present, so the project still
+// builds — Firebase just won't be configured at runtime.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
+// Release signing — loaded from keystore.properties (gitignored, never
+// committed). See keystore.properties.example for the expected format.
+// Absent locally (e.g. a fresh clone or CI without secrets), release builds
+// stay unsigned instead of failing, same as google-services.json.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -21,13 +43,31 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
@@ -67,6 +107,7 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.functions)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -101,6 +142,8 @@ dependencies {
     implementation(libs.datastore.preferences)
     // AppCompat (AppCompatDelegate para locale dinámico)
     implementation(libs.androidx.appcompat)
+    // Splash screen — mantiene la splash nativa mientras se carga el locale guardado
+    implementation(libs.androidx.splashscreen)
     // Logging
     implementation(libs.timber)
 

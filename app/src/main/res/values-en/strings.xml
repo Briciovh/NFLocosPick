@@ -12,9 +12,9 @@
     <!-- Login -->
     <string name="login_tagline">Private picks with your group</string>
     <string name="login_sign_in_google">Sign in with Google</string>
+    <string name="login_no_google_account">No Google account found on this device. Add one in Settings.</string>
 
     <!-- Groups -->
-    <!-- groups_title: "NFL PICKS" es igual en ambos idiomas -->
     <string name="groups_empty">You don\'t have any groups yet.\nCreate one or join with a code.</string>
     <string name="group_info">Code: %1$s  •  %2$d member(s)</string>
     <string name="scoring_none">No new picks to score</string>
@@ -38,13 +38,13 @@
     <string name="picks_team_home">HOME</string>
     <string name="game_status_live">LIVE</string>
     <string name="game_status_locked">🔒 LOCKED</string>
-    <!-- game_status_final: "FINAL" es igual en ambos idiomas -->
 
     <!-- Leaderboard -->
     <string name="leaderboard_title">Leaderboard</string>
     <string name="leaderboard_empty">No scores yet.\nPicks are scored automatically.</string>
     <string name="leaderboard_weekly_breakdown">Weekly breakdown</string>
     <string name="leaderboard_view_history">View full history</string>
+    <string name="points_format">%1$d pts</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -53,7 +53,7 @@
     <string name="settings_no_team">None</string>
     <string name="settings_sign_out">Sign out</string>
     <string name="settings_section_language">LANGUAGE</string>
-    <!-- settings_lang_spanish y settings_lang_english siempre en su propio idioma, no se traducen -->
+    <string name="settings_lang_system">System</string>
     <string name="settings_section_insider">INSIDER MODE</string>
     <string name="settings_testing_title">Testing data</string>
     <string name="settings_testing_desc">Use a test group and games</string>

@@ -190,9 +190,9 @@ private fun MemberCard(
     entry: LeaderboardEntry,
     isExpanded: Boolean,
     onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
     isOwnCard: Boolean = false,
-    onViewHistory: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onViewHistory: () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
     Card(

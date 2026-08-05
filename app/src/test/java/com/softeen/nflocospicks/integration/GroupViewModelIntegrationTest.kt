@@ -1,6 +1,5 @@
 package com.softeen.nflocospicks.integration
 
-import androidx.work.WorkManager
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.model.User
@@ -46,7 +45,6 @@ class GroupViewModelIntegrationTest {
     private val userRepo    = mockk<UserRepository>()
     private val prefsRepo   = mockk<UserPreferencesRepository>()
     private val scoreUseCase = mockk<ScoreWeekPicksUseCase>(relaxed = true)
-    private val workManager = mockk<WorkManager>(relaxed = true)
     private val logger      = mockk<AppLogger>(relaxed = true)
 
     private val testUser = User(uid = "user1", displayName = "Test", email = "t@t.com", photoUrl = null)
@@ -71,7 +69,6 @@ class GroupViewModelIntegrationTest {
         scoreWeekPicksUseCase   = scoreUseCase,
         userRepository          = userRepo,
         preferencesRepository   = prefsRepo,
-        workManager             = workManager,
         logger                  = logger
     )
 

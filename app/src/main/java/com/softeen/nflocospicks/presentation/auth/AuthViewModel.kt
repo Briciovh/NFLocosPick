@@ -2,8 +2,10 @@ package com.softeen.nflocospicks.presentation.auth
 
 import android.content.Context
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.R
 import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -55,6 +57,9 @@ class AuthViewModel @Inject constructor(
             } catch (e: GetCredentialCancellationException) {
                 // User dismissed the picker — silently return to Idle, no error shown.
                 _uiState.value = AuthUiState.Idle
+            } catch (e: NoCredentialException) {
+                // No Google account configured on this device.
+                _uiState.value = AuthUiState.Error(context.getString(R.string.login_no_google_account))
             } catch (e: Exception) {
                 _uiState.value = AuthUiState.Error(e.message ?: "Sign-in failed")
             }

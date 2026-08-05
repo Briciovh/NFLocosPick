@@ -51,7 +51,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val kickoffDisplayFormat = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault())
+// Instancia nueva por llamada (no cachear en un val de nivel de archivo): el
+// usuario puede cambiar el idioma en runtime y Locale.getDefault() con él.
+private fun kickoffDisplayFormat() = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.getDefault())
 
 @Composable
 fun ScheduleScreen(
@@ -199,7 +201,7 @@ private fun GameCard(game: Game) {
                 verticalAlignment     = Alignment.CenterVertically
             ) {
                 Text(
-                    text       = kickoffDisplayFormat.format(Date(game.kickoffTime)),
+                    text       = kickoffDisplayFormat().format(Date(game.kickoffTime)),
                     color      = appColors.secondary,
                     style      = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold

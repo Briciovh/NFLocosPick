@@ -37,11 +37,16 @@ class FirebaseHistoryDataSource @Inject constructor(
             val games = rawGames.filterIsInstance<Map<String, Any>>().mapNotNull { it.toGame() }
             if (games.isEmpty()) continue
 
-            val picksDoc = firestore
+            val weekRef = firestore
                 .collection("groups").document(groupId)
                 .collection("weeks").document(weekId)
-                .collection("picks").document(userId)
-                .get().await()
+
+            val picksDoc = weekRef.collection("picks").document(userId).get().await()
+            // isCorrect/scoredAt/winnerTeamAbbr viven en results/{userId}, no en
+            // picks/{userId} — solo la Cloud Function de scoring puede escribirlos
+            // (ver firestore.rules). picks/{userId} solo tiene pickedTeam.
+            val resultsDoc = weekRef.collection("results").document(userId).get().await()
+            val results = resultsDoc.data.orEmpty()
 
             data class PickData(val pick: Pick, val winnerTeamAbbr: String?)
 
@@ -49,9 +54,10 @@ class FirebaseHistoryDataSource @Inject constructor(
                 picksDoc.data.orEmpty().mapNotNull { (gameId, value) ->
                     val pickData = value as? Map<*, *> ?: return@mapNotNull null
                     val pickedTeam = pickData["pickedTeam"] as? String ?: return@mapNotNull null
-                    val isCorrect = pickData["isCorrect"] as? Boolean
-                    val scoredAt = (pickData["scoredAt"] as? Number)?.toLong()
-                    val winnerTeamAbbr = (pickData["winnerTeamAbbr"] as? String)?.takeIf { it.isNotEmpty() }
+                    val resultData = results[gameId] as? Map<*, *>
+                    val isCorrect = resultData?.get("isCorrect") as? Boolean
+                    val scoredAt = (resultData?.get("scoredAt") as? Number)?.toLong()
+                    val winnerTeamAbbr = (resultData?.get("winnerTeamAbbr") as? String)?.takeIf { it.isNotEmpty() }
                     gameId to PickData(Pick(gameId, pickedTeam, isCorrect, scoredAt), winnerTeamAbbr)
                 }.toMap()
             } else emptyMap()

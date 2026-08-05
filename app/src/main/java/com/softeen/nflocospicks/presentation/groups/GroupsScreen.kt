@@ -36,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.softeen.nflocospicks.presentation.common.TestTags
@@ -63,7 +62,8 @@ fun GroupsScreen(
 ) {
     val listState by viewModel.groupListState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    val scoringNoneMsg = stringResource(R.string.scoring_none)
+    val scoringResultPattern = stringResource(R.string.scoring_result)
 
     // Consume efectos de un solo disparo (navegación + feedback de puntuación)
     LaunchedEffect(Unit) {
@@ -73,9 +73,9 @@ fun GroupsScreen(
                 GroupUiEffect.NavigateToLogin           -> onSignedOut()
                 is GroupUiEffect.ScoringResult      -> {
                     val msg = if (effect.newlyScoredCount == 0)
-                        context.getString(R.string.scoring_none)
+                        scoringNoneMsg
                     else
-                        context.getString(R.string.scoring_result, effect.newlyScoredCount)
+                        String.format(scoringResultPattern, effect.newlyScoredCount)
                     snackbarHostState.showSnackbar(msg)
                 }
                 is GroupUiEffect.ScoringError       -> snackbarHostState.showSnackbar(effect.message)

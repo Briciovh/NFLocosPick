@@ -5,5 +5,6 @@ data class User(
     val displayName: String,
     val email: String,
     val photoUrl: String?,
-    val role: UserRole = UserRole.REGULAR
+    val role: UserRole = UserRole.REGULAR,
+    val phoneNumber: String? = null
 )

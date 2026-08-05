@@ -243,6 +243,8 @@ These rules apply to every change made in this repository. There are no exceptio
    - Always run `./gradlew assembleDebug` (and `./gradlew test` if logic changed) before staging anything.
    - Fix all errors and warnings introduced by the change before committing. Never commit a broken build.
 
+3. **Spanish output must be neutral Mexican Spanish (tuteo) — never voseo/Rioplatense.** This applies to chat replies, in-app strings, comments, and any generated document — including casual one-liners, which is exactly where this has slipped before (e.g. "decime" instead of "dime"). Never: vos, tenés/podés/sos/decís, decime/contame/fijate/mirá/andá. Always: tú (usually omitted), tienes/puedes/eres/dices, dime/cuéntame/fíjate/mira/anda.
+
 ---
 
 ## Key Constraints

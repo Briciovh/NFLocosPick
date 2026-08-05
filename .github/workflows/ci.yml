@@ -22,6 +22,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # Guards against the executable bit getting lost again (core.fileMode is
+      # often off on Windows dev machines, so `git update-index --chmod=+x`
+      # can silently regress on a future Windows-authored commit).
+      - name: Ensure gradlew is executable
+        run: chmod +x gradlew
+
       # google-services.json is gitignored (Firebase project config) and the
       # app's Google Sign-In code needs the resources the google-services
       # Gradle plugin generates from it, so CI restores the real file from a

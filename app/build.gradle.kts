@@ -37,8 +37,8 @@ android {
         applicationId = "com.softeen.nflocospicks"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = gitCommitCount()
+        versionName = gitVersionName()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -169,3 +169,14 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+// versionCode = total commit count (monotonically increasing, satisfies Play
+// Store's requirement). versionName = nearest tag via `git describe`, with the
+// "v" prefix stripped (our tags are "v1.1.0"; Play Store expects plain semver).
+fun gitCommitCount(): Int = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD")
+}.standardOutput.asText.get().trim().toIntOrNull() ?: 1
+
+fun gitVersionName(): String = providers.exec {
+    commandLine("git", "describe", "--tags", "--always")
+}.standardOutput.asText.get().trim().removePrefix("v").ifEmpty { "1.0.0" }

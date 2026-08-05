@@ -13,6 +13,35 @@
     <string name="login_tagline">Private picks with your group</string>
     <string name="login_sign_in_google">Sign in with Google</string>
     <string name="login_no_google_account">No Google account found on this device. Add one in Settings.</string>
+    <string name="login_label_email">Email</string>
+    <string name="login_label_password">Password</string>
+    <string name="login_label_phone_number">Phone number</string>
+    <string name="login_label_sms_code">6-digit code</string>
+    <string name="login_action_login">Login</string>
+    <string name="login_action_register">Register</string>
+    <string name="login_toggle_to_login">Already have an account? Login</string>
+    <string name="login_toggle_to_register">New user? Create account</string>
+    <string name="login_action_use_email_link">Sign in with an email link instead</string>
+    <string name="login_action_use_phone">Sign in with phone number instead</string>
+    <string name="login_action_use_password">Use password instead</string>
+    <string name="login_action_send_link">Send me a sign-in link</string>
+    <string name="login_link_sent">Link sent to %1$s. Open it on this device to finish signing in.</string>
+    <string name="login_action_send_code">Send code</string>
+    <string name="login_action_verify_code">Verify code</string>
+    <string name="error_google_sign_in_failed">Google sign-in failed</string>
+    <string name="error_invalid_credentials">Incorrect email or password</string>
+    <string name="error_email_in_use">This email is already in use</string>
+    <string name="error_weak_password">Password is too weak</string>
+    <string name="error_network">Network error. Check your connection and try again</string>
+    <string name="error_sign_in_failed">Sign-in failed</string>
+    <string name="error_registration_failed">Registration failed</string>
+    <string name="error_send_link_failed">Couldn\'t send sign-in link</string>
+    <string name="error_email_link_sign_in_failed">Email link sign-in failed</string>
+    <string name="error_email_link_no_pending">This sign-in link doesn\'t match any pending request on this device. Request a new link from the app.</string>
+    <string name="error_phone_verification_failed">Phone verification failed</string>
+    <string name="error_phone_sign_in_failed">Phone sign-in failed</string>
+    <string name="error_verification_expired">Verification session expired, please request a new code</string>
+    <string name="error_invalid_verification_code">Invalid verification code</string>
 
     <!-- Groups -->
     <string name="groups_empty">You don\'t have any groups yet.\nCreate one or join with a code.</string>

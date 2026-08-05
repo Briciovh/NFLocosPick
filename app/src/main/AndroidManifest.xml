@@ -33,11 +33,28 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.NFLocosPick.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Firebase email-link (passwordless) sign-in deep link.
+                 android:host MUST exactly match EMAIL_LINK_CONTINUE_URL's host in
+                 UserRepositoryImpl.kt — CONFIRM this value in the Firebase Console
+                 (Authentication > Settings > Authorized domains) before shipping;
+                 "nflocospicks.firebaseapp.com" is the default-pattern guess based on
+                 google-services.json's project_id, not yet verified against the console. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="nflocospicks.firebaseapp.com"
+                    android:pathPrefix="/__/auth/links" />
             </intent-filter>
         </activity>
     </application>

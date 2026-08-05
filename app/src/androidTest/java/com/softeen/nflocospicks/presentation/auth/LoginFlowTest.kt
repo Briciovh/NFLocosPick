@@ -22,7 +22,7 @@ class LoginFlowTest {
             NFLocosPickTheme {
                 LoginScreenContent(
                     state = AuthUiState.Idle,
-                    onSignIn = {}
+                    onSignInGoogle = {}
                 )
             }
         }
@@ -39,7 +39,7 @@ class LoginFlowTest {
             NFLocosPickTheme {
                 LoginScreenContent(
                     state = AuthUiState.Loading,
-                    onSignIn = {}
+                    onSignInGoogle = {}
                 )
             }
         }

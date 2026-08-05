@@ -28,7 +28,7 @@ class LoginScreenTest {
             MaterialTheme {
                 LoginScreenContent(
                     state    = AuthUiState.Idle,
-                    onSignIn = {}
+                    onSignInGoogle = {}
                 )
             }
         }
@@ -45,7 +45,7 @@ class LoginScreenTest {
             MaterialTheme {
                 LoginScreenContent(
                     state    = AuthUiState.Loading,
-                    onSignIn = {}
+                    onSignInGoogle = {}
                 )
             }
         }
@@ -67,7 +67,7 @@ class LoginScreenTest {
             MaterialTheme {
                 LoginScreenContent(
                     state    = AuthUiState.Idle,
-                    onSignIn = { clicked = true }
+                    onSignInGoogle = { clicked = true }
                 )
             }
         }
@@ -76,6 +76,6 @@ class LoginScreenTest {
             .onNodeWithTag(TestTags.LOGIN_SIGN_IN_BUTTON)
             .performClick()
 
-        assertTrue("onSignIn must be called after button tap", clicked)
+        assertTrue("onSignInGoogle must be called after button tap", clicked)
     }
 }

@@ -3,8 +3,8 @@ package com.softeen.nflocospicks.analytics
 sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap()) {
 
     // ── Auth ──────────────────────────────────────────────────────────────────
-    object SignIn  : AppEvent("sign_in",  mapOf("method" to "google"))
-    object SignUp  : AppEvent("sign_up",  mapOf("method" to "google"))
+    data class SignIn(val method: String) : AppEvent("sign_in", mapOf("method" to method))
+    data class SignUp(val method: String) : AppEvent("sign_up", mapOf("method" to method))
     object SignOut : AppEvent("sign_out")
 
     // ── Groups ────────────────────────────────────────────────────────────────

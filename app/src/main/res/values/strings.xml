@@ -16,6 +16,35 @@
     <string name="login_tagline">Picks privados con tu grupo</string>
     <string name="login_sign_in_google">Iniciar sesión con Google</string>
     <string name="login_no_google_account">No se encontró ninguna cuenta de Google en este dispositivo. Agrega una en Ajustes.</string>
+    <string name="login_label_email">Correo electrónico</string>
+    <string name="login_label_password">Contraseña</string>
+    <string name="login_label_phone_number">Número de teléfono</string>
+    <string name="login_label_sms_code">Código de 6 dígitos</string>
+    <string name="login_action_login">Iniciar sesión</string>
+    <string name="login_action_register">Registrarse</string>
+    <string name="login_toggle_to_login">¿Ya tienes cuenta? Inicia sesión</string>
+    <string name="login_toggle_to_register">¿Nuevo? Crea una cuenta</string>
+    <string name="login_action_use_email_link">Iniciar sesión con un enlace por correo</string>
+    <string name="login_action_use_phone">Iniciar sesión con número de teléfono</string>
+    <string name="login_action_use_password">Usar contraseña en su lugar</string>
+    <string name="login_action_send_link">Enviarme un enlace de acceso</string>
+    <string name="login_link_sent">Enlace enviado a %1$s. Ábrelo en este dispositivo para terminar de iniciar sesión.</string>
+    <string name="login_action_send_code">Enviar código</string>
+    <string name="login_action_verify_code">Verificar código</string>
+    <string name="error_google_sign_in_failed">Falló el inicio de sesión con Google</string>
+    <string name="error_invalid_credentials">Correo o contraseña incorrectos</string>
+    <string name="error_email_in_use">Este correo ya está en uso</string>
+    <string name="error_weak_password">La contraseña es demasiado débil</string>
+    <string name="error_network">Error de red. Revisa tu conexión e inténtalo de nuevo</string>
+    <string name="error_sign_in_failed">Falló el inicio de sesión</string>
+    <string name="error_registration_failed">Falló el registro</string>
+    <string name="error_send_link_failed">No se pudo enviar el enlace de acceso</string>
+    <string name="error_email_link_sign_in_failed">Falló el inicio de sesión con el enlace</string>
+    <string name="error_email_link_no_pending">Este enlace no coincide con ninguna solicitud pendiente en este dispositivo. Solicita un enlace nuevo desde la app.</string>
+    <string name="error_phone_verification_failed">Falló la verificación telefónica</string>
+    <string name="error_phone_sign_in_failed">Falló el inicio de sesión con teléfono</string>
+    <string name="error_verification_expired">La sesión de verificación expiró, solicita un código nuevo</string>
+    <string name="error_invalid_verification_code">Código de verificación inválido</string>
 
     <!-- Groups -->
     <string name="groups_empty">Aún no tienes grupos.\nCrea uno o únete con un código.</string>

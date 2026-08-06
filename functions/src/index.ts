@@ -5,6 +5,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { fetchCurrentWeekGames, computeWinners } from "./espn";
 import { scoreGroupForWeek } from "./scoring";
+import { deleteUserAccount } from "./accountDeletion";
 
 initializeApp();
 
@@ -81,4 +82,19 @@ export const scoreGroupWeek = onCall<{ groupId?: string }>(async (request) => {
 
   const scoredCount = await scoreGroupForWeek(groupId, weekId, memberIds, winners);
   return { scoredCount };
+});
+
+/**
+ * Eliminación de cuenta (requisito de Google Play). Solo opera sobre el
+ * propio usuario autenticado — nunca recibe un uid por parámetro, para que
+ * nadie pueda pedir la eliminación de otra cuenta.
+ */
+export const deleteAccount = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  await deleteUserAccount(uid);
+  return { success: true };
 });

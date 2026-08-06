@@ -28,4 +28,5 @@ fun AuthError.messageRes(): Int = when (this) {
     AuthError.PHONE_ALREADY_IN_USE -> R.string.error_phone_already_in_use
     AuthError.LINK_EMAIL_FAILED -> R.string.error_link_email_failed
     AuthError.LINK_PHONE_FAILED -> R.string.error_link_phone_failed
+    AuthError.ACCOUNT_DELETION_FAILED -> R.string.error_account_deletion_failed
 }

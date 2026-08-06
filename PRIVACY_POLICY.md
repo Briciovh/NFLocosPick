@@ -89,7 +89,7 @@ Toda la información viaja cifrada en tránsito (HTTPS/TLS) entre la app y los s
 
 Conservamos tu información mientras tu cuenta esté activa. Si eliminas tu cuenta (ver sección 6), borramos tus datos personales de nuestros sistemas, salvo que la ley nos obligue a conservar algún registro por más tiempo.
 
-Los mensajes y picks que compartiste con un grupo pueden seguir visibles para el resto de los miembros de ese grupo incluso después de que dejes de usar la app, salvo que tú mismo los elimines o solicites la baja de tu cuenta.
+Los mensajes y picks que compartiste con un grupo pueden seguir visibles para el resto de los miembros de ese grupo incluso después de que dejes de usar la app, salvo que tú mismo los elimines. Si eliminas tu cuenta, ese contenido se conserva para no romper el historial y el leaderboard del grupo, pero deja de mostrar tu nombre o tu foto.
 
 ---
 
@@ -101,7 +101,12 @@ Tienes derecho a:
 - **Corregir** información incorrecta (por ejemplo, tu nombre se actualiza automáticamente si lo cambias en tu cuenta de Google).
 - **Eliminar** tu cuenta y tus datos personales.
 
-Para ejercer cualquiera de estos derechos, escríbenos a **briciovh@gmail.com**. Vamos a procesar tu solicitud de eliminación en un plazo razonable y confirmarte cuando esté hecho.
+Puedes eliminar tu cuenta de dos formas:
+
+- **Desde la app**: Configuración → Eliminar cuenta.
+- **Sin la app instalada**: en nuestra [página de eliminación de cuenta](https://briciovh.github.io/NFLocosPick/delete-account.html).
+
+Para ejercer cualquier otro derecho de esta sección, escríbenos a **briciovh@gmail.com**. Vamos a procesar tu solicitud de eliminación en un plazo razonable y confirmarte cuando esté hecho.
 
 ---
 
@@ -227,7 +232,7 @@ All information travels encrypted in transit (HTTPS/TLS) between the app and Fir
 
 We keep your information for as long as your account is active. If you delete your account (see Section 6), we remove your personal data from our systems, unless the law requires us to retain some record for longer.
 
-Messages and picks you shared with a group may remain visible to that group's other members even after you stop using the app, unless you delete them yourself or request that your account be closed.
+Messages and picks you shared with a group may remain visible to that group's other members even after you stop using the app, unless you delete them yourself. If you delete your account, that content is kept so the group's history and leaderboard stay intact, but it no longer shows your name or photo.
 
 ---
 
@@ -239,7 +244,12 @@ You have the right to:
 - **Correct** inaccurate information (for example, your name updates automatically if you change it in your Google account).
 - **Delete** your account and personal data.
 
-To exercise any of these rights, email us at **briciovh@gmail.com**. We will process your deletion request within a reasonable time and confirm once it's done.
+You can delete your account in two ways:
+
+- **From the app**: Settings → Delete account.
+- **Without the app installed**: on our [account deletion page](https://briciovh.github.io/NFLocosPick/delete-account.html).
+
+To exercise any other right in this section, email us at **briciovh@gmail.com**. We will process your deletion request within a reasonable time and confirm once it's done.
 
 ---
 

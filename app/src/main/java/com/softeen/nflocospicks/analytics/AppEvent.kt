@@ -6,6 +6,7 @@ sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap(
     data class SignIn(val method: String) : AppEvent("sign_in", mapOf("method" to method))
     data class SignUp(val method: String) : AppEvent("sign_up", mapOf("method" to method))
     object SignOut : AppEvent("sign_out")
+    object AccountDeleted : AppEvent("account_deleted")
 
     // ── Groups ────────────────────────────────────────────────────────────────
     data class GroupCreated(val groupId: String) :

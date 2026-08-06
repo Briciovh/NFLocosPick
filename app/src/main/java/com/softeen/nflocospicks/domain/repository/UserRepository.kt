@@ -130,4 +130,14 @@ interface UserRepository {
 
     /** Real-time stream of all user documents — used by UserManagementScreen. */
     fun getAllUsers(): Flow<List<User>>
+
+    /**
+     * Deletes the signed-in user's account (Google Play account-deletion requirement).
+     * Invokes the "deleteAccount" Cloud Function, which anonymizes the user's profile and
+     * board messages, removes them from every group's `memberIds`, and deletes their
+     * username reservation, profile photo, and Firebase Auth record. Past picks/results/
+     * standings are left in place so other members' group history stays intact. Ends the
+     * local session on success, same as [signOut].
+     */
+    suspend fun deleteAccount(): Result<Unit>
 }

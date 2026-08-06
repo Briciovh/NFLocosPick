@@ -51,6 +51,7 @@
     <string name="error_phone_already_in_use">That phone number is already linked to another account</string>
     <string name="error_link_email_failed">Couldn\'t link the email</string>
     <string name="error_link_phone_failed">Couldn\'t link the phone number</string>
+    <string name="error_account_deletion_failed">Couldn\'t delete your account. Please try again</string>
 
     <!-- Groups -->
     <string name="groups_empty">You don\'t have any groups yet.\nCreate one or join with a code.</string>
@@ -90,6 +91,10 @@
     <string name="settings_section_fav_team">FAVORITE TEAM</string>
     <string name="settings_no_team">None</string>
     <string name="settings_sign_out">Sign out</string>
+    <string name="settings_delete_account">Delete account</string>
+    <string name="settings_delete_account_dialog_title">Delete your account?</string>
+    <string name="settings_delete_account_dialog_body">Your profile, photo, username, and membership in every group will be removed. Your past picks and messages stay in the group\'s history, but without your name. This can\'t be undone.</string>
+    <string name="settings_delete_account_dialog_confirm">Delete account</string>
     <string name="settings_section_language">LANGUAGE</string>
     <string name="settings_lang_system">System</string>
     <string name="settings_section_insider">INSIDER MODE</string>

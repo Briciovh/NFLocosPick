@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de Privacidad — NFLocosPick</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #5a5a5a;
+    --accent: #0b3d91;
+    --border: #e0e0e0;
+    --card: #f7f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b1220;
+      --fg: #eef1f6;
+      --muted: #a7b0c0;
+      --accent: #7fa8ff;
+      --border: #26314a;
+      --card: #121a2b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+  }
+  main {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+  header {
+    padding: 8px 0 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 1.5rem; }
+  header p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .lang-switch { margin-top: 12px; font-size: 0.9rem; }
+  .lang-switch a { color: var(--accent); text-decoration: none; margin-right: 12px; }
+  .lang-switch a:hover { text-decoration: underline; }
+  h2 { font-size: 1.15rem; margin-top: 2.2em; color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+  th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; font-size: 0.92rem; }
+  th { background: var(--card); }
+  a { color: var(--accent); }
+  .contact {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 1em 0;
+  }
+  hr { border: none; border-top: 1px solid var(--border); margin: 2.5em 0; }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: 3em; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>NFLocosPick</h1>
+  <p>Política de Privacidad · Bricio Velázquez (desarrollador)</p>
+  <div class="lang-switch">
+    <a href="#es">Español</a>
+    <a href="#en">English</a>
+  </div>
+</header>
+
+<section id="es" lang="es">
+  <p><strong>Última actualización:</strong> 5 de agosto de 2026</p>
+
+  <p>NFLocosPick ("la app", "nosotros") es una aplicación para grupos privados de amigos que hacen picks semanales de la NFL. Esta política explica qué información recopilamos, para qué la usamos, con quién se comparte y qué control tienes sobre ella.</p>
+
+  <p>Al usar NFLocosPick aceptas las prácticas descritas en este documento.</p>
+
+  <h2>1. Quién es responsable de tus datos</h2>
+  <p>NFLocosPick es desarrollada y mantenida por <strong>Bricio Velázquez</strong> ("el desarrollador"). Si tienes preguntas sobre esta política o sobre tus datos, puedes escribir a:</p>
+  <div class="contact"><strong>briciovh@gmail.com</strong></div>
+
+  <h2>2. Qué información recopilamos</h2>
+
+  <h3>2.1 Al iniciar sesión</h3>
+  <p>NFLocosPick usa <strong>Google Sign-In</strong> como único método de autenticación. Al iniciar sesión, recibimos y guardamos:</p>
+  <ul>
+    <li>Tu dirección de correo electrónico</li>
+    <li>Tu nombre visible (el de tu cuenta de Google)</li>
+    <li>La URL de tu foto de perfil de Google</li>
+  </ul>
+  <p>No tenemos acceso a tu contraseña de Google ni a ningún otro dato de tu cuenta de Google.</p>
+
+  <h3>2.2 Contenido que generas dentro de la app</h3>
+  <p>Cuando usas NFLocosPick con tu grupo, guardamos el contenido que tú mismo creas:</p>
+  <ul>
+    <li><strong>Grupos</strong>: nombre del grupo, código de invitación, quién lo creó y quiénes son sus miembros.</li>
+    <li><strong>Picks</strong>: qué equipo elegiste en cada partido de cada semana, y si acertaste o no una vez que el partido termina.</li>
+    <li><strong>Puntuaciones</strong>: tu puntaje total y el desglose semanal dentro de cada grupo.</li>
+    <li><strong>Mensajes del tablero de grupo</strong>: el texto de los mensajes y anuncios que escribes en el tablero de tu grupo, junto con tu nombre y foto de perfil.</li>
+  </ul>
+  <p>Este contenido es visible <strong>únicamente para los demás miembros del mismo grupo</strong> — nunca es público ni visible para usuarios fuera de tu grupo.</p>
+
+  <h3>2.3 Datos de uso y diagnóstico</h3>
+  <p>Usamos <strong>Firebase Analytics</strong> y <strong>Firebase Crashlytics</strong> (servicios de Google) para entender cómo se usa la app y detectar errores. Esto incluye:</p>
+  <ul>
+    <li>Eventos de uso: inicio de sesión, creación o ingreso a un grupo, envío de un pick, apertura del leaderboard, cambio de idioma, entre otros. Estos eventos incluyen identificadores de grupo o partido, pero no el contenido de tus mensajes ni tus picks en texto libre.</li>
+    <li>Información técnica en caso de fallos: registro del error (stack trace), modelo de dispositivo, versión de Android, versión de la app.</li>
+    <li>Identificadores de instalación o dispositivo generados por Firebase (no vinculados a tu nombre real fuera de tu cuenta de la app).</li>
+  </ul>
+
+  <h3>2.4 Datos que <strong>no</strong> recopilamos ni enviamos a nuestros servidores</h3>
+  <ul>
+    <li>Tu <strong>equipo favorito</strong> y tu <strong>preferencia de idioma</strong> se guardan únicamente en tu dispositivo (no se suben a nuestros servidores ni se comparten con nadie).</li>
+    <li>No accedemos a tus contactos, ubicación, cámara, micrófono, ni a ningún otro dato del dispositivo fuera de lo descrito arriba.</li>
+    <li>La app consulta la API pública de ESPN para mostrar el calendario y los resultados de la NFL. Esa consulta no envía ningún dato tuyo — es información pública de la liga.</li>
+  </ul>
+
+  <h3>2.5 Publicidad</h3>
+  <p>NFLocosPick <strong>no muestra anuncios</strong> y <strong>no usa redes publicitarias ni SDKs de rastreo de terceros</strong> con fines de mercadotecnia.</p>
+
+  <h2>3. Para qué usamos tu información</h2>
+  <ul>
+    <li>Autenticarte y mantener tu sesión iniciada.</li>
+    <li>Mostrar tu nombre y foto a los miembros de tus grupos.</li>
+    <li>Calcular automáticamente si acertaste cada pick y actualizar el leaderboard.</li>
+    <li>Detectar y corregir errores de la app (Crashlytics).</li>
+    <li>Entender qué funciones se usan más para mejorar la app (Analytics).</li>
+  </ul>
+  <p>No usamos tu información para publicidad dirigida ni la vendemos a terceros bajo ninguna circunstancia.</p>
+
+  <h2>4. Con quién se comparte tu información</h2>
+  <table>
+    <tr><th>Con quién</th><th>Qué ve</th><th>Por qué</th></tr>
+    <tr><td>Miembros de tu(s) grupo(s)</td><td>Tu nombre, foto, picks y mensajes del tablero de ese grupo</td><td>Es la función principal de la app</td></tr>
+    <tr><td>Google / Firebase</td><td>Correo, nombre, foto, datos de uso y de fallos</td><td>Proveedor de infraestructura (autenticación, base de datos, analítica, funciones en la nube) — actúa como encargado del tratamiento, no como tercero que reutiliza tus datos con fines propios</td></tr>
+    <tr><td>Nadie más</td><td>—</td><td>No vendemos ni compartimos tu información con anunciantes, corredores de datos ni terceros con fines comerciales</td></tr>
+  </table>
+  <p>Toda la información viaja cifrada en tránsito (HTTPS/TLS) entre la app y los servidores de Firebase.</p>
+
+  <h2>5. Cuánto tiempo conservamos tu información</h2>
+  <p>Conservamos tu información mientras tu cuenta esté activa. Si eliminas tu cuenta (ver sección 6), borramos tus datos personales de nuestros sistemas, salvo que la ley nos obligue a conservar algún registro por más tiempo.</p>
+  <p>Los mensajes y picks que compartiste con un grupo pueden seguir visibles para el resto de los miembros de ese grupo incluso después de que dejes de usar la app — sin tu nombre ni tu foto — salvo que tú mismo los elimines o solicites la baja de tu cuenta.</p>
+
+  <h2>6. Tus derechos: acceso, corrección y eliminación</h2>
+  <p>Tienes derecho a:</p>
+  <ul>
+    <li><strong>Acceder</strong> a los datos que tenemos sobre ti.</li>
+    <li><strong>Corregir</strong> información incorrecta (por ejemplo, tu nombre se actualiza automáticamente si lo cambias en tu cuenta de Google).</li>
+    <li><strong>Eliminar</strong> tu cuenta y tus datos personales.</li>
+  </ul>
+  <p>Puedes eliminar tu cuenta de dos formas:</p>
+  <ul>
+    <li><strong>Desde la app:</strong> Configuración → Eliminar cuenta.</li>
+    <li><strong>Sin la app instalada:</strong> en nuestra <a href="./delete-account.html">página de eliminación de cuenta</a>.</li>
+  </ul>
+  <p>Vamos a procesar tu solicitud de eliminación en un plazo razonable y confirmarte cuando esté hecho.</p>
+
+  <h2>7. Menores de edad</h2>
+  <p>NFLocosPick no está dirigida a menores de 13 años y no recopilamos intencionalmente información de menores de esa edad. Si crees que un menor nos proporcionó datos personales, contáctanos para eliminarlos.</p>
+
+  <h2>8. Seguridad</h2>
+  <p>Usamos la infraestructura de Firebase (Google Cloud) para almacenar y procesar tu información, con reglas de acceso que restringen quién puede leer y escribir cada dato — por ejemplo, solo tú puedes escribir tus propios picks, y solo los miembros de un grupo pueden ver su contenido. Ningún sistema es cien por ciento infalible, pero tomamos medidas razonables para proteger tu información contra accesos no autorizados.</p>
+
+  <h2>9. Cambios a esta política</h2>
+  <p>Podemos actualizar esta política ocasionalmente. Si hacemos cambios importantes, lo indicaremos actualizando la fecha de "Última actualización" al inicio de este documento.</p>
+
+  <h2>10. Contacto</h2>
+  <p>Si tienes preguntas, dudas o solicitudes relacionadas con tu privacidad, escríbenos a:</p>
+  <div class="contact"><strong>briciovh@gmail.com</strong></div>
+</section>
+
+<hr>
+
+<section id="en" lang="en">
+  <p><strong>Last updated:</strong> August 5, 2026</p>
+
+  <p>NFLocosPick ("the app", "we") is an app for private groups of friends making weekly NFL picks. This policy explains what information we collect, what we use it for, who we share it with, and what control you have over it.</p>
+
+  <p>By using NFLocosPick, you agree to the practices described in this document.</p>
+
+  <h2>1. Who is responsible for your data</h2>
+  <p>NFLocosPick is developed and maintained by <strong>Bricio Velázquez</strong> ("the developer"). If you have questions about this policy or your data, you can write to:</p>
+  <div class="contact"><strong>briciovh@gmail.com</strong></div>
+
+  <h2>2. What information we collect</h2>
+
+  <h3>2.1 When you sign in</h3>
+  <p>NFLocosPick uses <strong>Google Sign-In</strong> as its only authentication method. When you sign in, we receive and store:</p>
+  <ul>
+    <li>Your email address</li>
+    <li>Your display name (from your Google account)</li>
+    <li>Your Google profile photo URL</li>
+  </ul>
+  <p>We never have access to your Google password or any other data from your Google account.</p>
+
+  <h3>2.2 Content you create inside the app</h3>
+  <p>When you use NFLocosPick with your group, we store the content you create:</p>
+  <ul>
+    <li><strong>Groups</strong>: group name, invite code, who created it, and who its members are.</li>
+    <li><strong>Picks</strong>: which team you picked for each game each week, and whether you got it right once the game ends.</li>
+    <li><strong>Scores</strong>: your total points and weekly breakdown within each group.</li>
+    <li><strong>Group board messages</strong>: the text of messages and announcements you post to your group's board, along with your name and profile photo.</li>
+  </ul>
+  <p>This content is visible <strong>only to the other members of the same group</strong> — it is never public or visible to users outside your group.</p>
+
+  <h3>2.3 Usage and diagnostic data</h3>
+  <p>We use <strong>Firebase Analytics</strong> and <strong>Firebase Crashlytics</strong> (Google services) to understand how the app is used and to catch errors. This includes:</p>
+  <ul>
+    <li>Usage events: signing in, creating or joining a group, submitting a pick, opening the leaderboard, changing language, and similar actions. These events include group/game identifiers, but never the free-text content of your messages or picks.</li>
+    <li>Technical diagnostics when something crashes: the error log (stack trace), device model, Android version, and app version.</li>
+    <li>Firebase-generated install/device identifiers (not linked to your real name outside your app account).</li>
+  </ul>
+
+  <h3>2.4 What we do <strong>not</strong> collect or send to our servers</h3>
+  <ul>
+    <li>Your <strong>favorite team</strong> and <strong>language preference</strong> are stored only on your device — never uploaded to our servers or shared with anyone.</li>
+    <li>We do not access your contacts, location, camera, microphone, or any other device data beyond what's described above.</li>
+    <li>The app queries ESPN's public API to display the NFL schedule and scores. That request does not send any of your data — it's public league information.</li>
+  </ul>
+
+  <h3>2.5 Advertising</h3>
+  <p>NFLocosPick <strong>does not show ads</strong> and <strong>does not use ad networks or third-party tracking SDKs</strong> for marketing purposes.</p>
+
+  <h2>3. What we use your information for</h2>
+  <ul>
+    <li>Authenticating you and keeping you signed in.</li>
+    <li>Showing your name and photo to the members of your groups.</li>
+    <li>Automatically scoring your picks and updating the leaderboard.</li>
+    <li>Detecting and fixing app errors (Crashlytics).</li>
+    <li>Understanding which features are used most, to improve the app (Analytics).</li>
+  </ul>
+  <p>We never use your information for targeted advertising, and we never sell it to third parties.</p>
+
+  <h2>4. Who your information is shared with</h2>
+  <table>
+    <tr><th>Who</th><th>What they see</th><th>Why</th></tr>
+    <tr><td>Members of your group(s)</td><td>Your name, photo, picks, and board messages for that group</td><td>This is the app's core function</td></tr>
+    <tr><td>Google / Firebase</td><td>Email, name, photo, usage and crash data</td><td>Infrastructure provider (authentication, database, analytics, cloud functions) — acts as a data processor, not a third party reusing your data for its own purposes</td></tr>
+    <tr><td>No one else</td><td>—</td><td>We do not sell or share your information with advertisers, data brokers, or third parties for commercial purposes</td></tr>
+  </table>
+  <p>All information travels encrypted in transit (HTTPS/TLS) between the app and Firebase's servers.</p>
+
+  <h2>5. How long we keep your information</h2>
+  <p>We keep your information for as long as your account is active. If you delete your account (see Section 6), we remove your personal data from our systems, unless the law requires us to retain some record for longer.</p>
+  <p>Messages and picks you shared with a group may remain visible to that group's other members even after you stop using the app — without your name or photo — unless you delete them yourself or request that your account be closed.</p>
+
+  <h2>6. Your rights: access, correction, and deletion</h2>
+  <p>You have the right to:</p>
+  <ul>
+    <li><strong>Access</strong> the data we hold about you.</li>
+    <li><strong>Correct</strong> inaccurate information (for example, your name updates automatically if you change it in your Google account).</li>
+    <li><strong>Delete</strong> your account and personal data.</li>
+  </ul>
+  <p>You can delete your account in two ways:</p>
+  <ul>
+    <li><strong>From the app:</strong> Settings → Delete account.</li>
+    <li><strong>Without the app installed:</strong> on our <a href="./delete-account.html">account deletion page</a>.</li>
+  </ul>
+  <p>We will process your deletion request within a reasonable time and confirm once it's done.</p>
+
+  <h2>7. Children</h2>
+  <p>NFLocosPick is not directed at children under 13, and we do not knowingly collect personal information from children under that age. If you believe a child has provided us with personal data, contact us so we can delete it.</p>
+
+  <h2>8. Security</h2>
+  <p>We use Firebase's infrastructure (Google Cloud) to store and process your information, with access rules that restrict who can read and write each piece of data — for example, only you can write your own picks, and only members of a group can see its content. No system is completely infallible, but we take reasonable measures to protect your information from unauthorized access.</p>
+
+  <h2>9. Changes to this policy</h2>
+  <p>We may update this policy from time to time. If we make significant changes, we'll indicate that by updating the "Last updated" date at the top of this document.</p>
+
+  <h2>10. Contact</h2>
+  <p>If you have questions, concerns, or requests related to your privacy, write to us at:</p>
+  <div class="contact"><strong>briciovh@gmail.com</strong></div>
+</section>
+
+<footer>NFLocosPick — Bricio Velázquez</footer>
+
+</main>
+</body>
+</html>

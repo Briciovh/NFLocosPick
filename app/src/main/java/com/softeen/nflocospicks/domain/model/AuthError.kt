@@ -27,6 +27,7 @@ enum class AuthError {
     PHONE_ALREADY_IN_USE,
     LINK_EMAIL_FAILED,
     LINK_PHONE_FAILED,
+    ACCOUNT_DELETION_FAILED,
 }
 
 /** Carries a typed [AuthError] across layers; [cause] is kept only for logging. */

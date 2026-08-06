@@ -58,6 +58,7 @@ private class CapturingUserRepository : UserRepository {
     override fun watchCurrentUser(uid: String): Flow<User> = throw NotImplementedError()
     override suspend fun updateUserRole(uid: String, role: UserRole) = throw NotImplementedError()
     override fun getAllUsers(): Flow<List<User>> = throw NotImplementedError()
+    override suspend fun deleteAccount(): Result<Unit> = throw NotImplementedError()
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

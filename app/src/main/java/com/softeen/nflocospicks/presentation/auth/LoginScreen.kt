@@ -26,7 +26,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,7 +37,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import com.softeen.nflocospicks.presentation.common.PhoneNumberField
 import com.softeen.nflocospicks.presentation.common.TestTags
+import com.softeen.nflocospicks.presentation.common.composeE164
+import com.softeen.nflocospicks.presentation.common.defaultCountry
+import com.softeen.nflocospicks.presentation.common.supportedCountryDialCodes
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -53,19 +56,10 @@ import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
 @Composable
 fun LoginScreen(
-    onAuthenticated: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state   by viewModel.uiState.collectAsStateWithLifecycle()
     val context  = LocalContext.current
-
-    LaunchedEffect(Unit) {
-        for (effect in viewModel.effects) {
-            when (effect) {
-                AuthUiEffect.NavigateToGroups -> onAuthenticated()
-            }
-        }
-    }
 
     LoginScreenContent(
         state                     = state,
@@ -75,6 +69,7 @@ fun LoginScreen(
         onSendSignInLink          = viewModel::sendSignInLink,
         onStartPhoneVerification  = viewModel::startPhoneVerification,
         onVerifyPhoneCode         = viewModel::verifyPhoneCode,
+        onSendPasswordResetEmail  = viewModel::sendPasswordResetEmail,
         onResetState              = viewModel::resetState
     )
 }
@@ -88,14 +83,19 @@ fun LoginScreenContent(
     onSendSignInLink: (String) -> Unit = {},
     onStartPhoneVerification: (Activity, String) -> Unit = { _, _ -> },
     onVerifyPhoneCode: (String) -> Unit = {},
+    onSendPasswordResetEmail: (String) -> Unit = {},
     onResetState: () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
     val activity = LocalActivity.current
 
+    val context = LocalContext.current
+    val supportedCountries = remember { supportedCountryDialCodes(context) }
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var phoneNumber by remember { mutableStateOf("") }
+    var selectedCountry by remember { mutableStateOf(defaultCountry(supportedCountries)) }
+    var nationalNumber by remember { mutableStateOf("") }
     var smsCode by remember { mutableStateOf("") }
     var isRegistering by remember { mutableStateOf(false) }
     var useEmailLink by remember { mutableStateOf(false) }
@@ -146,13 +146,16 @@ fun LoginScreenContent(
 
             when {
                 usePhoneAuth -> {
-                    OutlinedTextField(
-                        value          = phoneNumber,
-                        onValueChange  = { phoneNumber = it },
-                        label          = { Text(stringResource(R.string.login_label_phone_number)) },
-                        modifier       = Modifier.fillMaxWidth().testTag(TestTags.LOGIN_PHONE_FIELD),
-                        enabled        = state !is AuthUiState.PhoneCodeSent,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                    PhoneNumberField(
+                        countries          = supportedCountries,
+                        selectedCountry    = selectedCountry,
+                        onCountrySelected  = { selectedCountry = it },
+                        nationalNumber     = nationalNumber,
+                        onNationalNumberChange = { nationalNumber = it },
+                        label              = stringResource(R.string.login_label_phone_number),
+                        modifier           = Modifier.fillMaxWidth(),
+                        numberFieldModifier = Modifier.testTag(TestTags.LOGIN_PHONE_FIELD),
+                        enabled            = state !is AuthUiState.PhoneCodeSent
                     )
 
                     Spacer(Modifier.height(8.dp))
@@ -177,9 +180,13 @@ fun LoginScreenContent(
                         }
                     } else {
                         Button(
-                            onClick  = { activity?.let { onStartPhoneVerification(it, phoneNumber) } },
+                            onClick  = {
+                                activity?.let {
+                                    onStartPhoneVerification(it, composeE164(selectedCountry, nationalNumber))
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth().testTag(TestTags.LOGIN_SEND_CODE_BUTTON),
-                            enabled  = phoneNumber.isNotBlank() && activity != null
+                            enabled  = nationalNumber.length == 10 && activity != null
                         ) {
                             Text(stringResource(R.string.login_action_send_code))
                         }
@@ -243,6 +250,24 @@ fun LoginScreenContent(
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions      = KeyboardOptions(keyboardType = KeyboardType.Password)
                     )
+
+                    if (!isRegistering) {
+                        if (state is AuthUiState.PasswordResetSent) {
+                            Text(
+                                text  = stringResource(R.string.login_password_reset_sent, state.email),
+                                color = appColors.secondary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            TextButton(
+                                onClick  = { onSendPasswordResetEmail(email) },
+                                enabled  = email.isNotBlank() && !isLoading,
+                                modifier = Modifier.testTag(TestTags.LOGIN_FORGOT_PASSWORD_BUTTON)
+                            ) {
+                                Text(stringResource(R.string.login_action_forgot_password), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
 
                     Spacer(Modifier.height(8.dp))
 

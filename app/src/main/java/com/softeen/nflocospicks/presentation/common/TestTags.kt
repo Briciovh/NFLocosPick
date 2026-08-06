@@ -16,6 +16,7 @@ object TestTags {
     const val LOGIN_SEND_CODE_BUTTON   = "login_send_code_button"
     const val LOGIN_VERIFY_CODE_BUTTON = "login_verify_code_button"
     const val LOGIN_SEND_LINK_BUTTON   = "login_send_link_button"
+    const val LOGIN_FORGOT_PASSWORD_BUTTON = "login_forgot_password_button"
 
     const val SCHEDULE_GAME_CARD   = "schedule_game_card"
 

@@ -7,6 +7,7 @@ import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.BoardMessage
+import com.softeen.nflocospicks.domain.model.effectiveDisplayName
 import com.softeen.nflocospicks.domain.repository.GroupRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.DeleteBoardMessageUseCase
@@ -134,7 +135,7 @@ class BoardViewModel @Inject constructor(
                     val newMessage = BoardMessage(
                         groupId        = groupId,
                         senderId       = currentUser.uid,
-                        senderName     = currentUser.displayName,
+                        senderName     = currentUser.effectiveDisplayName,
                         senderPhotoUrl = currentUser.photoUrl,
                         content        = text,
                         timestamp      = System.currentTimeMillis()

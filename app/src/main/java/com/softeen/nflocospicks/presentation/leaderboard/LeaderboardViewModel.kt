@@ -8,6 +8,7 @@ import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.LeaderboardEntry
 import com.softeen.nflocospicks.domain.model.MockSessionState
 import com.softeen.nflocospicks.domain.model.User
+import com.softeen.nflocospicks.domain.model.effectiveDisplayName
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -90,7 +91,7 @@ class LeaderboardViewModel @Inject constructor(
             if (realUser != null) {
                 add(Participant(
                     uid         = realUser.uid,
-                    displayName = realUser.displayName,
+                    displayName = realUser.effectiveDisplayName,
                     photoUrl    = realUser.photoUrl,
                     points      = if (simulating)
                         countCorrectPicks(games, session.simulatedScores, session.realUserPicks)

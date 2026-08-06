@@ -14,7 +14,6 @@ import com.softeen.nflocospicks.domain.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,12 +27,6 @@ class AuthViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
-
-    /**
-     * One-shot side effects (navigation, toasts). BUFFERED so rapid emissions
-     * are not dropped while the collector is suspended.
-     */
-    val effects = Channel<AuthUiEffect>(Channel.BUFFERED)
 
     private var roleWatcherJob: Job? = null
     private var verificationId: String? = null
@@ -56,7 +49,6 @@ class AuthViewModel @Inject constructor(
                     if (_uiState.value !is AuthUiState.Authenticated) {
                         _uiState.value = AuthUiState.Authenticated(user)
                         watchRole(user.uid)
-                        effects.send(AuthUiEffect.NavigateToGroups)
                     }
                 } else if (_uiState.value is AuthUiState.Authenticated) {
                     _uiState.value = AuthUiState.Idle
@@ -72,7 +64,6 @@ class AuthViewModel @Inject constructor(
                 .onSuccess { result ->
                     _uiState.value = AuthUiState.Authenticated(result.user)
                     watchRole(result.user.uid)
-                    effects.send(AuthUiEffect.NavigateToGroups)
                     logger.logEvent(AppEvent.SignIn("google"))
                     if (result.isNewUser) logger.logEvent(AppEvent.SignUp("google"))
                 }
@@ -95,7 +86,6 @@ class AuthViewModel @Inject constructor(
                 .onSuccess { result ->
                     _uiState.value = AuthUiState.Authenticated(result.user)
                     watchRole(result.user.uid)
-                    effects.send(AuthUiEffect.NavigateToGroups)
                     logger.logEvent(AppEvent.SignIn("email"))
                 }
                 .onFailure { e ->
@@ -111,7 +101,6 @@ class AuthViewModel @Inject constructor(
                 .onSuccess { result ->
                     _uiState.value = AuthUiState.Authenticated(result.user)
                     watchRole(result.user.uid)
-                    effects.send(AuthUiEffect.NavigateToGroups)
                     logger.logEvent(AppEvent.SignUp("email"))
                 }
                 .onFailure { e ->
@@ -131,6 +120,17 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    fun sendPasswordResetEmail(email: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            userRepository.sendPasswordResetEmail(email)
+                .onSuccess { _uiState.value = AuthUiState.PasswordResetSent(email) }
+                .onFailure { e ->
+                    _uiState.value = AuthUiState.Error(e.toAuthError(AuthError.SEND_RESET_EMAIL_FAILED))
+                }
+        }
+    }
+
     fun startPhoneVerification(activity: Activity, phoneNumber: String) {
         verificationJob?.cancel()
         verificationId = null
@@ -145,7 +145,6 @@ class AuthViewModel @Inject constructor(
                     is PhoneVerificationEvent.AutoVerified -> {
                         _uiState.value = AuthUiState.Authenticated(event.result.user)
                         watchRole(event.result.user.uid)
-                        effects.send(AuthUiEffect.NavigateToGroups)
                         logger.logEvent(AppEvent.SignIn("phone"))
                         if (event.result.isNewUser) logger.logEvent(AppEvent.SignUp("phone"))
                     }
@@ -169,7 +168,6 @@ class AuthViewModel @Inject constructor(
                 .onSuccess { result ->
                     _uiState.value = AuthUiState.Authenticated(result.user)
                     watchRole(result.user.uid)
-                    effects.send(AuthUiEffect.NavigateToGroups)
                     logger.logEvent(AppEvent.SignIn("phone"))
                     if (result.isNewUser) logger.logEvent(AppEvent.SignUp("phone"))
                 }
@@ -200,7 +198,7 @@ class AuthViewModel @Inject constructor(
         roleWatcherJob = viewModelScope.launch {
             userRepository.watchCurrentUser(uid).collect { freshUser ->
                 if (_uiState.value is AuthUiState.Authenticated) {
-                    _uiState.value = AuthUiState.Authenticated(freshUser)
+                    _uiState.value = AuthUiState.Authenticated(freshUser, isProfileSynced = true)
                 }
             }
         }

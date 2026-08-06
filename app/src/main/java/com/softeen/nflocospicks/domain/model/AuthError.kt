@@ -20,6 +20,13 @@ enum class AuthError {
     PHONE_SIGN_IN_FAILED,
     VERIFICATION_SESSION_EXPIRED,
     INVALID_VERIFICATION_CODE,
+    USERNAME_TAKEN,
+    PROFILE_UPDATE_FAILED,
+    PASSWORD_CHANGE_FAILED,
+    SEND_RESET_EMAIL_FAILED,
+    PHONE_ALREADY_IN_USE,
+    LINK_EMAIL_FAILED,
+    LINK_PHONE_FAILED,
 }
 
 /** Carries a typed [AuthError] across layers; [cause] is kept only for logging. */

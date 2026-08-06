@@ -38,18 +38,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.softeen.nflocospicks.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.domain.model.UserRole
+import com.softeen.nflocospicks.domain.model.effectiveDisplayName
 import com.softeen.nflocospicks.presentation.common.TeamLogo
+import com.softeen.nflocospicks.presentation.common.UserAvatar
 import com.softeen.nflocospicks.presentation.common.nflTeams
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakePrefs
@@ -64,7 +64,8 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToTeamSelection: () -> Unit,
-    onNavigateToUserManagement: () -> Unit
+    onNavigateToUserManagement: () -> Unit,
+    onNavigateToAccount: () -> Unit
 ) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
 
@@ -77,6 +78,7 @@ fun SettingsScreen(
         onToggleTestingData        = { viewModel.setUseTestingData(it) },
         onToggleSimulateGames      = { viewModel.setSimulateGamesStarted(it) },
         onNavigateToUserManagement = onNavigateToUserManagement,
+        onNavigateToAccount        = onNavigateToAccount,
         currentLanguageTag         = prefs.languageTag,
         onLanguageSelected         = { viewModel.setLanguage(it) }
     )
@@ -93,6 +95,7 @@ internal fun SettingsScreenContent(
     onToggleTestingData: (Boolean) -> Unit,
     onToggleSimulateGames: (Boolean) -> Unit,
     onNavigateToUserManagement: () -> Unit,
+    onNavigateToAccount: () -> Unit,
     currentLanguageTag: String?,
     onLanguageSelected: (String?) -> Unit
 ) {
@@ -129,20 +132,34 @@ internal fun SettingsScreenContent(
             SectionHeader(stringResource(R.string.settings_section_account), appColors.primary)
 
             Row(
-                modifier          = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onNavigateToAccount)
+                    .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                UserAvatar(user = user, size = 56, appColors = appColors)
+                UserAvatar(
+                    photoUrl         = user.photoUrl,
+                    displayName      = user.effectiveDisplayName,
+                    favoriteTeamAbbr = prefs.favoriteTeamAbbr,
+                    size             = 56.dp
+                )
                 Spacer(Modifier.width(16.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text       = user.displayName,
+                        text       = user.effectiveDisplayName,
                         color      = appColors.onBackground,
                         style      = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(text = user.email, color = appColors.secondary, style = MaterialTheme.typography.bodySmall)
                 }
+                Icon(
+                    imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint               = appColors.secondary
+                )
             }
 
             HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
@@ -333,31 +350,6 @@ private fun SectionHeader(title: String, accentColor: androidx.compose.ui.graphi
 }
 
 @Composable
-private fun UserAvatar(user: User, size: Int, appColors: AppColors) {
-    val sizeDp = size.dp
-    if (user.photoUrl != null) {
-        AsyncImage(
-            model              = user.photoUrl,
-            contentDescription = user.displayName,
-            contentScale       = ContentScale.Crop,
-            modifier           = Modifier.size(sizeDp).clip(CircleShape)
-        )
-    } else {
-        Box(
-            modifier         = Modifier.size(sizeDp).clip(CircleShape).background(appColors.primary),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text       = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                color      = appColors.header,
-                style      = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold
-            )
-        }
-    }
-}
-
-@Composable
 private fun LanguageSelector(
     current: String?,
     onSelected: (String?) -> Unit,
@@ -404,6 +396,7 @@ private fun SettingsScreenWithTeamPreview() {
             onToggleTestingData        = {},
             onToggleSimulateGames      = {},
             onNavigateToUserManagement = {},
+            onNavigateToAccount        = {},
             currentLanguageTag         = null,
             onLanguageSelected         = {}
         )
@@ -423,6 +416,7 @@ private fun SettingsScreenNoTeamPreview() {
             onToggleTestingData        = {},
             onToggleSimulateGames      = {},
             onNavigateToUserManagement = {},
+            onNavigateToAccount        = {},
             currentLanguageTag         = null,
             onLanguageSelected         = {}
         )
@@ -443,6 +437,7 @@ private fun SettingsScreenInsiderPreview() {
             onToggleTestingData        = {},
             onToggleSimulateGames      = {},
             onNavigateToUserManagement = {},
+            onNavigateToAccount        = {},
             currentLanguageTag         = "es",
             onLanguageSelected         = {}
         )
@@ -463,6 +458,7 @@ private fun SettingsScreenInsiderSimulatingPreview() {
             onToggleTestingData        = {},
             onToggleSimulateGames      = {},
             onNavigateToUserManagement = {},
+            onNavigateToAccount        = {},
             currentLanguageTag         = "en",
             onLanguageSelected         = {}
         )

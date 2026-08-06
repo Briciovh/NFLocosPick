@@ -21,4 +21,11 @@ fun AuthError.messageRes(): Int = when (this) {
     AuthError.PHONE_SIGN_IN_FAILED -> R.string.error_phone_sign_in_failed
     AuthError.VERIFICATION_SESSION_EXPIRED -> R.string.error_verification_expired
     AuthError.INVALID_VERIFICATION_CODE -> R.string.error_invalid_verification_code
+    AuthError.USERNAME_TAKEN -> R.string.error_username_taken
+    AuthError.PROFILE_UPDATE_FAILED -> R.string.error_profile_update_failed
+    AuthError.PASSWORD_CHANGE_FAILED -> R.string.error_password_change_failed
+    AuthError.SEND_RESET_EMAIL_FAILED -> R.string.error_send_reset_email_failed
+    AuthError.PHONE_ALREADY_IN_USE -> R.string.error_phone_already_in_use
+    AuthError.LINK_EMAIL_FAILED -> R.string.error_link_email_failed
+    AuthError.LINK_PHONE_FAILED -> R.string.error_link_phone_failed
 }

@@ -108,6 +108,7 @@ dependencies {
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.crashlytics)
     implementation(libs.firebase.functions)
+    implementation(libs.firebase.storage)
 
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -146,6 +147,8 @@ dependencies {
     implementation(libs.androidx.splashscreen)
     // Logging
     implementation(libs.timber)
+    // Phone number country-code lookup
+    implementation(libs.libphonenumber.android)
 
     // Unit tests
     testImplementation(libs.junit)

@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.domain.repository
 
 import android.app.Activity
 import android.content.Context
+import android.net.Uri
 import com.softeen.nflocospicks.domain.model.PhoneVerificationEvent
 import com.softeen.nflocospicks.domain.model.SignInResult
 import com.softeen.nflocospicks.domain.model.User
@@ -48,14 +49,78 @@ interface UserRepository {
     suspend fun signInWithPhoneCredential(verificationId: String, smsCode: String): Result<SignInResult>
 
     /**
+     * Completes an email-link that was opened while a session was already active: links the
+     * email as an additional credential on the signed-in Firebase Auth account (via
+     * `linkWithCredential`) instead of starting a fresh sign-in. Fails with
+     * [com.softeen.nflocospicks.domain.model.AuthError.EMAIL_ALREADY_IN_USE] if the email is
+     * already claimed by a different account. Sending the link itself reuses
+     * [sendSignInLinkToEmail] — no separate "send" method is needed.
+     */
+    suspend fun linkEmailCredential(email: String, link: String): Result<Unit>
+
+    /**
+     * Like [verifyPhoneNumber], but the resulting credential is linked onto the currently
+     * signed-in account (via `linkWithCredential`) instead of being used to sign in.
+     */
+    fun linkPhoneNumber(activity: Activity, phoneNumber: String): Flow<PhoneVerificationEvent>
+
+    /**
+     * Like [signInWithPhoneCredential], but links the credential onto the currently signed-in
+     * account. Fails with [com.softeen.nflocospicks.domain.model.AuthError.PHONE_ALREADY_IN_USE]
+     * if the phone number is already claimed by a different account.
+     */
+    suspend fun linkPhoneCredential(verificationId: String, smsCode: String): Result<Unit>
+
+    /**
      * Returns the currently signed-in user from the in-memory Firebase Auth state,
      * or null if no session exists. Synchronous — safe to call from an init block.
      * Role defaults to REGULAR; use [watchCurrentUser] to receive the real Firestore role.
      */
     fun getCurrentUser(): User?
 
-    /** Write (or merge) the user document to Firestore `users/{uid}`. */
-    suspend fun saveUserToFirestore(user: User)
+    /**
+     * Live availability of a username: emits `true` when `usernames/{username}` (lowercased)
+     * has no reservation document, `false` when it's already claimed by any user.
+     */
+    fun isUsernameAvailable(username: String): Flow<Boolean>
+
+    /**
+     * Claims [username] (case-insensitively, via the `usernames/{username}` reservation
+     * collection) and merges the given profile fields into `users/{uid}`, all inside a single
+     * Firestore transaction. Fails with [com.softeen.nflocospicks.domain.model.AuthException]
+     * carrying [com.softeen.nflocospicks.domain.model.AuthError.USERNAME_TAKEN] if the username
+     * is already claimed by a different user.
+     */
+    suspend fun updateProfile(
+        uid: String,
+        username: String,
+        displayName: String? = null,
+        photoUrl: String? = null
+    ): Result<Unit>
+
+    /**
+     * Uploads [uri] to Storage at `profile_photos/{uid}` (overwriting any previous photo) and
+     * merges the resulting download URL into `users/{uid}.photoUrl`. Returns the download URL.
+     */
+    suspend fun uploadProfilePhoto(uid: String, uri: Uri): Result<String>
+
+    /**
+     * True when the signed-in user has an email/password credential linked to their Firebase
+     * Auth account — false for Google-only or phone-only accounts, which have no password to
+     * change. Used to hide the change-password section entirely for those accounts.
+     */
+    fun hasPasswordProvider(): Boolean
+
+    /**
+     * Re-authenticates with [currentPassword] before setting [newPassword], per Firebase Auth's
+     * "recent login required" requirement for sensitive account changes. Fails with
+     * [com.softeen.nflocospicks.domain.model.AuthError.INVALID_CREDENTIALS] if [currentPassword]
+     * is wrong.
+     */
+    suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit>
+
+    /** Sends a Firebase Auth password-reset email to [email]. */
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit>
 
     /** Real-time stream of the user document. Emits whenever role or profile changes in Firestore. */
     fun watchCurrentUser(uid: String): Flow<User>

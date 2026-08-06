@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserRole
+import com.softeen.nflocospicks.domain.model.effectiveDisplayName
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakeUser
 import com.softeen.nflocospicks.presentation.theme.AppColors
@@ -162,7 +163,7 @@ private fun UserRow(
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text       = user.displayName,
+                    text       = user.effectiveDisplayName,
                     color      = appColors.onBackground,
                     style      = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
@@ -191,7 +192,7 @@ private fun UserAvatar(user: User, appColors: AppColors) {
     if (user.photoUrl != null) {
         AsyncImage(
             model              = user.photoUrl,
-            contentDescription = user.displayName,
+            contentDescription = user.effectiveDisplayName,
             contentScale       = ContentScale.Crop,
             modifier           = Modifier.size(40.dp).clip(CircleShape)
         )
@@ -201,7 +202,7 @@ private fun UserAvatar(user: User, appColors: AppColors) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text       = user.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                text       = user.effectiveDisplayName.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
                 color      = appColors.header,
                 style      = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.ExtraBold
@@ -251,7 +252,7 @@ private fun RoleDialog(
         text = {
             Column {
                 Text(
-                    text  = user.displayName,
+                    text  = user.effectiveDisplayName,
                     color = appColors.secondary,
                     style = MaterialTheme.typography.bodySmall
                 )

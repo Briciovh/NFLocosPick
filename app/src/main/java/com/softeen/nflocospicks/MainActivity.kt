@@ -69,16 +69,25 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        // A session is already active (e.g. a phone-signed-in user opening the link they just
+        // sent themselves from the Account screen to add an email) — link the credential onto
+        // the current account instead of starting a brand-new sign-in.
+        val isLinkingToExistingSession = userRepository.getCurrentUser() != null
+
         lifecycleScope.launch {
-            userRepository.signInWithEmailLink(pendingEmail, link)
-                .onFailure {
-                    val messageRes = (it as? AuthException)?.error?.messageRes()
-                        ?: R.string.error_email_link_sign_in_failed
-                    Toast.makeText(this@MainActivity, getString(messageRes), Toast.LENGTH_LONG).show()
-                }
-            // No success handling needed: signInWithEmailLink updates FirebaseAuth's current
-            // user, which UserRepositoryImpl's addAuthStateListener already propagates into
-            // currentUser, which AuthViewModel's reactive collector already reacts to.
+            val outcome = if (isLinkingToExistingSession) {
+                userRepository.linkEmailCredential(pendingEmail, link)
+            } else {
+                userRepository.signInWithEmailLink(pendingEmail, link)
+            }
+            outcome.onFailure {
+                val messageRes = (it as? AuthException)?.error?.messageRes()
+                    ?: R.string.error_email_link_sign_in_failed
+                Toast.makeText(this@MainActivity, getString(messageRes), Toast.LENGTH_LONG).show()
+            }
+            // No success handling needed: both paths update FirebaseAuth's current user (or
+            // its linked providers/Firestore profile), which UserRepositoryImpl's
+            // addAuthStateListener / watchCurrentUser already propagate reactively.
         }
     }
 

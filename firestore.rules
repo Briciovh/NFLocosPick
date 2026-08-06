@@ -10,6 +10,20 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
+    // ── Reserva de nombres de usuario ────────────────────────────────────────
+    // Documento por username (en minúsculas) → { userId }. Garantiza unicidad
+    // junto con la transacción de Firestore en UserRepositoryImpl.updateProfile().
+    // Nunca se actualiza in-place: cambiar de username crea una reserva nueva
+    // y borra la anterior.
+    match /usernames/{username} {
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid;
+      allow update: if false;
+    }
+
     // ── Grupos ───────────────────────────────────────────────────────────────
     match /groups/{groupId} {
 
@@ -63,6 +77,26 @@ service cloud.firestore {
                        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
           allow write: if false;
         }
+      }
+
+      // ── Tablero de mensajes / anuncios (feature de Group Board) ───────────
+      // Espejo del modelo de permisos de BoardViewModel: cualquier miembro
+      // puede leer y enviar; editar contenido solo el autor; eliminar o marcar
+      // como anuncio el autor o el admin del grupo (createdBy).
+      match /board/{messageId} {
+        allow read: if request.auth != null
+                    && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+
+        allow create: if request.auth != null
+                      && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds
+                      && request.resource.data.senderId == request.auth.uid;
+
+        allow update, delete: if request.auth != null
+                      && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds
+                      && (
+                        request.auth.uid == resource.data.senderId
+                        || request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy
+                      );
       }
     }
 

@@ -53,8 +53,11 @@ internal val fakeUser = User(
     uid         = "user_1",
     displayName = "Bricio Velázquez",
     email       = "briciovh@gmail.com",
-    photoUrl    = null
+    photoUrl    = null,
+    username    = "bricio"
 )
+
+internal val fakeUserNoUsername = fakeUser.copy(username = null)
 
 internal val fakeGroup = Group(
     id        = "group_1",

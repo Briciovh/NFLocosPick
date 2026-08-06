@@ -12,6 +12,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.softeen.nflocospicks.presentation.account.AccountScreen
 import com.softeen.nflocospicks.presentation.auth.AuthUiState
 import com.softeen.nflocospicks.presentation.auth.AuthViewModel
 import com.softeen.nflocospicks.presentation.auth.LoginScreen
@@ -56,14 +57,7 @@ fun NavGraph() {
                 startDestination = Screen.Login.route
             ) {
                 composable(Screen.Login.route) {
-                    LoginScreen(
-                        onAuthenticated = {
-                            navController.navigate(Screen.Groups.route) {
-                                popUpTo(Screen.Login.route) { inclusive = true }
-                            }
-                        },
-                        viewModel = authViewModel
-                    )
+                    LoginScreen(viewModel = authViewModel)
                 }
 
                 composable(Screen.Groups.route) {
@@ -97,7 +91,25 @@ fun NavGraph() {
                             onSignOut                  = { authViewModel.signOut() },
                             onNavigateBack             = { navController.popBackStack() },
                             onNavigateToTeamSelection  = { navController.navigate(Screen.TeamSelection.route) },
-                            onNavigateToUserManagement = { navController.navigate(Screen.UserManagement.route) }
+                            onNavigateToUserManagement = { navController.navigate(Screen.UserManagement.route) },
+                            onNavigateToAccount        = { navController.navigate(Screen.Account.route) }
+                        )
+                    }
+                }
+
+                composable(Screen.Account.route) {
+                    val user = (authState as? AuthUiState.Authenticated)?.user
+                    if (user != null) {
+                        AccountScreen(
+                            user                      = user,
+                            favoriteTeamAbbr          = prefs.favoriteTeamAbbr,
+                            onSetupComplete           = {
+                                navController.navigate(Screen.Groups.route) {
+                                    popUpTo(Screen.Account.route) { inclusive = true }
+                                }
+                            },
+                            onNavigateBack            = { navController.popBackStack() },
+                            onNavigateToTeamSelection = { navController.navigate(Screen.TeamSelection.route) }
                         )
                     }
                 }
@@ -190,16 +202,24 @@ fun NavGraph() {
         }
     }
 
-    // Redirección por restauración de sesión y cierre de sesión.
+    // Único punto de redirección tras autenticarse (login recién hecho o sesión restaurada)
+    // y al cerrar sesión. Un usuario sin username (perfil incompleto) es forzado a
+    // Account antes de poder entrar a Groups — ver Screen.Account más arriba.
     LaunchedEffect(authState) {
+        val state = authState
         when {
-            authState is AuthUiState.Authenticated &&
+            state is AuthUiState.Authenticated && state.isProfileSynced &&
                 navController.currentDestination?.route == Screen.Login.route -> {
-                navController.navigate(Screen.Groups.route) {
+                val destination = if (state.user.username.isNullOrBlank()) {
+                    Screen.Account.route
+                } else {
+                    Screen.Groups.route
+                }
+                navController.navigate(destination) {
                     popUpTo(Screen.Login.route) { inclusive = true }
                 }
             }
-            authState is AuthUiState.Idle &&
+            state is AuthUiState.Idle &&
                 navController.currentDestination?.route != Screen.Login.route -> {
                 navController.navigate(Screen.Login.route) {
                     popUpTo(0) { inclusive = true }

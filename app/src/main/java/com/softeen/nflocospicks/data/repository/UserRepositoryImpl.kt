@@ -2,10 +2,12 @@ package com.softeen.nflocospicks.data.repository
 
 import android.app.Activity
 import android.content.Context
+import android.net.Uri
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.ActionCodeSettings
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -18,6 +20,7 @@ import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.storage.FirebaseStorage
 import com.softeen.nflocospicks.data.local.EmailLinkPrefs
 import com.softeen.nflocospicks.data.remote.firebase.FirebaseAuthDataSource
 import com.softeen.nflocospicks.domain.model.AuthError
@@ -43,6 +46,7 @@ class UserRepositoryImpl @Inject constructor(
     private val authDataSource: FirebaseAuthDataSource,
     private val firebaseAuth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage,
     private val emailLinkPrefs: EmailLinkPrefs
 ) : UserRepository {
 
@@ -105,69 +109,116 @@ class UserRepositoryImpl @Inject constructor(
     override fun getPendingSignInEmail(): String? = emailLinkPrefs.readPendingEmail()
 
     override fun verifyPhoneNumber(activity: Activity, phoneNumber: String): Flow<PhoneVerificationEvent> =
-        callbackFlow {
-            val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-
-                override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                    // Auto-verification (instant SMS retrieval, or an already-trusted device).
-                    // Complete sign-in here so callers only ever see AutoVerified or CodeSent,
-                    // never a raw credential to sign in with themselves.
-                    launch {
-                        authCatching(AuthError.PHONE_SIGN_IN_FAILED) {
-                            val fbUser = firebaseAuth.signInWithCredential(credential).await().user
-                                ?: throw AuthException(AuthError.PHONE_SIGN_IN_FAILED)
-                            upsertAndResolveRole(fbUser)
-                        }.onSuccess { trySend(PhoneVerificationEvent.AutoVerified(it)) }
-                            .onFailure {
-                                trySend(PhoneVerificationEvent.Failed((it as AuthException).error))
-                            }
-                        close()
-                    }
-                }
-
-                override fun onVerificationFailed(e: FirebaseException) {
-                    trySend(
-                        PhoneVerificationEvent.Failed(
-                            e.toAuthException(AuthError.PHONE_VERIFICATION_FAILED).error
-                        )
-                    )
-                    close()
-                }
-
-                override fun onCodeSent(
-                    verificationId: String,
-                    token: PhoneAuthProvider.ForceResendingToken
-                ) {
-                    // Not closing the flow: Firebase can still call onVerificationCompleted
-                    // later via the SMS Retriever API while the user looks at the OTP field.
-                    trySend(PhoneVerificationEvent.CodeSent(verificationId))
-                }
-            }
-
-            val options = PhoneAuthOptions.newBuilder(firebaseAuth)
-                .setPhoneNumber(phoneNumber)
-                .setTimeout(60L, TimeUnit.SECONDS)
-                .setActivity(activity)
-                .setCallbacks(callbacks)
-                .build()
-
-            PhoneAuthProvider.verifyPhoneNumber(options)
-
-            // The SDK exposes no cancellation handle for an in-flight call; awaitClose only
-            // needs to exist to satisfy callbackFlow's contract.
-            awaitClose { }
+        phoneAuthFlow(activity, phoneNumber, AuthError.PHONE_SIGN_IN_FAILED) { credential ->
+            firebaseAuth.signInWithCredential(credential).await().user
+                ?: throw AuthException(AuthError.PHONE_SIGN_IN_FAILED)
         }
 
     override suspend fun signInWithPhoneCredential(verificationId: String, smsCode: String): Result<SignInResult> =
-        authCatching(AuthError.PHONE_SIGN_IN_FAILED) {
+        consumePhoneCredential(verificationId, smsCode, AuthError.PHONE_SIGN_IN_FAILED) { credential ->
+            firebaseAuth.signInWithCredential(credential).await().user
+                ?: throw AuthException(AuthError.PHONE_SIGN_IN_FAILED)
+        }
+
+    override fun linkPhoneNumber(activity: Activity, phoneNumber: String): Flow<PhoneVerificationEvent> =
+        phoneAuthFlow(activity, phoneNumber, AuthError.LINK_PHONE_FAILED) { credential ->
+            val current = firebaseAuth.currentUser ?: throw AuthException(AuthError.LINK_PHONE_FAILED)
+            current.linkWithCredential(credential).await().user
+                ?: throw AuthException(AuthError.LINK_PHONE_FAILED)
+        }
+
+    override suspend fun linkPhoneCredential(verificationId: String, smsCode: String): Result<Unit> =
+        consumePhoneCredential(verificationId, smsCode, AuthError.LINK_PHONE_FAILED) { credential ->
+            val current = firebaseAuth.currentUser ?: throw AuthException(AuthError.LINK_PHONE_FAILED)
+            current.linkWithCredential(credential).await().user
+                ?: throw AuthException(AuthError.LINK_PHONE_FAILED)
+        }.map { }
+
+    override suspend fun linkEmailCredential(email: String, link: String): Result<Unit> =
+        authCatching(AuthError.LINK_EMAIL_FAILED) {
+            val current = firebaseAuth.currentUser ?: throw AuthException(AuthError.LINK_EMAIL_FAILED)
+            val credential = EmailAuthProvider.getCredentialWithLink(email, link)
+            val fbUser = current.linkWithCredential(credential).await().user
+                ?: throw AuthException(AuthError.LINK_EMAIL_FAILED)
+            emailLinkPrefs.clearPendingEmail()
+            upsertAndResolveRole(fbUser)
+        }.map { }
+
+    /**
+     * Shared machinery behind [verifyPhoneNumber]/[linkPhoneNumber]: runs the
+     * `PhoneAuthProvider` verification callbacks and emits [PhoneVerificationEvent]s, but
+     * defers to [consumeCredential] for whether the resulting credential signs in or links.
+     */
+    private fun phoneAuthFlow(
+        activity: Activity,
+        phoneNumber: String,
+        fallbackError: AuthError,
+        consumeCredential: suspend (PhoneAuthCredential) -> FirebaseUser
+    ): Flow<PhoneVerificationEvent> = callbackFlow {
+        val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+
+            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                // Auto-verification (instant SMS retrieval, or an already-trusted device).
+                // Complete sign-in/linking here so callers only ever see AutoVerified or
+                // CodeSent, never a raw credential to consume themselves.
+                launch {
+                    authCatching(fallbackError) {
+                        upsertAndResolveRole(consumeCredential(credential))
+                    }.onSuccess { trySend(PhoneVerificationEvent.AutoVerified(it)) }
+                        .onFailure {
+                            trySend(PhoneVerificationEvent.Failed((it as AuthException).error))
+                        }
+                    close()
+                }
+            }
+
+            override fun onVerificationFailed(e: FirebaseException) {
+                trySend(
+                    PhoneVerificationEvent.Failed(
+                        e.toAuthException(AuthError.PHONE_VERIFICATION_FAILED).error
+                    )
+                )
+                close()
+            }
+
+            override fun onCodeSent(
+                verificationId: String,
+                token: PhoneAuthProvider.ForceResendingToken
+            ) {
+                // Not closing the flow: Firebase can still call onVerificationCompleted
+                // later via the SMS Retriever API while the user looks at the OTP field.
+                trySend(PhoneVerificationEvent.CodeSent(verificationId))
+            }
+        }
+
+        val options = PhoneAuthOptions.newBuilder(firebaseAuth)
+            .setPhoneNumber(phoneNumber)
+            .setTimeout(60L, TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(callbacks)
+            .build()
+
+        PhoneAuthProvider.verifyPhoneNumber(options)
+
+        // The SDK exposes no cancellation handle for an in-flight call; awaitClose only
+        // needs to exist to satisfy callbackFlow's contract.
+        awaitClose { }
+    }
+
+    /** Shared machinery behind [signInWithPhoneCredential]/[linkPhoneCredential]. */
+    private suspend fun consumePhoneCredential(
+        verificationId: String,
+        smsCode: String,
+        fallbackError: AuthError,
+        consumeCredential: suspend (PhoneAuthCredential) -> FirebaseUser
+    ): Result<SignInResult> =
+        authCatching(fallbackError) {
             try {
                 val credential = PhoneAuthProvider.getCredential(verificationId, smsCode)
-                val fbUser = firebaseAuth.signInWithCredential(credential).await().user
-                    ?: throw AuthException(AuthError.PHONE_SIGN_IN_FAILED)
-                upsertAndResolveRole(fbUser)
+                upsertAndResolveRole(consumeCredential(credential))
             } catch (e: FirebaseAuthInvalidCredentialsException) {
-                // In the phone flow a bad SMS code raises the same exception type as a bad
-                // password; remap it so the user isn't told "incorrect email or password".
+                // A bad SMS code raises the same exception type as a bad password; remap it
+                // so the user isn't told "incorrect email or password".
                 throw AuthException(AuthError.INVALID_VERIFICATION_CODE, e)
             }
         }
@@ -177,18 +228,81 @@ class UserRepositoryImpl @Inject constructor(
     override fun getCurrentUser(): User? =
         authDataSource.getCurrentFirebaseUser()?.toBasicUser()
 
-    override suspend fun saveUserToFirestore(user: User) {
-        firestore.collection("users").document(user.uid)
-            .set(
-                mapOf(
-                    "displayName" to user.displayName,
-                    "email"       to user.email,
-                    "photoUrl"    to user.photoUrl,
-                    "phoneNumber" to user.phoneNumber
-                ),
-                SetOptions.merge()
-            ).await()
+    override fun isUsernameAvailable(username: String): Flow<Boolean> = callbackFlow {
+        val normalized = username.trim().lowercase()
+        val listener = firestore.collection("usernames").document(normalized)
+            .addSnapshotListener { snap, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(snap?.exists() != true)
+            }
+        awaitClose { listener.remove() }
     }
+
+    override suspend fun updateProfile(
+        uid: String,
+        username: String,
+        displayName: String?,
+        photoUrl: String?
+    ): Result<Unit> = authCatching(AuthError.PROFILE_UPDATE_FAILED) {
+        val normalizedUsername = username.trim().lowercase()
+        val userRef = firestore.collection("users").document(uid)
+        val usernamesRef = firestore.collection("usernames")
+
+        firestore.runTransaction { transaction ->
+            val userSnap = transaction.get(userRef)
+            val oldUsername = userSnap.getString("username")
+
+            if (normalizedUsername != oldUsername) {
+                val newUsernameRef = usernamesRef.document(normalizedUsername)
+                val newUsernameSnap = transaction.get(newUsernameRef)
+                if (newUsernameSnap.exists()) {
+                    throw AuthException(AuthError.USERNAME_TAKEN)
+                }
+                transaction.set(newUsernameRef, mapOf("userId" to uid))
+                if (oldUsername != null) {
+                    transaction.delete(usernamesRef.document(oldUsername))
+                }
+            }
+
+            val profileUpdate = buildMap {
+                put("username", normalizedUsername)
+                if (displayName != null) put("displayName", displayName)
+                if (photoUrl != null) put("photoUrl", photoUrl)
+            }
+            transaction.set(userRef, profileUpdate, SetOptions.merge())
+        }.await()
+    }
+
+    override suspend fun uploadProfilePhoto(uid: String, uri: Uri): Result<String> =
+        authCatching(AuthError.PROFILE_UPDATE_FAILED) {
+            val photoRef = storage.reference.child("profile_photos/$uid")
+            photoRef.putFile(uri).await()
+            val downloadUrl = photoRef.downloadUrl.await().toString()
+            firestore.collection("users").document(uid)
+                .set(mapOf("photoUrl" to downloadUrl), SetOptions.merge())
+                .await()
+            downloadUrl
+        }
+
+    override fun hasPasswordProvider(): Boolean =
+        firebaseAuth.currentUser?.providerData?.any { it.providerId == EmailAuthProvider.PROVIDER_ID } == true
+
+    override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> =
+        authCatching(AuthError.PASSWORD_CHANGE_FAILED) {
+            val user = firebaseAuth.currentUser ?: throw AuthException(AuthError.PASSWORD_CHANGE_FAILED)
+            val email = user.email ?: throw AuthException(AuthError.PASSWORD_CHANGE_FAILED)
+            val credential = EmailAuthProvider.getCredential(email, currentPassword)
+            user.reauthenticate(credential).await()
+            user.updatePassword(newPassword).await()
+        }
+
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> =
+        authCatching(AuthError.SEND_RESET_EMAIL_FAILED) {
+            firebaseAuth.sendPasswordResetEmail(email).await()
+        }
 
     override fun watchCurrentUser(uid: String): Flow<User> = callbackFlow {
         val listener = firestore.collection("users").document(uid)
@@ -250,7 +364,8 @@ class UserRepositoryImpl @Inject constructor(
                 email       = fbUser.email.orEmpty(),
                 photoUrl    = fbUser.photoUrl?.toString(),
                 role        = role,
-                phoneNumber = fbUser.phoneNumber
+                phoneNumber = fbUser.phoneNumber,
+                username    = snap.getString("username")
             ),
             isNewUser = isNewUser
         )
@@ -276,7 +391,13 @@ class UserRepositoryImpl @Inject constructor(
         is FirebaseAuthWeakPasswordException -> AuthException(AuthError.WEAK_PASSWORD, this)
         is FirebaseAuthInvalidCredentialsException,
         is FirebaseAuthInvalidUserException -> AuthException(AuthError.INVALID_CREDENTIALS, this)
-        is FirebaseAuthUserCollisionException -> AuthException(AuthError.EMAIL_ALREADY_IN_USE, this)
+        // Firebase raises the same exception type for an email collision and a phone
+        // collision — disambiguate using which operation was being attempted.
+        is FirebaseAuthUserCollisionException -> AuthException(
+            if (fallback == AuthError.LINK_PHONE_FAILED) AuthError.PHONE_ALREADY_IN_USE
+            else AuthError.EMAIL_ALREADY_IN_USE,
+            this
+        )
         is FirebaseNetworkException -> AuthException(AuthError.NETWORK, this)
         is NoCredentialException -> AuthException(AuthError.NO_GOOGLE_ACCOUNT, this)
         else -> AuthException(fallback, this)
@@ -296,6 +417,7 @@ class UserRepositoryImpl @Inject constructor(
         email       = getString("email") ?: "",
         photoUrl    = getString("photoUrl"),
         phoneNumber = getString("phoneNumber"),
+        username    = getString("username"),
         role        = getString("role")
             ?.let { runCatching { UserRole.valueOf(it) }.getOrDefault(UserRole.REGULAR) }
             ?: UserRole.REGULAR

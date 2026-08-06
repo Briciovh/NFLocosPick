@@ -47,7 +47,13 @@ class FirebaseLeaderboardDataSource @Inject constructor(
                     uncached.forEach { uid ->
                         runCatching {
                             val userDoc = firestore.collection("users").document(uid).get().await()
-                            userCache[uid] = (userDoc.getString("displayName") ?: uid) to userDoc.getString("photoUrl")
+                            // Falls back to username, then the raw uid, when displayName is blank —
+                            // mirrors User.effectiveDisplayName, but this reads raw Firestore fields
+                            // directly rather than going through the domain User object.
+                            val name = userDoc.getString("displayName")?.takeIf { it.isNotBlank() }
+                                ?: userDoc.getString("username")?.takeIf { it.isNotBlank() }
+                                ?: uid
+                            userCache[uid] = name to userDoc.getString("photoUrl")
                         }.onFailure {
                             userCache[uid] = uid to null
                         }

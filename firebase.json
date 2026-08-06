@@ -17,5 +17,11 @@
   ],
   "firestore": {
     "rules": "firestore.rules"
-  }
+  },
+  "storage": [
+    {
+      "bucket": "nflocospicks.firebasestorage.app",
+      "rules": "storage.rules"
+    }
+  ]
 }

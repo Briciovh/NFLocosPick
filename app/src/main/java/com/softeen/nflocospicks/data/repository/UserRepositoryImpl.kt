@@ -20,6 +20,7 @@ import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import com.softeen.nflocospicks.data.local.EmailLinkPrefs
 import com.softeen.nflocospicks.data.remote.firebase.FirebaseAuthDataSource
@@ -47,6 +48,7 @@ class UserRepositoryImpl @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val storage: FirebaseStorage,
+    private val functions: FirebaseFunctions,
     private val emailLinkPrefs: EmailLinkPrefs
 ) : UserRepository {
 
@@ -327,6 +329,12 @@ class UserRepositoryImpl @Inject constructor(
             }
         awaitClose { listener.remove() }
     }
+
+    override suspend fun deleteAccount(): Result<Unit> =
+        authCatching(AuthError.ACCOUNT_DELETION_FAILED) {
+            functions.getHttpsCallable("deleteAccount").call().await()
+            firebaseAuth.signOut()
+        }
 
     /** Merges profile fields into `users/{uid}` (never touching an existing role field),
      *  determines [SignInResult.isNewUser] from the absence of a role field, and assigns

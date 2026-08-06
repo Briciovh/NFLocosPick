@@ -28,6 +28,13 @@ class AuthViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    // Separate from [uiState]: a delete-account failure must NOT flip uiState away from
+    // Authenticated, since every screen (Settings, Groups, Account...) derives its user
+    // from `authState as? Authenticated` and would otherwise go blank instead of showing
+    // an error while staying signed in.
+    private val _deleteAccountError = MutableStateFlow<AuthError?>(null)
+    val deleteAccountError: StateFlow<AuthError?> = _deleteAccountError.asStateFlow()
+
     private var roleWatcherJob: Job? = null
     private var verificationId: String? = null
     private var verificationJob: Job? = null
@@ -191,6 +198,25 @@ class AuthViewModel @Inject constructor(
             logger.logEvent(AppEvent.SignOut)
             _uiState.value = AuthUiState.Idle
         }
+    }
+
+    fun deleteAccount() {
+        viewModelScope.launch {
+            userRepository.deleteAccount()
+                .onSuccess {
+                    roleWatcherJob?.cancel()
+                    roleWatcherJob = null
+                    logger.logEvent(AppEvent.AccountDeleted)
+                    _uiState.value = AuthUiState.Idle
+                }
+                .onFailure { e ->
+                    _deleteAccountError.value = e.toAuthError(AuthError.ACCOUNT_DELETION_FAILED)
+                }
+        }
+    }
+
+    fun clearDeleteAccountError() {
+        _deleteAccountError.value = null
     }
 
     private fun watchRole(uid: String) {

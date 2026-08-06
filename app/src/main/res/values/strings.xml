@@ -54,6 +54,7 @@
     <string name="error_phone_already_in_use">Ese número ya está vinculado a otra cuenta</string>
     <string name="error_link_email_failed">No se pudo vincular el correo</string>
     <string name="error_link_phone_failed">No se pudo vincular el teléfono</string>
+    <string name="error_account_deletion_failed">No se pudo eliminar tu cuenta. Inténtalo de nuevo</string>
 
     <!-- Groups -->
     <string name="groups_empty">Aún no tienes grupos.\nCrea uno o únete con un código.</string>
@@ -95,6 +96,10 @@
     <string name="settings_section_fav_team">EQUIPO FAVORITO</string>
     <string name="settings_no_team">Ninguno</string>
     <string name="settings_sign_out">Cerrar sesión</string>
+    <string name="settings_delete_account">Eliminar cuenta</string>
+    <string name="settings_delete_account_dialog_title">¿Eliminar tu cuenta?</string>
+    <string name="settings_delete_account_dialog_body">Se eliminará tu perfil, tu foto, tu nombre de usuario y tu sesión de todos tus grupos. Tus picks y mensajes pasados se conservan en el historial del grupo, pero sin tu nombre. Esta acción no se puede deshacer.</string>
+    <string name="settings_delete_account_dialog_confirm">Eliminar cuenta</string>
     <string name="settings_section_language">IDIOMA</string>
     <string name="settings_lang_system">Sistema</string>
     <!-- Nombres de idioma — siempre en su propio idioma, no se traducen -->

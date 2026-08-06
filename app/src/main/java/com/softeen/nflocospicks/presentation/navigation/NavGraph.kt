@@ -84,15 +84,19 @@ fun NavGraph() {
 
                 composable(Screen.Settings.route) {
                     val user = (authState as? AuthUiState.Authenticated)?.user
+                    val deleteAccountError by authViewModel.deleteAccountError.collectAsStateWithLifecycle()
                     if (user != null) {
                         SettingsScreen(
-                            user                       = user,
-                            viewModel                  = settingsViewModel,
-                            onSignOut                  = { authViewModel.signOut() },
-                            onNavigateBack             = { navController.popBackStack() },
-                            onNavigateToTeamSelection  = { navController.navigate(Screen.TeamSelection.route) },
-                            onNavigateToUserManagement = { navController.navigate(Screen.UserManagement.route) },
-                            onNavigateToAccount        = { navController.navigate(Screen.Account.route) }
+                            user                         = user,
+                            viewModel                    = settingsViewModel,
+                            onSignOut                    = { authViewModel.signOut() },
+                            onDeleteAccount              = { authViewModel.deleteAccount() },
+                            deleteAccountError           = deleteAccountError,
+                            onDismissDeleteAccountError  = { authViewModel.clearDeleteAccountError() },
+                            onNavigateBack               = { navController.popBackStack() },
+                            onNavigateToTeamSelection    = { navController.navigate(Screen.TeamSelection.route) },
+                            onNavigateToUserManagement   = { navController.navigate(Screen.UserManagement.route) },
+                            onNavigateToAccount          = { navController.navigate(Screen.Account.route) }
                         )
                     }
                 }

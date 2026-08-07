@@ -1,18 +1,23 @@
-name: CI
+name: Release
 
+# Only fires when a human explicitly publishes a GitHub Release on a tag
+# (auto-tag.yml creates the tag itself, but does not publish a release) --
+# that's the deliberate gate before a signed, Play-Store-ready bundle exists.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
 
       - name: Set up JDK 21
@@ -24,9 +29,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # Guards against the executable bit getting lost again (core.fileMode is
-      # often off on Windows dev machines, so `git update-index --chmod=+x`
-      # can silently regress on a future Windows-authored commit).
       - name: Ensure gradlew is executable
         run: chmod +x gradlew
 
@@ -40,24 +42,10 @@ jobs:
         if: ${{ env.GOOGLE_SERVICES_JSON != '' }}
         run: echo "$GOOGLE_SERVICES_JSON" | base64 -d > app/google-services.json
 
-      - name: Print Version
-        run: |
-          echo "versionName: $(git describe --tags --always | sed 's/^v//')"
-          echo "versionCode: $(git rev-list --count HEAD)"
-
-      - name: Lint
-        run: ./gradlew lint --console=plain
-
-      - name: Unit tests
-        run: ./gradlew test --console=plain
-
-      - name: Assemble debug
-        run: ./gradlew assembleDebug --console=plain
-
       # Signing keystore is gitignored (private key material) and absent on a
-      # fresh clone or CI without secrets. Restored from repo secrets the same
-      # way google-services.json is above; bundleRelease still succeeds without
-      # it, just producing an unsigned bundle (see keystore.properties.example).
+      # fresh clone or CI without secrets. bundleRelease still succeeds
+      # without it, just producing an unsigned bundle (see
+      # keystore.properties.example).
       - name: Restore signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -82,7 +70,7 @@ jobs:
       - name: Bundle release
         run: ./gradlew bundleRelease --console=plain
 
-      - name: Upload release bundle
+      - name: Upload release bundle artifact
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -90,10 +78,7 @@ jobs:
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: ignore
 
-      - name: Upload lint report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: lint-report
-          path: app/build/reports/lint-results-debug.html
-          if-no-files-found: ignore
+      - name: Attach bundle to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" app/build/outputs/bundle/release/*.aab --clobber

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.softeen.nflocospicks.presentation.common.TestTags
 import com.softeen.nflocospicks.presentation.theme.NFLocosPickTheme
 import org.junit.Rule
@@ -29,6 +30,7 @@ class LoginFlowTest {
 
         composeRule
             .onNodeWithTag(TestTags.LOGIN_SIGN_IN_BUTTON)
+            .performScrollTo()
             .assertIsDisplayed()
             .assertIsEnabled()
     }
@@ -46,10 +48,12 @@ class LoginFlowTest {
 
         composeRule
             .onNodeWithTag(TestTags.LOADING_INDICATOR)
+            .performScrollTo()
             .assertIsDisplayed()
 
         composeRule
             .onNodeWithTag(TestTags.LOGIN_SIGN_IN_BUTTON)
+            .performScrollTo()
             .assertIsNotEnabled()
     }
 }

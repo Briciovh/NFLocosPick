@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.softeen.nflocospicks.presentation.auth.AuthUiState
 import com.softeen.nflocospicks.presentation.auth.LoginScreenContent
@@ -35,6 +36,7 @@ class LoginScreenTest {
 
         composeRule
             .onNodeWithTag(TestTags.LOGIN_SIGN_IN_BUTTON)
+            .performScrollTo()
             .assertIsDisplayed()
             .assertIsEnabled()
     }
@@ -52,10 +54,12 @@ class LoginScreenTest {
 
         composeRule
             .onNodeWithTag(TestTags.LOADING_INDICATOR)
+            .performScrollTo()
             .assertIsDisplayed()
 
         composeRule
             .onNodeWithTag(TestTags.LOGIN_SIGN_IN_BUTTON)
+            .performScrollTo()
             .assertIsNotEnabled()
     }
 
@@ -74,6 +78,7 @@ class LoginScreenTest {
 
         composeRule
             .onNodeWithTag(TestTags.LOGIN_SIGN_IN_BUTTON)
+            .performScrollTo()
             .performClick()
 
         assertTrue("onSignInGoogle must be called after button tap", clicked)

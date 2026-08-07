@@ -117,7 +117,7 @@ class PickViewModelIntegrationTest {
         val fakeRepo = FakePickRepository()
         val vm = viewModel(fakeRepo)
 
-        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = Long.MAX_VALUE)
+        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = Long.MAX_VALUE, status = GameStatus.SCHEDULED)
 
         // Real use case did not throw → optimistic update stays
         val state = vm.uiState.value as PickUiState.Success
@@ -132,7 +132,7 @@ class PickViewModelIntegrationTest {
         val fakeRepo = FakePickRepository()
         val vm = viewModel(fakeRepo)
 
-        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = 0L) // epoch = pasado
+        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = 0L, status = GameStatus.SCHEDULED) // epoch = pasado
 
         // Real use case threw → ViewModel revirtió el estado
         val state = vm.uiState.value as PickUiState.Success
@@ -140,6 +140,20 @@ class PickViewModelIntegrationTest {
         // Error message fue propagado desde la excepción del use case
         assertNotNull("errorMessage debe tener el mensaje del use case", vm.errorMessage.value)
         // El repositorio nunca fue alcanzado
+        assertFalse("submitPick en el repo no debe haberse llamado", fakeRepo.submitCalled)
+    }
+
+    @Test
+    fun `submitPick with FINAL status triggers real IllegalStateException even with future kickoff`() = runTest(coroutineRule.dispatcher) {
+        // Reproduce el bug real: kickoffTime corrupto hacia el futuro en un juego FINAL.
+        val fakeRepo = FakePickRepository()
+        val vm = viewModel(fakeRepo)
+
+        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = Long.MAX_VALUE, status = GameStatus.FINAL)
+
+        val state = vm.uiState.value as PickUiState.Success
+        assertNull("El pick debe haberse revertido a null", state.items.single().pickedTeam)
+        assertNotNull("errorMessage debe tener el mensaje del use case", vm.errorMessage.value)
         assertFalse("submitPick en el repo no debe haberse llamado", fakeRepo.submitCalled)
     }
 }

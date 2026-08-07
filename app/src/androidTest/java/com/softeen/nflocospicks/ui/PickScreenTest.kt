@@ -61,7 +61,7 @@ class PickScreenTest {
                     onNavigateBack = {},
                     onRetry        = {},
                     onSync         = {},
-                    onPick         = { _, _, _ -> },
+                    onPick         = { _, _, _, _ -> },
                     onErrorShown   = {}
                 )
             }
@@ -87,7 +87,7 @@ class PickScreenTest {
                     onNavigateBack = {},
                     onRetry        = {},
                     onSync         = {},
-                    onPick         = { _, _, _ -> },
+                    onPick         = { _, _, _, _ -> },
                     onErrorShown   = {}
                 )
             }
@@ -118,7 +118,7 @@ class PickScreenTest {
                     onNavigateBack = {},
                     onRetry        = {},
                     onSync         = {},
-                    onPick         = { _, abbr, _ -> pickedAbbr = abbr },
+                    onPick         = { _, abbr, _, _ -> pickedAbbr = abbr },
                     onErrorShown   = {}
                 )
             }

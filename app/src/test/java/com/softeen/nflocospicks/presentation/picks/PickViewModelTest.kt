@@ -103,11 +103,24 @@ class PickViewModelTest {
     }
 
     @Test
-    fun `submitPick on unlocked game updates pickedTeam in state`() = runTest(coroutineRule.dispatcher) {
-        coEvery { submitPickUseCase(any(), any(), any(), any(), any(), any()) } just Runs
+    fun `FINAL game with future kickoffTime is still locked`() = runTest(coroutineRule.dispatcher) {
+        // Reproduce el bug: kickoffTime corrupto hacia el futuro (p.ej. hack de debug)
+        // en un juego que ESPN ya reporta como FINAL no debe dejarlo desbloqueado.
+        val finalGame = testGame.copy(status = GameStatus.FINAL, kickoffTime = Long.MAX_VALUE)
+        coEvery { getGamesUseCase(any()) } returns listOf(finalGame)
 
         val vm = viewModel()
-        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = Long.MAX_VALUE)
+
+        val state = vm.uiState.value as PickUiState.Success
+        assertTrue(state.items.single().isLocked)
+    }
+
+    @Test
+    fun `submitPick on unlocked game updates pickedTeam in state`() = runTest(coroutineRule.dispatcher) {
+        coEvery { submitPickUseCase(any(), any(), any(), any(), any(), any(), any()) } just Runs
+
+        val vm = viewModel()
+        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = Long.MAX_VALUE, status = GameStatus.SCHEDULED)
 
         val state = vm.uiState.value as PickUiState.Success
         assertEquals("KC", state.items.single().pickedTeam)
@@ -116,11 +129,11 @@ class PickViewModelTest {
     @Test
     fun `submitPick reverts optimistic update and sets errorMessage when use case throws`() = runTest(coroutineRule.dispatcher) {
         coEvery {
-            submitPickUseCase(any(), any(), any(), any(), any(), any())
+            submitPickUseCase(any(), any(), any(), any(), any(), any(), any())
         } throws IllegalStateException("El partido ya comenzó, no puedes cambiar tu pick")
 
         val vm = viewModel()
-        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = Long.MAX_VALUE)
+        vm.submitPick(gameId = "game1", teamAbbr = "KC", kickoffTime = Long.MAX_VALUE, status = GameStatus.SCHEDULED)
 
         // Estado revertido — pick sigue en null
         val state = vm.uiState.value as PickUiState.Success
@@ -135,11 +148,11 @@ class PickViewModelTest {
     @Test
     fun `onErrorShown clears the errorMessage`() = runTest(coroutineRule.dispatcher) {
         coEvery {
-            submitPickUseCase(any(), any(), any(), any(), any(), any())
+            submitPickUseCase(any(), any(), any(), any(), any(), any(), any())
         } throws RuntimeException("Error")
 
         val vm = viewModel()
-        vm.submitPick("game1", "KC", Long.MAX_VALUE)  // sets errorMessage
+        vm.submitPick("game1", "KC", Long.MAX_VALUE, GameStatus.SCHEDULED)  // sets errorMessage
 
         vm.onErrorShown()
 

@@ -1,0 +1,62 @@
+name: Auto Tag
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Serializes back-to-back merges so they don't race on "what's the latest tag".
+concurrency:
+  group: auto-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # Bump is driven by the merged branch's prefix: feature/* -> minor,
+      # everything else (fix/*, chore/*, docs/*, ...) -> patch. Only
+      # v-prefixed semver tags are considered, so the stray unprefixed
+      # "1.2.0" tag already in this repo is ignored.
+      - name: Compute and push next version tag
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -eu
+
+          git fetch --tags --force
+
+          latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1)
+          latest=${latest:-v0.0.0}
+          version=${latest#v}
+          major=$(echo "$version" | cut -d. -f1)
+          minor=$(echo "$version" | cut -d. -f2)
+          patch=$(echo "$version" | cut -d. -f3)
+
+          case "$HEAD_REF" in
+            feature/*)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            *)
+              patch=$((patch + 1))
+              ;;
+          esac
+
+          new_tag="v${major}.${minor}.${patch}"
+          echo "Tagging $new_tag (merged branch: $HEAD_REF, previous tag: $latest)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$new_tag" -m "Release $new_tag"
+          git push origin "$new_tag"

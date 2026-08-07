@@ -3,7 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+        No usamos el Advertising ID ni Attribution Reporting (no hay ads en
+        la app). Ambos permisos son inyectados transitivamente por
+        play-services-measurement-api (Firebase Analytics) y deben removerse
+        explícitamente aquí, ya que el manifest de la app tiene prioridad
+        sobre los manifests de librerías durante el merge.
+    -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID"
+        tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_ATTRIBUTION"
         tools:node="remove" />
 
     <application
@@ -17,6 +28,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NFLocosPick"
         android:localeConfig="@xml/locale_config">
+        <!--
+            The app doesn't use the Advertising ID (no ads). The AD_ID
+            permission removal above only strips the manifest permission;
+            this flag additionally tells Firebase Analytics itself to stop
+            attempting AdID collection, so the "No" answer on Play Console's
+            Advertising ID declaration is accurate.
+        -->
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+
         <!--
             Disable WorkManager's default auto-initializer so HiltWorkerFactory
             can provide its own Configuration (see NFLocosPickApp).

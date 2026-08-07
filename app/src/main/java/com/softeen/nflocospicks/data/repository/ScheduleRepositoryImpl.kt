@@ -6,6 +6,7 @@ import com.softeen.nflocospicks.BuildConfig
 import com.softeen.nflocospicks.data.remote.espn.EspnApiService
 import com.softeen.nflocospicks.data.remote.espn.toDomain
 import com.softeen.nflocospicks.domain.model.Game
+import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.domain.repository.ScheduleRepository
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -18,10 +19,10 @@ class ScheduleRepositoryImpl @Inject constructor(
     companion object {
         /**
          * SOLO para builds debug: desplaza el kickoffTime 24h al futuro para
-         * poder testear picks durante la temporada muerta. Nunca se aplica en
-         * release — de lo contrario los picks quedarían desbloqueados 24h
-         * después del kickoff real, dejando elegir equipo con el resultado
-         * ya conocido.
+         * poder testear picks durante la temporada muerta. Solo se aplica a
+         * juegos aún SCHEDULED — nunca a juegos IN_PROGRESS o FINAL, porque
+         * eso los dejaría "desbloqueados" con el resultado ya conocido.
+         * Nunca se aplica en release.
          */
         private const val DEBUG_KICKOFF_OFFSET_MS = 24 * 60 * 60 * 1000L  // 24 h hacia el futuro
     }
@@ -29,7 +30,7 @@ class ScheduleRepositoryImpl @Inject constructor(
     override suspend fun getCurrentWeekGames(groupId: String): List<Game> {
         val response = espnApiService.getScoreboard()
         val games = response.toDomain().map { game ->
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.DEBUG && game.status == GameStatus.SCHEDULED) {
                 game.copy(kickoffTime = System.currentTimeMillis() + DEBUG_KICKOFF_OFFSET_MS)
             } else {
                 game

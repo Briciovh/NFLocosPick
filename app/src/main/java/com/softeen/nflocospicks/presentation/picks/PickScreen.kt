@@ -77,8 +77,8 @@ fun PickScreen(
         onNavigateBack = onNavigateBack,
         onRetry        = { viewModel.loadData() },
         onSync         = { viewModel.triggerSync() },
-        onPick         = { gameId, teamAbbr, kickoffTime ->
-            viewModel.submitPick(gameId, teamAbbr, kickoffTime)
+        onPick         = { gameId, teamAbbr, kickoffTime, status ->
+            viewModel.submitPick(gameId, teamAbbr, kickoffTime, status)
         },
         onErrorShown   = { viewModel.onErrorShown() }
     )
@@ -92,7 +92,7 @@ internal fun PickScreenContent(
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
     onSync: () -> Unit,
-    onPick: (String, String, Long) -> Unit,
+    onPick: (String, String, Long, GameStatus) -> Unit,
     onErrorShown: () -> Unit
 ) {
     val appColors     = LocalAppColors.current
@@ -222,7 +222,7 @@ internal fun PickScreenContent(
                             GamePickCard(
                                 item   = item,
                                 onPick = { teamAbbr ->
-                                    onPick(item.game.id, teamAbbr, item.game.kickoffTime)
+                                    onPick(item.game.id, teamAbbr, item.game.kickoffTime, item.game.status)
                                 }
                             )
                         }
@@ -405,7 +405,7 @@ private fun PickScreenSuccessPreview() {
             onNavigateBack = {},
             onRetry        = {},
             onSync         = {},
-            onPick         = { _, _, _ -> },
+            onPick         = { _, _, _, _ -> },
             onErrorShown   = {}
         )
     }
@@ -421,7 +421,7 @@ private fun PickScreenLoadingPreview() {
             onNavigateBack = {},
             onRetry        = {},
             onSync         = {},
-            onPick         = { _, _, _ -> },
+            onPick         = { _, _, _, _ -> },
             onErrorShown   = {}
         )
     }

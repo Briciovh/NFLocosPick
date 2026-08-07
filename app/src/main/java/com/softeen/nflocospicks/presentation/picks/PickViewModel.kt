@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.mock.MockDataProvider
+import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -71,7 +72,7 @@ class PickViewModel @Inject constructor(
                     GamePickItem(
                         game       = game,
                         pickedTeam = picks[game.id]?.pickedTeam,
-                        isLocked   = now >= game.kickoffTime
+                        isLocked   = now >= game.kickoffTime || game.status != GameStatus.SCHEDULED
                     )
                 }
                 _uiState.value = PickUiState.Success(items, weekId)
@@ -123,7 +124,7 @@ class PickViewModel @Inject constructor(
      * - Ruta mock: escribe en MockSessionRepository (flow reactivo actualiza la UI).
      * - Ruta real: update optimista + escritura Firestore con revert en caso de error.
      */
-    fun submitPick(gameId: String, teamAbbr: String, kickoffTime: Long) {
+    fun submitPick(gameId: String, teamAbbr: String, kickoffTime: Long, status: GameStatus) {
         val userId = userRepository.getCurrentUser()?.uid ?: return
 
         if (groupId == MockDataProvider.MOCK_GROUP_ID) {
@@ -155,7 +156,8 @@ class PickViewModel @Inject constructor(
                     userId      = userId,
                     gameId      = gameId,
                     teamAbbr    = teamAbbr,
-                    kickoffTime = kickoffTime
+                    kickoffTime = kickoffTime,
+                    status      = status
                 )
                 logger.logEvent(AppEvent.PickSubmitted(groupId, currentState.weekId, gameId, teamAbbr))
             } catch (e: Exception) {

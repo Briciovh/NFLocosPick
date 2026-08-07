@@ -1,6 +1,7 @@
 package com.softeen.nflocospicks.domain.usecase
 
 import com.google.common.truth.Truth.assertThat
+import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.domain.repository.PickRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -23,11 +24,11 @@ class SubmitPickUseCaseTest {
         } returns Unit
 
         // When
-        useCase("group1", "2025-week-01", "user1", "game1", "KC", futureKickoff)
+        useCase("group1", "2025-week-01", "user1", "game1", "KC", futureKickoff, GameStatus.SCHEDULED)
 
         // Then
-        coVerify { 
-            pickRepository.submitPick("group1", "2025-week-01", "user1", "game1", "KC") 
+        coVerify {
+            pickRepository.submitPick("group1", "2025-week-01", "user1", "game1", "KC")
         }
     }
 
@@ -39,7 +40,22 @@ class SubmitPickUseCaseTest {
         // When / Then
         val exception = assertThrows(IllegalStateException::class.java) {
             runBlocking {
-                useCase("group1", "2025-week-01", "user1", "game1", "KC", pastKickoff)
+                useCase("group1", "2025-week-01", "user1", "game1", "KC", pastKickoff, GameStatus.SCHEDULED)
+            }
+        }
+        assertThat(exception.message).contains("ya comenzó")
+        coVerify(exactly = 0) { pickRepository.submitPick(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `invoke throws IllegalStateException when game is no longer SCHEDULED even if kickoffTime is in the future`() = runBlocking {
+        // Given
+        val futureKickoff = System.currentTimeMillis() + 100_000
+
+        // When / Then
+        val exception = assertThrows(IllegalStateException::class.java) {
+            runBlocking {
+                useCase("group1", "2025-week-01", "user1", "game1", "KC", futureKickoff, GameStatus.FINAL)
             }
         }
         assertThat(exception.message).contains("ya comenzó")

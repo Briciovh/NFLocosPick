@@ -25,9 +25,10 @@ jobs:
           fetch-depth: 0
 
       # Bump is driven by the merged branch's prefix: feature/* -> minor,
-      # everything else (fix/*, chore/*, docs/*, ...) -> patch. Only
-      # v-prefixed semver tags are considered, so the stray unprefixed
-      # "1.2.0" tag already in this repo is ignored.
+      # everything else (fix/*, chore/*, docs/*, ...) -> patch. "Latest"
+      # considers both v-prefixed and bare semver tags (this repo has a
+      # legacy bare "1.2.0" tag with a Release attached), but new tags are
+      # always created with the "v" prefix for consistency going forward.
       - name: Compute and push next version tag
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
@@ -36,9 +37,8 @@ jobs:
 
           git fetch --tags --force
 
-          latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1)
-          latest=${latest:-v0.0.0}
-          version=${latest#v}
+          version=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' '[0-9]*.[0-9]*.[0-9]*' | sed 's/^v//' | sort -V | tail -n1)
+          version=${version:-0.0.0}
           major=$(echo "$version" | cut -d. -f1)
           minor=$(echo "$version" | cut -d. -f2)
           patch=$(echo "$version" | cut -d. -f3)
@@ -54,7 +54,7 @@ jobs:
           esac
 
           new_tag="v${major}.${minor}.${patch}"
-          echo "Tagging $new_tag (merged branch: $HEAD_REF, previous tag: $latest)"
+          echo "Tagging $new_tag (merged branch: $HEAD_REF, previous version: $version)"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

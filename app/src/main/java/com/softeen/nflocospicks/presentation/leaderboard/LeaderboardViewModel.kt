@@ -7,6 +7,7 @@ import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.LeaderboardEntry
 import com.softeen.nflocospicks.domain.model.MockSessionState
+import com.softeen.nflocospicks.domain.model.SeasonType
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.effectiveDisplayName
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
@@ -14,6 +15,7 @@ import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
+import com.softeen.nflocospicks.domain.usecase.GetCurrentWeekGamesUseCase
 import com.softeen.nflocospicks.domain.usecase.GetLeaderboardUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,12 +25,14 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class LeaderboardViewModel @Inject constructor(
     savedStateHandle:                SavedStateHandle,
     private val getLeaderboardUseCase: GetLeaderboardUseCase,
+    private val getCurrentWeekGamesUseCase: GetCurrentWeekGamesUseCase,
     private val userRepository:        UserRepository,
     private val preferencesRepository: UserPreferencesRepository,
     private val mockSessionRepository: MockSessionRepository,
@@ -41,21 +45,52 @@ class LeaderboardViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<LeaderboardUiState>(LeaderboardUiState.Loading)
     val uiState: StateFlow<LeaderboardUiState> = _uiState.asStateFlow()
 
+    // null = todavía sin auto-detectar la temporada actual / sin primera emisión de standings.
+    private val _selectedSeasonType = MutableStateFlow<SeasonType?>(null)
+    private val _allEntries = MutableStateFlow<List<LeaderboardEntry>?>(null)
+
     init {
         if (groupId == MockDataProvider.MOCK_GROUP_ID) observeMockLeaderboard()
         else {
             logger.logEvent(AppEvent.LeaderboardViewed(groupId))
+            detectCurrentSeasonType()
             observeRealLeaderboard()
         }
     }
 
+    fun onTabSelected(seasonType: SeasonType) {
+        _selectedSeasonType.value = seasonType
+        recompute()
+    }
+
     // ── Ruta real ─────────────────────────────────────────────────────────────
+
+    private fun detectCurrentSeasonType() {
+        viewModelScope.launch {
+            val detected = runCatching { getCurrentWeekGamesUseCase(groupId) }
+                .getOrNull()
+                ?.firstOrNull()
+                ?.seasonType
+                ?.takeIf { it != SeasonType.POSTSEASON }
+                ?: SeasonType.REGULAR
+            if (_selectedSeasonType.value == null) _selectedSeasonType.value = detected
+            recompute()
+        }
+    }
 
     private fun observeRealLeaderboard() {
         getLeaderboardUseCase(groupId)
-            .onEach { entries -> _uiState.value = LeaderboardUiState.Success(entries) }
+            .onEach { entries -> _allEntries.value = entries; recompute() }
             .catch { e -> _uiState.value = LeaderboardUiState.Error(e.message ?: "Error al cargar el leaderboard") }
             .launchIn(viewModelScope)
+    }
+
+    // Espera tanto la temporada detectada como la primera emisión de standings, para evitar
+    // un parpadeo visible de "Temporada" a "Pre-temporada" al abrir la pantalla.
+    private fun recompute() {
+        val season = _selectedSeasonType.value ?: return
+        val entries = _allEntries.value ?: return
+        _uiState.value = LeaderboardUiState.Success(entries.rankedFor(season), season)
     }
 
     // ── Ruta mock ─────────────────────────────────────────────────────────────
@@ -72,7 +107,9 @@ class LeaderboardViewModel @Inject constructor(
                 realUser   = realUser
             )
         }
-            .onEach { entries -> _uiState.value = LeaderboardUiState.Success(entries) }
+            // Demo fija de onboarding: ambos tabs muestran el mismo total, no hay
+            // distinción real de temporada en los datos mock.
+            .onEach { entries -> _uiState.value = LeaderboardUiState.Success(entries, SeasonType.REGULAR) }
             .catch { e -> _uiState.value = LeaderboardUiState.Error(e.message ?: "Error al calcular el leaderboard") }
             .launchIn(viewModelScope)
     }
@@ -121,7 +158,8 @@ class LeaderboardViewModel @Inject constructor(
                 userId          = p.uid,
                 displayName     = p.displayName,
                 photoUrl        = p.photoUrl,
-                totalPoints     = p.points,
+                regularPoints   = p.points,
+                preseasonPoints = p.points,
                 weeklyBreakdown = if (simulating && p.points > 0)
                     mapOf(MockDataProvider.MOCK_WEEK_ID to p.points)
                 else

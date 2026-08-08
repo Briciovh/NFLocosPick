@@ -75,6 +75,7 @@
     <string name="picks_retry">Retry</string>
     <string name="picks_team_away">AWAY</string>
     <string name="picks_team_home">HOME</string>
+    <string name="picks_preseason_subtitle">Preseason — practice before the official season starts</string>
     <string name="game_status_live">LIVE</string>
     <string name="game_status_locked">🔒 LOCKED</string>
 
@@ -83,6 +84,8 @@
     <string name="leaderboard_empty">No scores yet.\nPicks are scored automatically.</string>
     <string name="leaderboard_weekly_breakdown">Weekly breakdown</string>
     <string name="leaderboard_view_history">View full history</string>
+    <string name="leaderboard_tab_regular">Season</string>
+    <string name="leaderboard_tab_preseason">Preseason</string>
     <string name="points_format">%1$d pts</string>
 
     <!-- Settings -->

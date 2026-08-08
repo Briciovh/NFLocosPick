@@ -4,11 +4,16 @@ import com.google.gson.annotations.SerializedName
 
 data class EspnScoreboardResponse(
     val week: EspnWeek,
+    val season: EspnSeason,
     val events: List<EspnEvent>
 )
 
 data class EspnWeek(
     val number: Int
+)
+
+data class EspnSeason(
+    val type: Int    // 1=pre-temporada, 2=temporada regular, 3=post-temporada
 )
 
 data class EspnEvent(

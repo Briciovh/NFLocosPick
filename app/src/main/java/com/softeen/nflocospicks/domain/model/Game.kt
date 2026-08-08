@@ -12,5 +12,6 @@ data class Game(
     val awayScore: Int?,
     val status: GameStatus,
     val homeTeamRecord: String? = null,  // e.g. "10-3", null fuera de temporada regular
-    val awayTeamRecord: String? = null
+    val awayTeamRecord: String? = null,
+    val seasonType: SeasonType = SeasonType.REGULAR
 )

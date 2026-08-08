@@ -1,5 +1,6 @@
 {
   "week": { "number": 12 },
+  "season": { "type": 2 },
   "events": [
     {
       "id": "401671876",

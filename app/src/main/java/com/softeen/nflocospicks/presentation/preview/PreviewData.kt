@@ -70,17 +70,20 @@ internal val fakeGroup = Group(
 internal val fakeLeaderboard = listOf(
     LeaderboardEntry(
         userId = "user_1", displayName = "Bricio", photoUrl = null,
-        totalPoints = 42, weeklyBreakdown = mapOf("2025-week-10" to 7, "2025-week-11" to 9),
+        regularPoints = 42, preseasonPoints = 12,
+        weeklyBreakdown = mapOf("2025-week-10" to 7, "2025-week-11" to 9, "2025-pre-week-01" to 12),
         rank = 1
     ),
     LeaderboardEntry(
         userId = "user_2", displayName = "Juan", photoUrl = null,
-        totalPoints = 36, weeklyBreakdown = mapOf("2025-week-10" to 6, "2025-week-11" to 7),
+        regularPoints = 36, preseasonPoints = 8,
+        weeklyBreakdown = mapOf("2025-week-10" to 6, "2025-week-11" to 7, "2025-pre-week-01" to 8),
         rank = 2
     ),
     LeaderboardEntry(
         userId = "user_3", displayName = "María", photoUrl = null,
-        totalPoints = 28, weeklyBreakdown = mapOf("2025-week-10" to 5, "2025-week-11" to 4),
+        regularPoints = 28, preseasonPoints = 15,
+        weeklyBreakdown = mapOf("2025-week-10" to 5, "2025-week-11" to 4, "2025-pre-week-01" to 15),
         rank = 3
     ),
 )

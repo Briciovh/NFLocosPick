@@ -78,6 +78,7 @@
     <string name="picks_retry">Reintentar</string>
     <string name="picks_team_away">VISITANTE</string>
     <string name="picks_team_home">LOCAL</string>
+    <string name="picks_preseason_subtitle">Pre-temporada — practica antes de que empiece la temporada oficial</string>
     <string name="game_status_live">EN VIVO</string>
     <string name="game_status_locked">🔒 CERRADO</string>
     <!-- Terminología de fútbol americano — igual en todos los idiomas -->
@@ -88,6 +89,8 @@
     <string name="leaderboard_empty">Aún no hay puntuaciones.\nLos picks se puntúan automáticamente.</string>
     <string name="leaderboard_weekly_breakdown">Desglose semanal</string>
     <string name="leaderboard_view_history">Ver historial completo</string>
+    <string name="leaderboard_tab_regular">Temporada</string>
+    <string name="leaderboard_tab_preseason">Pre-temporada</string>
     <string name="points_format">%1$d pts</string>
 
     <!-- Settings -->

@@ -213,18 +213,34 @@ internal fun PickScreenContent(
                         )
                     }
                 } else {
-                    LazyColumn(
-                        modifier            = Modifier.padding(innerPadding),
-                        contentPadding      = PaddingValues(vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(uiState.items, key = { it.game.id }) { item ->
-                            GamePickCard(
-                                item   = item,
-                                onPick = { teamAbbr ->
-                                    onPick(item.game.id, teamAbbr, item.game.kickoffTime, item.game.status)
-                                }
-                            )
+                    Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                        if (uiState.isPreseason) {
+                            Surface(color = appColors.primary.copy(alpha = 0.12f)) {
+                                Text(
+                                    text       = stringResource(R.string.picks_preseason_subtitle),
+                                    color      = appColors.primary,
+                                    style      = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    textAlign  = TextAlign.Center,
+                                    modifier   = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp, horizontal = 16.dp)
+                                )
+                            }
+                        }
+                        LazyColumn(
+                            modifier            = Modifier.weight(1f),
+                            contentPadding      = PaddingValues(vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(uiState.items, key = { it.game.id }) { item ->
+                                GamePickCard(
+                                    item   = item,
+                                    onPick = { teamAbbr ->
+                                        onPick(item.game.id, teamAbbr, item.game.kickoffTime, item.game.status)
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -400,6 +416,26 @@ private fun PickScreenSuccessPreview() {
             uiState        = PickUiState.Success(
                 weekId = "2025-week-12",
                 items  = listOf(fakePickItem, fakePickItemLocked)
+            ),
+            errorMessage   = null,
+            onNavigateBack = {},
+            onRetry        = {},
+            onSync         = {},
+            onPick         = { _, _, _, _ -> },
+            onErrorShown   = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun PickScreenPreseasonPreview() {
+    PreviewWrapper {
+        PickScreenContent(
+            uiState        = PickUiState.Success(
+                weekId      = "2025-pre-week-01",
+                items       = listOf(fakePickItem, fakePickItemLocked),
+                isPreseason = true
             ),
             errorMessage   = null,
             onNavigateBack = {},

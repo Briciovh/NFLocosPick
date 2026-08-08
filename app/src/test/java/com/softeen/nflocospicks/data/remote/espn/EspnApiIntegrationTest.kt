@@ -92,7 +92,7 @@ class EspnApiIntegrationTest {
 
     @Test
     fun `empty events array produces an empty list without error`() = runTest {
-        server.enqueue(jsonResponse("""{"week":{"number":1},"events":[]}"""))
+        server.enqueue(jsonResponse("""{"week":{"number":1},"season":{"type":2},"events":[]}"""))
 
         val games = service.getScoreboard().toDomain()
 

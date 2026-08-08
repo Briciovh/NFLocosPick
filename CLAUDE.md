@@ -255,6 +255,13 @@ These rules apply to every change made in this repository. There are no exceptio
 - User preferences (favorite team) are stored in **Jetpack DataStore** on-device, not in Firestore.
 - `google-services.json` is never committed — add a real one from the Firebase Console to `app/` to enable Firebase at runtime. The `google-services` plugin is applied conditionally in `app/build.gradle.kts` so the project builds without it.
 
+## Release Checklist
+
+- **Play App Signing re-signs the app with its own certificate — that certificate's SHA-1/SHA-256 must be registered in Firebase.** The upload/local keystore (`keystore.properties`) is only used to sign the AAB you upload; Google Play then re-signs it for distribution with a separate management key. Google Sign-In validates the installed app's certificate against the fingerprints registered on the Firebase Android OAuth client — if only the upload key's SHA-1 is registered, Sign-In breaks on every production install even though it works fine locally.
+  - Before (or right after) the **first** production publish, get the "App signing key certificate" SHA-1 and SHA-256 from Play Console → app → Protegido con Play → Firma de apps → Descargar certificados, and register both with `firebase apps:android:sha:create <appId> <hash> --project nflocospicks`. Verify with `firebase apps:android:sha:list <appId> --project nflocospicks`.
+  - After adding a fingerprint, refresh the local `app/google-services.json` via `firebase apps:sdkconfig ANDROID <appId> --project nflocospicks -o app/google-services.json.new && mv -f app/google-services.json.new app/google-services.json` so local/CI builds stay in sync (the file is gitignored, so this only affects your machine).
+  - This is a one-time step per app — Play App Signing's certificate doesn't change between releases, so once it's registered it stays fixed.
+
 ## AGP 9 / Dependency Compatibility Notes
 
 - **Hilt requires ≥ 2.59** with AGP 9.x (versions ≤ 2.58 use the removed `BaseExtension` API). Hilt 2.59 also requires Gradle ≥ 9.1.

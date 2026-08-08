@@ -10,6 +10,10 @@ data class GamePickItem(
 
 sealed class PickUiState {
     data object Loading : PickUiState()
-    data class Success(val items: List<GamePickItem>, val weekId: String) : PickUiState()
+    data class Success(
+        val items: List<GamePickItem>,
+        val weekId: String,
+        val isPreseason: Boolean = false
+    ) : PickUiState()
     data class Error(val message: String) : PickUiState()
 }

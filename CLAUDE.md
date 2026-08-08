@@ -230,6 +230,50 @@ Each PR has its own branch. Merge into `main` in order.
 - All screens updated to read colors from `LocalAppColors.current` instead of hardcoded Blue Steel constants
 - `PreviewData.kt` + `PreviewWrapper` extracted to `presentation/preview/` for clean Compose preview setup
 
+### PR-11 — Accessibility & Legibility Pass
+**Branch:** `feature/11-accessibility-legibility`
+
+First of a 3-PR redesign series addressing tester feedback that text/controls were too small and screens wasted space (PR-12 adds Material 3 Adaptive width-aware layouts, PR-13 adopts Material 3 Expressive shapes/motion; the app logo/brand identity stays untouched pending client approval).
+
+- `Type.kt` — fully-specified Material3 `Typography` covering all 15 roles (previously only `bodyLarge` was overridden), sized larger and weighted bolder than stock M3 defaults
+- `Typography.scaledBy(factor)` extension + `FontScaleOption` enum (`PEQUENO`/`NORMAL`/`GRANDE`) — an in-app font-size override layered on top of (not replacing) the Android system accessibility font scale
+- `UserPreferences.fontScalePreference` + DataStore key, `SettingsViewModel.setFontScale()`, and a Pequeño/Normal/Grande selector in `SettingsScreen` next to the language selector
+- `NFLocosPickTheme`/`NavGraph` derive the scaled `Typography` once per preference change via `remember(fontScale)`, mirroring the existing `AppColors`/`LocalAppColors` pattern
+- Fixed `ScheduleScreen`'s `LazyColumn` missing `fillMaxSize()` — root cause of the empty-space-at-bottom reports on short game weeks
+- App-wide 48dp touch-target audit (documented in `Type.kt`) confirming interactive rows/buttons clear the minimum with the new type scale, while intentionally leaving decorative small team logos (History screen) untouched
+
+### PR-12 — Adaptive Layouts
+**Branch:** `feature/12-adaptive-layouts`
+
+Second of the 3-PR redesign series — adds Material 3 Adaptive support so the app uses available width intelligently on tablets/large-screen devices instead of stretching phone-sized layouts unboundedly (PR-13 closes the series with Material 3 Expressive visual polish; the logo/brand identity is untouched pending client approval).
+
+- `material3-adaptive` (BOM-managed) added to `libs.versions.toml` / `app/build.gradle.kts`; window width read via `currentWindowAdaptiveInfo().windowSizeClass` (no `Activity`/`CompositionLocal` plumbing needed — also respects `@Preview(widthDp = ...)`, unlike the legacy `material3-window-size-class` artifact)
+- `TeamSelectionScreen` — column count now derives from `WindowSizeClass.isWidthAtLeastBreakpoint(...)` (COMPACT=4 / MEDIUM=6 / EXPANDED=8); cell size stays fixed at 72dp on every breakpoint (bold, legible logos take priority over cramming more small cells); the grid itself is capped at 900dp and centered on wide screens
+- `Modifier.responsiveCardWidth()` — new reusable modifier in `presentation/common/AdaptiveLayout.kt`; caps list-card content at 600dp, centered (via `horizontalAlignment` on the parent `LazyColumn`), on MEDIUM/EXPANDED screens; a no-op on COMPACT. Applied to `ScheduleScreen`, `PickScreen`, `LeaderboardScreen`, `HistoryScreen`, `GroupsScreen`'s card lists
+
+### PR-13 — Bolder Shapes & Motion Polish
+**Branch:** `feature/13-expressive-polish`
+
+Third and final PR of the redesign series. Originally scoped as full Material 3 Expressive adoption (`MaterialExpressiveTheme`/`MotionScheme`/`MaterialShapes`), but a real compile against the resolved `androidx.compose.material3:material3-android:1.4.0` artifact showed those APIs are Kotlin-`internal`/unresolved in this version — not usable from app code despite appearing public when decompiled with `javap` (which can't see Kotlin's `internal` visibility). PR-13 ships the same visual goal with stable APIs instead: bolder shapes via a themed `Shapes` object and `spring()`-based motion. The logo/brand identity remains untouched, still pending client approval.
+
+- `presentation/theme/Shapes.kt` (new) — themed `Shapes` (`extraSmall`=4dp, `small`=8dp, `medium`=16dp [bolder than the prior de-facto 12dp card radius], `large`=20dp, `extraLarge`=24dp), wired into `NFLocosPickTheme`'s existing `MaterialTheme(...)` call via its `shapes` param
+- ~26 hardcoded `RoundedCornerShape(N.dp)` call sites across 14 screens migrated to `MaterialTheme.shapes.*` theme references
+- Game-status badges (`ScheduleScreen`'s `StatusChip`, `PickScreen`'s `GameStatusChip`) now use `CircleShape` for a pill/scoreboard look; administrative badges (Board announcement tag, UserManagement role tag) intentionally stay rectangular
+- Decorative `CircleShape` backdrop behind the Login screen logo (logo image itself untouched); `HistoryScreen`'s bare-emoji pick-result indicator replaced with a themed `CircleShape` badge + `Icon` (green/red tint, pending state unchanged)
+- `spring()`-tuned `AnimatedVisibility` on `HistoryScreen`/`LeaderboardScreen`'s expand/collapse toggles, plus a new `animateFloatAsState` selection-scale animation on `PickScreen`'s `TeamPickButton` (previously zero motion on the app's core tap interaction)
+- Closes the 3-PR redesign series (PR-11 typography/legibility → PR-12 adaptive layouts → PR-13 shapes/motion polish)
+
+### PR-14 — Size & Space Correction
+**Branch:** `feature/14-size-space-correction`
+
+A corrective PR, not new scope: PR-11, PR-12, and PR-13 all shipped, but none of them addressed the user's three original complaints — fonts still read as small, layouts still felt cramped with large wasted space, and team logos/icons never actually got bigger. Root cause for the layout piece: PR-12's "adaptive" column/sizing logic gated on `currentWindowAdaptiveInfo().windowSizeClass`, which buckets by dp width — every phone in portrait, regardless of physical screen size, lands in `COMPACT` (<600dp), so PR-12's "more columns on wider screens" logic never activated on any phone tested. Separately, icon/logo sizing was simply never in scope of any of the three prior PRs — a planning gap, not a regression. This PR fixes both, directly, with concrete dp changes rather than another abstraction layer.
+
+- `TeamSelectionScreen.kt` — column count now derives from `BoxWithConstraints`-measured actual available width instead of `WindowSizeClass` (`columns = floor(availableWidth / CELL_SIZE)`), so it responds correctly to real screen size instead of being stuck at a hardcoded phone-bucket value; `CELL_SIZE` increased 72dp → 104dp, internal `TeamLogo` 44dp → 76dp
+- `TeamLogo` call sites resized app-wide: `ScheduleScreen` 48→72dp, `PickScreen` 40→64dp (plus a `Button` `contentPadding` reduction to make room), `SettingsScreen`/`AccountScreen` favorite-team rows unified to 52dp, `HistoryScreen`'s dense inline logos 20→28dp (kept modest — most space-constrained context in the app)
+- `GroupsScreen.kt` `GroupCard` — new `Row` layout with a 96dp rounded placeholder avatar (group name's first letter on an accent-tinted background — presentation-only, no domain/Firestore changes, a deliberate seam for a future real group-photo feature that is explicitly out of scope here); card padding 16→20dp, `LazyColumn` spacing 8→20dp
+- `GroupSessionScreen.kt` bottom `NavigationBar` icons 24dp (M3 default) → 30dp
+- Note on `WindowSizeClass`: `Modifier.responsiveCardWidth()` (`presentation/common/AdaptiveLayout.kt`) is untouched — capping card width on genuinely wide tablet screens is exactly what `WindowSizeClass` is for. The PR-12 mistake was specifically using it to gate *phone-scale* sizing decisions (column count, cell size), where it can't distinguish "small phone" from "huge phone" since both stay `COMPACT`.
+
 ---
 
 ## Rules
@@ -252,7 +296,7 @@ These rules apply to every change made in this repository. There are no exceptio
 - `minSdk 24` — no API below Android 7.0
 - Dynamic color (Material You) is **disabled** — the app uses a fixed Blue Steel dark theme. Do not re-enable it.
 - All Firestore writes must use transactions or batched writes when updating both a pick and a standing simultaneously (PR-6)
-- User preferences (favorite team) are stored in **Jetpack DataStore** on-device, not in Firestore.
+- User preferences (favorite team, font-size preference) are stored in **Jetpack DataStore** on-device, not in Firestore.
 - `google-services.json` is never committed — add a real one from the Firebase Console to `app/` to enable Firebase at runtime. The `google-services` plugin is applied conditionally in `app/build.gradle.kts` so the project builds without it.
 
 ## Release Checklist

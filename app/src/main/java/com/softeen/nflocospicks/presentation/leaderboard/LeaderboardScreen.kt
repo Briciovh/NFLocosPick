@@ -1,6 +1,8 @@
 package com.softeen.nflocospicks.presentation.leaderboard
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
@@ -20,7 +22,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -46,6 +47,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.softeen.nflocospicks.presentation.common.responsiveCardWidth
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -188,6 +190,7 @@ internal fun LeaderboardScreenContent(
                         LazyColumn(
                             contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .weight(1f)
@@ -229,8 +232,9 @@ private fun MemberCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .responsiveCardWidth()
             .clickable(onClick = onToggle),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -263,8 +267,8 @@ private fun MemberCard(
 
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = expandVertically(),
-                exit = shrinkVertically()
+                enter = expandVertically(animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)),
+                exit = shrinkVertically(animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy))
             ) {
                 Column {
                     WeeklyBreakdown(

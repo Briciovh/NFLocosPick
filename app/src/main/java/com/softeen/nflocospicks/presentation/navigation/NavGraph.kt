@@ -31,6 +31,7 @@ import com.softeen.nflocospicks.presentation.settings.SettingsScreen
 import com.softeen.nflocospicks.presentation.settings.SettingsViewModel
 import com.softeen.nflocospicks.presentation.teamselection.TeamSelectionScreen
 import com.softeen.nflocospicks.presentation.usermanagement.UserManagementScreen
+import com.softeen.nflocospicks.presentation.theme.FontScaleOption
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 import com.softeen.nflocospicks.presentation.theme.NFLocosPickTheme
 
@@ -49,9 +50,10 @@ fun NavGraph() {
     // Colores activos: Blue Steel por defecto, colores del equipo favorito si hay uno.
     val teamColors = nflTeamColorMap[prefs.favoriteTeamAbbr] ?: defaultTeamColors
     val appColors  = teamColors.toAppColors()
+    val fontScale  = FontScaleOption.fromKey(prefs.fontScalePreference)
 
     CompositionLocalProvider(LocalAppColors provides appColors) {
-        NFLocosPickTheme(appColors = appColors) {
+        NFLocosPickTheme(appColors = appColors, fontScale = fontScale) {
             NavHost(
                 navController    = navController,
                 startDestination = Screen.Login.route

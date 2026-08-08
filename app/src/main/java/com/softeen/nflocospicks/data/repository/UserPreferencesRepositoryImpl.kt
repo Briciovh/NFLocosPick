@@ -22,6 +22,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val useTestingData       = booleanPreferencesKey("use_testing_data")
         val simulateGamesStarted = booleanPreferencesKey("simulate_games_started")
         val languageTag          = stringPreferencesKey("language_tag")
+        val fontScale            = stringPreferencesKey("font_scale")
     }
 
     override val preferencesFlow: Flow<UserPreferences> = dataStore.data.map { prefs ->
@@ -29,7 +30,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             favoriteTeamAbbr     = prefs[Keys.favoriteTeam],
             useTestingData       = prefs[Keys.useTestingData]       ?: false,
             simulateGamesStarted = prefs[Keys.simulateGamesStarted] ?: false,
-            languageTag          = prefs[Keys.languageTag]
+            languageTag          = prefs[Keys.languageTag],
+            fontScalePreference  = prefs[Keys.fontScale]
         )
     }
 
@@ -52,6 +54,13 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { prefs ->
             if (tag != null) prefs[Keys.languageTag] = tag
             else prefs.remove(Keys.languageTag)
+        }
+    }
+
+    override suspend fun setFontScale(key: String?) {
+        dataStore.edit { prefs ->
+            if (key != null) prefs[Keys.fontScale] = key
+            else prefs.remove(Keys.fontScale)
         }
     }
 }

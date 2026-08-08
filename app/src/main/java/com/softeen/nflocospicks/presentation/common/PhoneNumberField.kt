@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -51,7 +51,7 @@ fun PhoneNumberField(
                     onClick  = { onCountrySelected(country) },
                     enabled  = enabled,
                     modifier = Modifier.weight(1f),
-                    shape    = RoundedCornerShape(12.dp),
+                    shape    = MaterialTheme.shapes.medium,
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = if (isSelected) appColors.primary else Color.Transparent,
                         contentColor   = if (isSelected) appColors.onPrimary else appColors.onBackground

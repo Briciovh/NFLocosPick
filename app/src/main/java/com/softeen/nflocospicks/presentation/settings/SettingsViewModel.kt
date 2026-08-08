@@ -69,4 +69,10 @@ class SettingsViewModel @Inject constructor(
             if (!tag.isNullOrEmpty()) logger.logEvent(AppEvent.LanguageChanged(tag))
         }
     }
+
+    fun setFontScale(key: String?) {
+        viewModelScope.launch {
+            repo.setFontScale(key)
+        }
+    }
 }

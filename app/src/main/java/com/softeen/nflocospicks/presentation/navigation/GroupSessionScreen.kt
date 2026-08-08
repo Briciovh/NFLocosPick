@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.presentation.navigation
 
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -19,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -68,7 +70,13 @@ fun GroupSessionScreen(
                     val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
                     
                     NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = stringResource(item.titleRes)) },
+                        icon = {
+                            Icon(
+                                item.icon,
+                                contentDescription = stringResource(item.titleRes),
+                                modifier = Modifier.size(30.dp)
+                            )
+                        },
                         label = { Text(stringResource(item.titleRes)) },
                         selected = selected,
                         onClick = {

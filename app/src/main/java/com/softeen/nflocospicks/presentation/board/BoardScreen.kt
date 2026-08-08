@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -330,7 +329,7 @@ private fun AnnouncementItem(
     val appColors = LocalAppColors.current
     Box(modifier = modifier.fillMaxWidth()) {
         Card(
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = CardDefaults.cardColors(containerColor = appColors.primary.copy(alpha = 0.15f)),
             modifier = Modifier
                 .fillMaxWidth()
@@ -343,7 +342,7 @@ private fun AnnouncementItem(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(4.dp),
+                        shape = MaterialTheme.shapes.extraSmall,
                         color = appColors.primary
                     ) {
                         Text(
@@ -497,7 +496,7 @@ private fun BubbleCard(
     onLongClick: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = bubbleColor),
         modifier = Modifier
             .widthIn(max = 280.dp)
@@ -681,7 +680,7 @@ private fun InputBar(
                     )
                 },
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(24.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor   = appColors.primary,
                     unfocusedBorderColor = appColors.secondary.copy(alpha = 0.4f),

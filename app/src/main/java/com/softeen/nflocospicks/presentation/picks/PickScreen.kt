@@ -1,7 +1,11 @@
 package com.softeen.nflocospicks.presentation.picks
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,7 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -39,9 +43,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.softeen.nflocospicks.presentation.common.TestTags
+import com.softeen.nflocospicks.presentation.common.responsiveCardWidth
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -231,7 +237,8 @@ internal fun PickScreenContent(
                         LazyColumn(
                             modifier            = Modifier.weight(1f),
                             contentPadding      = PaddingValues(vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             items(uiState.items, key = { it.game.id }) { item ->
                                 GamePickCard(
@@ -260,9 +267,10 @@ private fun GamePickCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .responsiveCardWidth()
             .padding(horizontal = 16.dp)
             .testTag(TestTags.PICK_GAME_CARD),
-        shape  = RoundedCornerShape(12.dp),
+        shape  = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -322,6 +330,8 @@ private fun GamePickCard(
     }
 }
 
+private val TEAM_LOGO_SECTION_PADDING = 8.dp
+
 @Composable
 private fun TeamPickButton(
     abbr: String,
@@ -337,12 +347,20 @@ private fun TeamPickButton(
     val appColors      = LocalAppColors.current
     val containerColor = if (isSelected) appColors.primary else appColors.surface
     val contentColor   = if (isSelected) appColors.onPrimary else appColors.onSurface
+    val scale by animateFloatAsState(
+        targetValue   = if (isSelected) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label         = "teamPickScale"
+    )
 
     Button(
         onClick  = onClick,
         enabled  = !isLocked,
-        modifier = modifier.testTag("${TestTags.PICK_TEAM_BUTTON}_$abbr"),
-        shape    = RoundedCornerShape(8.dp),
+        modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .testTag("${TestTags.PICK_TEAM_BUTTON}_$abbr"),
+        shape    = MaterialTheme.shapes.small,
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
         colors   = ButtonDefaults.buttonColors(
             containerColor         = containerColor,
             contentColor           = contentColor,
@@ -352,16 +370,21 @@ private fun TeamPickButton(
                                      else appColors.secondary
         )
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Text(
                 text       = label,
                 style      = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.ExtraBold
             )
-            TeamLogo(abbr = abbr, size = 40.dp)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                TeamLogo(abbr = abbr, size = maxWidth - TEAM_LOGO_SECTION_PADDING * 2)
+            }
             Text(
                 text      = name,
-                style     = MaterialTheme.typography.labelSmall,
+                style     = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center
             )
             if (record != null) {
@@ -395,7 +418,7 @@ private fun GameStatusChip(status: GameStatus, isLocked: Boolean) {
         else                             -> return
     }
     Surface(
-        shape = RoundedCornerShape(4.dp),
+        shape = CircleShape,
         color = tint.copy(alpha = 0.15f)
     ) {
         Text(

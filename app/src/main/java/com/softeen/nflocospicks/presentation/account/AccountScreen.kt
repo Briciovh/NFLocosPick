@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -405,7 +404,7 @@ internal fun AccountScreenContent(
                     enabled  = emailInput.isNotBlank() && !isSendingLink,
                     modifier = Modifier.fillMaxWidth(),
                     colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
-                    shape    = RoundedCornerShape(12.dp)
+                    shape    = MaterialTheme.shapes.medium
                 ) {
                     if (isSendingLink) {
                         CircularProgressIndicator(color = appColors.onPrimary, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -483,7 +482,7 @@ internal fun AccountScreenContent(
                         enabled  = codeInput.length == 6 && !isVerifying,
                         modifier = Modifier.fillMaxWidth(),
                         colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
-                        shape    = RoundedCornerShape(12.dp)
+                        shape    = MaterialTheme.shapes.medium
                     ) {
                         if (isVerifying) {
                             CircularProgressIndicator(color = appColors.onPrimary, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -520,7 +519,7 @@ internal fun AccountScreenContent(
                         enabled  = nationalNumber.length == 10 && activity != null && !isSendingCode,
                         modifier = Modifier.fillMaxWidth(),
                         colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
-                        shape    = RoundedCornerShape(12.dp)
+                        shape    = MaterialTheme.shapes.medium
                     ) {
                         if (isSendingCode) {
                             CircularProgressIndicator(color = appColors.onPrimary, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -538,13 +537,13 @@ internal fun AccountScreenContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .clickable(onClick = onNavigateToTeamSelection)
                     .padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (favoriteTeam != null) {
-                    TeamLogo(abbr = favoriteTeam.abbr, size = 32.dp)
+                    TeamLogo(abbr = favoriteTeam.abbr, size = 52.dp)
                     Spacer(Modifier.width(12.dp))
                     Text(
                         text     = favoriteTeam.name,
@@ -600,7 +599,7 @@ internal fun AccountScreenContent(
                 enabled  = isUsernameValid && !isSaving,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
-                shape    = RoundedCornerShape(12.dp)
+                shape    = MaterialTheme.shapes.medium
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(
@@ -724,7 +723,7 @@ internal fun AccountScreenContent(
                     enabled  = isPasswordChangeValid && !isChangingPassword,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
-                    shape    = RoundedCornerShape(12.dp)
+                    shape    = MaterialTheme.shapes.medium
                 ) {
                     if (isChangingPassword) {
                         CircularProgressIndicator(

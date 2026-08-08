@@ -13,7 +13,9 @@ class UpdateUserProfileUseCase @Inject constructor(
         photoUrl: String? = null
     ): Result<Unit> = userRepository.updateProfile(
         uid         = uid,
-        username    = username.trim().lowercase(),
+        // Casing/symbols are preserved as typed — only the case-insensitive `usernames/{id}`
+        // reservation key (computed in the repository) enforces uniqueness.
+        username    = username.trim(),
         displayName = displayName?.trim(),
         photoUrl    = photoUrl
     )

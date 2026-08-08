@@ -55,7 +55,12 @@
 
     <!-- Groups -->
     <string name="groups_empty">You don\'t have any groups yet.\nCreate one or join with a code.</string>
-    <string name="group_info">Code: %1$s  •  %2$d member(s)</string>
+    <string name="group_code_label">Code: %1$s</string>
+    <string name="group_member_count">%1$d member(s)</string>
+    <string name="group_code_copied">Code copied</string>
+    <string name="cd_copy_group_code">Copy group code</string>
+    <string name="cd_share_group_code">Share group code</string>
+    <string name="group_invite_share_text">Join my group with code %1$s on NFLocosPick</string>
     <string name="scoring_none">No new picks to score</string>
     <string name="scoring_result">%1$d pick(s) scored 🏆</string>
 
@@ -126,6 +131,8 @@
     <string name="account_setup_title">Complete your profile</string>
     <string name="account_title">Your account</string>
     <string name="account_setup_intro">Choose a unique username so other members can recognize you.</string>
+    <string name="field_required_suffix">*Required</string>
+    <string name="field_optional_suffix">(Optional)</string>
     <string name="account_username_label">Username</string>
     <string name="account_display_name_label">Display name</string>
     <string name="account_username_checking">Checking availability…</string>
@@ -135,7 +142,7 @@
     <string name="account_save_button">Save</string>
     <string name="account_saved_confirmation">Profile updated</string>
     <string name="cd_avatar">Profile photo</string>
-    <string name="account_password_section">PASSWORD</string>
+    <string name="account_change_password_nav_button">Change password</string>
     <string name="account_current_password_label">Current password</string>
     <string name="account_new_password_label">New password</string>
     <string name="account_confirm_password_label">Confirm new password</string>

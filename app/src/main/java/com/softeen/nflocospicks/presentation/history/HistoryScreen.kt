@@ -50,15 +50,19 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.GamePickResult
+import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.presentation.common.GroupHeaderBar
 import com.softeen.nflocospicks.presentation.common.responsiveCardWidth
 import com.softeen.nflocospicks.domain.model.WeekHistoryEntry
 import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+import com.softeen.nflocospicks.presentation.preview.fakeGroup
 import com.softeen.nflocospicks.presentation.preview.fakeHistory
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
 @Composable
 fun HistoryScreen(
+    group: Group?,
     onNavigateBack: () -> Unit,
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
@@ -66,6 +70,7 @@ fun HistoryScreen(
 
     HistoryScreenContent(
         uiState        = uiState,
+        group          = group,
         onNavigateBack = onNavigateBack,
         onToggleWeek   = { viewModel.toggleWeek(it) }
     )
@@ -75,6 +80,7 @@ fun HistoryScreen(
 @Composable
 internal fun HistoryScreenContent(
     uiState: HistoryUiState,
+    group: Group?,
     onNavigateBack: () -> Unit,
     onToggleWeek: (String) -> Unit
 ) {
@@ -104,64 +110,68 @@ internal fun HistoryScreenContent(
             )
         }
     ) { innerPadding ->
-        when (uiState) {
-            is HistoryUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = appColors.primary)
-                }
-            }
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            GroupHeaderBar(group = group, currentUserId = null, onEditClick = {})
 
-            is HistoryUiState.Error -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = uiState.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 32.dp)
-                    )
-                }
-            }
-
-            is HistoryUiState.Success -> {
-                if (uiState.weeks.isEmpty()) {
+            when (uiState) {
+                is HistoryUiState.Loading -> {
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
+                        modifier = Modifier.fillMaxSize().weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = appColors.primary)
+                    }
+                }
+
+                is HistoryUiState.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize().weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Aún no hay picks registrados.",
-                            color = appColors.secondary,
+                            text = uiState.message,
+                            color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 32.dp)
                         )
                     }
-                } else {
-                    LazyColumn(
-                        contentPadding = innerPadding,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 12.dp)
-                    ) {
-                        items(uiState.weeks, key = { it.weekId }) { entry ->
-                            WeekCard(
-                                entry      = entry,
-                                isExpanded = uiState.expandedWeekId == entry.weekId,
-                                onToggle   = { onToggleWeek(entry.weekId) },
-                                modifier   = Modifier.animateItem()
+                }
+
+                is HistoryUiState.Success -> {
+                    if (uiState.weeks.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize().weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Aún no hay picks registrados.",
+                                color = appColors.secondary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 32.dp)
                             )
                         }
-                        item { Spacer(Modifier.height(16.dp)) }
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 12.dp)
+                        ) {
+                            items(uiState.weeks, key = { it.weekId }) { entry ->
+                                WeekCard(
+                                    entry      = entry,
+                                    isExpanded = uiState.expandedWeekId == entry.weekId,
+                                    onToggle   = { onToggleWeek(entry.weekId) },
+                                    modifier   = Modifier.animateItem()
+                                )
+                            }
+                            item { Spacer(Modifier.height(16.dp)) }
+                        }
                     }
                 }
             }
@@ -322,6 +332,7 @@ private fun HistoryScreenSuccessPreview() {
                 weeks          = fakeHistory,
                 expandedWeekId = "2025-week-12"
             ),
+            group          = fakeGroup,
             onNavigateBack = {},
             onToggleWeek   = {}
         )
@@ -334,6 +345,7 @@ private fun HistoryScreenLoadingPreview() {
     PreviewWrapper {
         HistoryScreenContent(
             uiState        = HistoryUiState.Loading,
+            group          = fakeGroup,
             onNavigateBack = {},
             onToggleWeek   = {}
         )

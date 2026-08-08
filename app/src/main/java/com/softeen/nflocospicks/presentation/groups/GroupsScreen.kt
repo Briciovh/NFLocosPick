@@ -1,6 +1,8 @@
 package com.softeen.nflocospicks.presentation.groups
 
+import android.content.ClipData
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -40,10 +43,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.softeen.nflocospicks.presentation.common.GroupAvatar
@@ -60,6 +67,7 @@ import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakeGroup
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
+import kotlinx.coroutines.launch
 
 @Composable
 fun GroupsScreen(
@@ -264,6 +272,11 @@ private fun GroupCard(
     onEditPhoto : () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val copiedMessage = stringResource(R.string.group_code_copied)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -312,8 +325,37 @@ private fun GroupCard(
                     style = MaterialTheme.typography.titleLarge
                 )
                 Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.group_code_label, group.inviteCode),
+                        color = appColors.secondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Box(
+                        modifier          = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .clickable {
+                                coroutineScope.launch {
+                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("invite_code", group.inviteCode)))
+                                }
+                                Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
+                            }
+                            .testTag(TestTags.GROUPS_COPY_CODE_BUTTON),
+                        contentAlignment  = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector        = Icons.Filled.ContentCopy,
+                            contentDescription = stringResource(R.string.cd_copy_group_code),
+                            tint               = appColors.secondary,
+                            modifier           = Modifier.size(14.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = stringResource(R.string.group_info, group.inviteCode, group.memberIds.size),
+                    text = stringResource(R.string.group_member_count, group.memberIds.size),
                     color = appColors.secondary,
                     style = MaterialTheme.typography.bodyMedium
                 )

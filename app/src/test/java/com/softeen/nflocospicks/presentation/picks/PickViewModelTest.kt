@@ -5,6 +5,7 @@ import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.domain.model.MockSessionState
+import com.softeen.nflocospicks.domain.model.SeasonType
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
@@ -100,6 +101,18 @@ class PickViewModelTest {
         assertEquals(testGame, state.items.single().game)
         assertNull(state.items.single().pickedTeam)
         assertEquals("2025-week-12", state.weekId)
+        assertEquals(false, state.isPreseason)
+    }
+
+    @Test
+    fun `preseason games mark isPreseason true in success state`() = runTest(coroutineRule.dispatcher) {
+        val preseasonGame = testGame.copy(weekId = "2025-pre-week-01", seasonType = SeasonType.PRESEASON)
+        coEvery { getGamesUseCase(any()) } returns listOf(preseasonGame)
+
+        val vm = viewModel()
+
+        val state = vm.uiState.value as PickUiState.Success
+        assertEquals(true, state.isPreseason)
     }
 
     @Test

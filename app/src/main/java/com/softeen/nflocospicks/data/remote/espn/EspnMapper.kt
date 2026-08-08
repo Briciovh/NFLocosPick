@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.data.remote.espn
 
 import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.GameStatus
+import com.softeen.nflocospicks.domain.model.SeasonType
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -17,12 +18,27 @@ private val espnDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US
  */
 fun EspnScoreboardResponse.toDomain(): List<Game> {
     val weekNumber = week.number
+    val seasonType = season.type.toSeasonType()
     return events.mapNotNull { event ->
-        runCatching { event.toGame(weekNumber) }.getOrNull()
+        runCatching { event.toGame(weekNumber, seasonType) }.getOrNull()
     }
 }
 
-private fun EspnEvent.toGame(weekNumber: Int): Game {
+private fun Int.toSeasonType(): SeasonType = when (this) {
+    1    -> SeasonType.PRESEASON
+    3    -> SeasonType.POSTSEASON
+    else -> SeasonType.REGULAR
+}
+
+// Keep in sync with functions/src/espn.ts::buildWeekId — ambos deben producir el mismo
+// weekId, ya que los picks se escriben en el cliente y se puntúan en Cloud Functions.
+// Post-temporada se deja sin prefijo (misma ambigüedad de hoy, fuera de alcance).
+private fun buildWeekId(year: Int, weekNumber: Int, seasonType: SeasonType): String {
+    val nn = weekNumber.toString().padStart(2, '0')
+    return if (seasonType == SeasonType.PRESEASON) "$year-pre-week-$nn" else "$year-week-$nn"
+}
+
+private fun EspnEvent.toGame(weekNumber: Int, seasonType: SeasonType): Game {
     val competition = competitions.first()
     val home = competition.competitors.first { it.homeAway == "home" }
     val away = competition.competitors.first { it.homeAway == "away" }
@@ -34,11 +50,12 @@ private fun EspnEvent.toGame(weekNumber: Int): Game {
         timeInMillis = kickoffMillis
     }
     val year = cal.get(Calendar.YEAR)
-    val weekId = "$year-week-${weekNumber.toString().padStart(2, '0')}"
+    val weekId = buildWeekId(year, weekNumber, seasonType)
 
     return Game(
         id             = id,
         weekId         = weekId,
+        seasonType     = seasonType,
         homeTeam       = home.team.displayName,
         awayTeam       = away.team.displayName,
         homeTeamAbbr   = home.team.abbreviation,

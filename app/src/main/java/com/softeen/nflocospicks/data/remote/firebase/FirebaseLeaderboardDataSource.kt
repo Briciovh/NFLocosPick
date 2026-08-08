@@ -2,6 +2,8 @@ package com.softeen.nflocospicks.data.remote.firebase
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.softeen.nflocospicks.domain.model.LeaderboardEntry
+import com.softeen.nflocospicks.domain.model.SeasonType
+import com.softeen.nflocospicks.domain.model.sumBySeasonType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -29,7 +31,6 @@ class FirebaseLeaderboardDataSource @Inject constructor(
                 }
 
                 val standings = snapshot.documents.mapNotNull { doc ->
-                    val totalPoints = (doc.getLong("totalPoints") ?: 0L).toInt()
                     @Suppress("UNCHECKED_CAST")
                     val rawBreakdown = doc.get("weeklyBreakdown") as? Map<String, Any> ?: emptyMap()
                     val weeklyBreakdown = rawBreakdown.mapValues { (_, v) ->
@@ -39,7 +40,7 @@ class FirebaseLeaderboardDataSource @Inject constructor(
                             else    -> 0
                         }
                     }
-                    Triple(doc.id, totalPoints, weeklyBreakdown)
+                    Pair(doc.id, weeklyBreakdown)
                 }
 
                 scope.launch {
@@ -59,19 +60,20 @@ class FirebaseLeaderboardDataSource @Inject constructor(
                         }
                     }
 
-                    val entries = standings
-                        .sortedByDescending { it.second }
-                        .mapIndexed { index, (userId, totalPoints, weeklyBreakdown) ->
-                            val (displayName, photoUrl) = userCache[userId] ?: (userId to null)
-                            LeaderboardEntry(
-                                userId          = userId,
-                                displayName     = displayName,
-                                photoUrl        = photoUrl,
-                                totalPoints     = totalPoints,
-                                weeklyBreakdown = weeklyBreakdown,
-                                rank            = index + 1
-                            )
-                        }
+                    // Sin ordenar/rankear: el orden depende del tab de temporada seleccionado
+                    // en la UI (LeaderboardViewModel.rankedFor), que difiere entre pestañas.
+                    val entries = standings.map { (userId, weeklyBreakdown) ->
+                        val (displayName, photoUrl) = userCache[userId] ?: (userId to null)
+                        LeaderboardEntry(
+                            userId          = userId,
+                            displayName     = displayName,
+                            photoUrl        = photoUrl,
+                            regularPoints   = weeklyBreakdown.sumBySeasonType(SeasonType.REGULAR),
+                            preseasonPoints = weeklyBreakdown.sumBySeasonType(SeasonType.PRESEASON),
+                            weeklyBreakdown = weeklyBreakdown,
+                            rank            = 0
+                        )
+                    }
                     trySend(entries)
                 }
             }

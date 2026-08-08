@@ -7,6 +7,7 @@ import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.GameStatus
+import com.softeen.nflocospicks.domain.model.SeasonType
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -62,6 +63,7 @@ class PickViewModel @Inject constructor(
             try {
                 val games  = getCurrentWeekGamesUseCase(groupId)
                 val weekId = games.firstOrNull()?.weekId ?: ""
+                val isPreseason = games.firstOrNull()?.seasonType == SeasonType.PRESEASON
                 val picks  = if (weekId.isNotEmpty()) {
                     getWeekPicksUseCase(groupId, weekId, userId)
                 } else {
@@ -75,7 +77,7 @@ class PickViewModel @Inject constructor(
                         isLocked   = now >= game.kickoffTime || game.status != GameStatus.SCHEDULED
                     )
                 }
-                _uiState.value = PickUiState.Success(items, weekId)
+                _uiState.value = PickUiState.Success(items, weekId, isPreseason)
             } catch (e: Exception) {
                 _uiState.value = PickUiState.Error(
                     e.message ?: "Error al cargar los partidos"

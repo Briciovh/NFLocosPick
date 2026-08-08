@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,8 +33,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -54,6 +57,8 @@ import com.softeen.nflocospicks.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.LeaderboardEntry
+import com.softeen.nflocospicks.domain.model.SeasonType
+import com.softeen.nflocospicks.domain.model.filterBySeasonType
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakeLeaderboard
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
@@ -76,7 +81,8 @@ fun LeaderboardScreen(
         currentUserId       = currentUserId,
         groupId             = groupId,
         onNavigateBack      = onNavigateBack,
-        onNavigateToHistory = onNavigateToHistory
+        onNavigateToHistory = onNavigateToHistory,
+        onTabSelected       = { viewModel.onTabSelected(it) }
     )
 }
 
@@ -87,7 +93,8 @@ internal fun LeaderboardScreenContent(
     currentUserId: String?,
     groupId: String,
     onNavigateBack: () -> Unit,
-    onNavigateToHistory: (groupId: String) -> Unit
+    onNavigateToHistory: (groupId: String) -> Unit,
+    onTabSelected: (SeasonType) -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
 
@@ -115,69 +122,91 @@ internal fun LeaderboardScreenContent(
             )
         }
     ) { innerPadding ->
-        when (uiState) {
-            is LeaderboardUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = appColors.primary)
-                }
+        val selectedSeasonType = (uiState as? LeaderboardUiState.Success)?.selectedSeasonType ?: SeasonType.REGULAR
+        val selectedTabIndex = if (selectedSeasonType == SeasonType.PRESEASON) 1 else 0
+
+        Column(modifier = Modifier.padding(innerPadding)) {
+            PrimaryTabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = appColors.header,
+                contentColor = appColors.primary
+            ) {
+                Tab(
+                    selected = selectedTabIndex == 0,
+                    onClick = { onTabSelected(SeasonType.REGULAR) },
+                    text = { Text(stringResource(R.string.leaderboard_tab_regular)) }
+                )
+                Tab(
+                    selected = selectedTabIndex == 1,
+                    onClick = { onTabSelected(SeasonType.PRESEASON) },
+                    text = { Text(stringResource(R.string.leaderboard_tab_preseason)) }
+                )
             }
 
-            is LeaderboardUiState.Error -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = uiState.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 32.dp)
-                    )
-                }
-            }
-
-            is LeaderboardUiState.Success -> {
-                if (uiState.entries.isEmpty()) {
+            when (uiState) {
+                is LeaderboardUiState.Loading -> {
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
+                        modifier = Modifier.fillMaxSize().weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = appColors.primary)
+                    }
+                }
+
+                is LeaderboardUiState.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize().weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = stringResource(R.string.leaderboard_empty),
-                            color = appColors.secondary,
+                            text = uiState.message,
+                            color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 32.dp)
                         )
                     }
-                } else {
-                    val expanded = remember { mutableStateMapOf<String, Boolean>() }
+                }
 
-                    LazyColumn(
-                        contentPadding = innerPadding,
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp)
-                            .padding(top = 12.dp)
-                    ) {
-                        items(uiState.entries, key = { it.userId }) { entry ->
-                            MemberCard(
-                                entry = entry,
-                                isExpanded = expanded[entry.userId] == true,
-                                onToggle = {
-                                    expanded[entry.userId] = !(expanded[entry.userId] ?: false)
-                                },
-                                isOwnCard = entry.userId == currentUserId,
-                                onViewHistory = { onNavigateToHistory(groupId) },
-                                modifier = Modifier.animateItem()
+                is LeaderboardUiState.Success -> {
+                    if (uiState.entries.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize().weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.leaderboard_empty),
+                                color = appColors.secondary,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 32.dp)
                             )
                         }
-                        item { Spacer(Modifier.height(16.dp)) }
+                    } else {
+                        val expanded = remember { mutableStateMapOf<String, Boolean>() }
+
+                        LazyColumn(
+                            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .weight(1f)
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            items(uiState.entries, key = { it.userId }) { entry ->
+                                MemberCard(
+                                    entry = entry,
+                                    selectedSeasonType = selectedSeasonType,
+                                    isExpanded = expanded[entry.userId] == true,
+                                    onToggle = {
+                                        expanded[entry.userId] = !(expanded[entry.userId] ?: false)
+                                    },
+                                    isOwnCard = entry.userId == currentUserId,
+                                    onViewHistory = { onNavigateToHistory(groupId) },
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -188,6 +217,7 @@ internal fun LeaderboardScreenContent(
 @Composable
 private fun MemberCard(
     entry: LeaderboardEntry,
+    selectedSeasonType: SeasonType,
     isExpanded: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -195,6 +225,7 @@ private fun MemberCard(
     onViewHistory: () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
+    val displayPoints = if (selectedSeasonType == SeasonType.PRESEASON) entry.preseasonPoints else entry.regularPoints
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -217,7 +248,7 @@ private fun MemberCard(
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = stringResource(R.string.points_format, entry.totalPoints),
+                        text = stringResource(R.string.points_format, displayPoints),
                         color = appColors.primary,
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold
@@ -236,7 +267,9 @@ private fun MemberCard(
                 exit = shrinkVertically()
             ) {
                 Column {
-                    WeeklyBreakdown(weeklyBreakdown = entry.weeklyBreakdown)
+                    WeeklyBreakdown(
+                        weeklyBreakdown = entry.weeklyBreakdown.filterBySeasonType(selectedSeasonType)
+                    )
                     if (isOwnCard) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
@@ -328,7 +361,7 @@ private fun WeeklyBreakdown(weeklyBreakdown: Map<String, Int>) {
 private fun LeaderboardScreenSuccessPreview() {
     PreviewWrapper {
         LeaderboardScreenContent(
-            uiState             = LeaderboardUiState.Success(fakeLeaderboard),
+            uiState             = LeaderboardUiState.Success(fakeLeaderboard, SeasonType.REGULAR),
             currentUserId       = "user_1",
             groupId             = "group_1",
             onNavigateBack      = {},

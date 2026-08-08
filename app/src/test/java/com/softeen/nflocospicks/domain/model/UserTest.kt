@@ -9,8 +9,16 @@ class UserTest {
     private fun user(
         displayName: String = "",
         email: String = "",
-        username: String? = null
-    ) = User(uid = "u1", displayName = displayName, email = email, photoUrl = null, username = username)
+        username: String? = null,
+        phoneNumber: String? = null
+    ) = User(
+        uid = "u1",
+        displayName = displayName,
+        email = email,
+        photoUrl = null,
+        username = username,
+        phoneNumber = phoneNumber
+    )
 
     @Test
     fun `existing username is returned unchanged`() {
@@ -74,5 +82,55 @@ class UserTest {
         val result = user(displayName = "", username = null).effectiveDisplayName
 
         assertEquals("", result)
+    }
+
+    @Test
+    fun `isProfileComplete is true with username and email`() {
+        val result = user(username = "bricio", email = "bricio@gmail.com").isProfileComplete
+
+        assertEquals(true, result)
+    }
+
+    @Test
+    fun `isProfileComplete is true with username and phone`() {
+        val result = user(username = "bricio", phoneNumber = "+14708460176").isProfileComplete
+
+        assertEquals(true, result)
+    }
+
+    @Test
+    fun `isProfileComplete is true with username, email, and phone`() {
+        val result = user(
+            username = "bricio",
+            email = "bricio@gmail.com",
+            phoneNumber = "+14708460176"
+        ).isProfileComplete
+
+        assertEquals(true, result)
+    }
+
+    @Test
+    fun `isProfileComplete is false without a username even with email and phone`() {
+        val result = user(
+            username = null,
+            email = "bricio@gmail.com",
+            phoneNumber = "+14708460176"
+        ).isProfileComplete
+
+        assertEquals(false, result)
+    }
+
+    @Test
+    fun `isProfileComplete is false with a blank username`() {
+        val result = user(username = "  ", email = "bricio@gmail.com").isProfileComplete
+
+        assertEquals(false, result)
+    }
+
+    @Test
+    fun `isProfileComplete is false with username but no email or phone`() {
+        val result = user(username = "bricio").isProfileComplete
+
+        assertEquals(false, result)
     }
 }

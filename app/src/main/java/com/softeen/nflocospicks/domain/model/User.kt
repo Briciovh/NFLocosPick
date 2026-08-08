@@ -16,6 +16,14 @@ data class User(
 val User.effectiveDisplayName: String get() = displayName.ifBlank { username.orEmpty() }
 
 /**
+ * A profile is complete once it has a username plus at least one contact method (email or
+ * phone) — the minimum the app needs to identify and reach the user. Once true for an account,
+ * the profile-completion screen must never be shown to it again.
+ */
+val User.isProfileComplete: Boolean
+    get() = !username.isNullOrBlank() && (email.isNotBlank() || !phoneNumber.isNullOrBlank())
+
+/**
  * Suggests a starting-point username derived from whatever identity info the account already
  * has (Google displayName, or the email's local part), so a first-time-setup user doesn't have
  * to think one up from scratch. Never overrides an existing username — the field stays freely

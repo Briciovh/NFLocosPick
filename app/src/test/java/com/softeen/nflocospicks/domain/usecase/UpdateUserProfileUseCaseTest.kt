@@ -66,13 +66,13 @@ private class CapturingUserRepository : UserRepository {
 class UpdateUserProfileUseCaseTest {
 
     @Test
-    fun `username is trimmed and lowercased before reaching the repository`() = runBlocking {
+    fun `username is trimmed but casing is preserved before reaching the repository`() = runBlocking {
         val repo = CapturingUserRepository()
         val useCase = UpdateUserProfileUseCase(repo)
 
-        useCase(uid = "u1", username = "  Bricio  ")
+        useCase(uid = "u1", username = "  TheBigDreamer  ")
 
-        assertEquals("bricio", repo.capturedUsername)
+        assertEquals("TheBigDreamer", repo.capturedUsername)
     }
 
     @Test

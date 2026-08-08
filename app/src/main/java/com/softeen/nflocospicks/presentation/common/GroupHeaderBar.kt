@@ -1,5 +1,8 @@
 package com.softeen.nflocospicks.presentation.common
 
+import android.content.ClipData
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -9,13 +12,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -23,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.softeen.nflocospicks.R
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
+import kotlinx.coroutines.launch
 
 /**
  * Fila delgada con la identidad del grupo (avatar + nombre), para usarse DEBAJO del
@@ -39,6 +49,10 @@ fun GroupHeaderBar(
 ) {
     val appColors = LocalAppColors.current
     val canEdit = group != null && currentUserId != null && group.createdBy == currentUserId
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val copiedMessage = stringResource(R.string.group_code_copied)
 
     Row(
         modifier = modifier
@@ -59,9 +73,54 @@ fun GroupHeaderBar(
             fontWeight = FontWeight.Bold,
             modifier   = Modifier.padding(start = 12.dp).weight(1f)
         )
+        if (group != null) {
+            Box(
+                modifier          = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        coroutineScope.launch {
+                            clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("invite_code", group.inviteCode)))
+                        }
+                        Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
+                    }
+                    .testTag(TestTags.GROUPS_COPY_CODE_BUTTON),
+                contentAlignment  = Alignment.Center
+            ) {
+                Icon(
+                    imageVector        = Icons.Filled.ContentCopy,
+                    contentDescription = stringResource(R.string.cd_copy_group_code),
+                    tint               = appColors.primary,
+                    modifier           = Modifier.size(14.dp)
+                )
+            }
+            Box(
+                modifier          = Modifier
+                    .padding(start = 8.dp)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, context.getString(R.string.group_invite_share_text, group.inviteCode))
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, null))
+                    }
+                    .testTag(TestTags.GROUPS_SHARE_CODE_BUTTON),
+                contentAlignment  = Alignment.Center
+            ) {
+                Icon(
+                    imageVector        = Icons.Filled.Share,
+                    contentDescription = stringResource(R.string.cd_share_group_code),
+                    tint               = appColors.primary,
+                    modifier           = Modifier.size(14.dp)
+                )
+            }
+        }
         if (canEdit) {
             Box(
                 modifier = Modifier
+                    .padding(start = 8.dp)
                     .size(24.dp)
                     .clip(CircleShape)
                     .background(appColors.primary)

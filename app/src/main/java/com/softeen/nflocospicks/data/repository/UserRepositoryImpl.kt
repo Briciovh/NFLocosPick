@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import timber.log.Timber
 
 class UserRepositoryImpl @Inject constructor(
     private val authDataSource: FirebaseAuthDataSource,
@@ -248,34 +249,50 @@ class UserRepositoryImpl @Inject constructor(
         username: String,
         displayName: String?,
         photoUrl: String?
-    ): Result<Unit> = authCatching(AuthError.PROFILE_UPDATE_FAILED) {
-        val normalizedUsername = username.trim().lowercase()
-        val userRef = firestore.collection("users").document(uid)
-        val usernamesRef = firestore.collection("usernames")
+    ): Result<Unit> {
+        // The reservation doc ID (and therefore uniqueness) stays case-insensitive, but the
+        // casing/symbols the user actually typed are what gets persisted on users/{uid}.
+        val displayUsername = username.trim()
+        val normalizedUsername = displayUsername.lowercase()
+        Timber.i("updateProfile: uid=$uid newUsername=$displayUsername")
+        return authCatching(AuthError.PROFILE_UPDATE_FAILED) {
+            val userRef = firestore.collection("users").document(uid)
+            val usernamesRef = firestore.collection("usernames")
 
-        firestore.runTransaction { transaction ->
-            val userSnap = transaction.get(userRef)
-            val oldUsername = userSnap.getString("username")
+            firestore.runTransaction { transaction ->
+                val userSnap = transaction.get(userRef)
+                val oldUsername = userSnap.getString("username")
+                val oldNormalizedUsername = oldUsername?.lowercase()
 
-            if (normalizedUsername != oldUsername) {
-                val newUsernameRef = usernamesRef.document(normalizedUsername)
-                val newUsernameSnap = transaction.get(newUsernameRef)
-                if (newUsernameSnap.exists()) {
-                    throw AuthException(AuthError.USERNAME_TAKEN)
+                if (normalizedUsername != oldNormalizedUsername) {
+                    val newUsernameRef = usernamesRef.document(normalizedUsername)
+                    val newUsernameSnap = transaction.get(newUsernameRef)
+                    if (newUsernameSnap.exists()) {
+                        throw AuthException(AuthError.USERNAME_TAKEN)
+                    }
+                    transaction.set(newUsernameRef, mapOf("userId" to uid))
+                    if (oldNormalizedUsername != null) {
+                        transaction.delete(usernamesRef.document(oldNormalizedUsername))
+                    }
                 }
-                transaction.set(newUsernameRef, mapOf("userId" to uid))
-                if (oldUsername != null) {
-                    transaction.delete(usernamesRef.document(oldUsername))
-                }
-            }
 
-            val profileUpdate = buildMap {
-                put("username", normalizedUsername)
-                if (displayName != null) put("displayName", displayName)
-                if (photoUrl != null) put("photoUrl", photoUrl)
-            }
-            transaction.set(userRef, profileUpdate, SetOptions.merge())
-        }.await()
+                val profileUpdate = buildMap {
+                    put("username", displayUsername)
+                    if (displayName != null) put("displayName", displayName)
+                    if (photoUrl != null) put("photoUrl", photoUrl)
+                }
+                transaction.set(userRef, profileUpdate, SetOptions.merge())
+            }.await()
+            Unit
+        }.also { result ->
+            // Diagnostic breadcrumb for the profile-completion-screen-reappears bug report:
+            // this is a real transaction (not an optimistic local write), so a logged success
+            // here means the username genuinely committed server-side at this uid/value.
+            Timber.i(
+                "updateProfile result: uid=$uid username=$displayUsername " +
+                    "success=${result.isSuccess} error=${result.exceptionOrNull()}"
+            )
+        }
     }
 
     override suspend fun uploadProfilePhoto(uid: String, uri: Uri): Result<String> =
@@ -309,7 +326,18 @@ class UserRepositoryImpl @Inject constructor(
     override fun watchCurrentUser(uid: String): Flow<User> = callbackFlow {
         val listener = firestore.collection("users").document(uid)
             .addSnapshotListener { snap, error ->
-                if (error != null || snap == null || !snap.exists()) return@addSnapshotListener
+                if (error != null) {
+                    Timber.w(error, "watchCurrentUser: uid=$uid listener error")
+                    return@addSnapshotListener
+                }
+                if (snap == null || !snap.exists()) return@addSnapshotListener
+                // Diagnostic breadcrumb for the profile-completion-screen-reappears bug report:
+                // confirms exactly what this device read back for username on this snapshot.
+                Timber.i(
+                    "watchCurrentUser: uid=$uid hasUsername=${snap.contains("username")} " +
+                        "isFromCache=${snap.metadata.isFromCache} " +
+                        "hasPendingWrites=${snap.metadata.hasPendingWrites()}"
+                )
                 trySend(snap.toUser(uid))
             }
         awaitClose { listener.remove() }

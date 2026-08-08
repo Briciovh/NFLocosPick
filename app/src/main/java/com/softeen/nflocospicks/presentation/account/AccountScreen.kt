@@ -6,6 +6,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -50,18 +52,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.R
 import com.softeen.nflocospicks.domain.model.User
+import com.softeen.nflocospicks.domain.model.isProfileComplete
 import com.softeen.nflocospicks.domain.model.suggestedUsername
 import com.softeen.nflocospicks.presentation.auth.messageRes
 import com.softeen.nflocospicks.presentation.common.PhoneNumberField
@@ -84,18 +90,19 @@ fun AccountScreen(
     viewModel: AccountViewModel = hiltViewModel(),
     onSetupComplete: () -> Unit,
     onNavigateBack: () -> Unit,
-    onNavigateToTeamSelection: () -> Unit
+    onNavigateToTeamSelection: () -> Unit,
+    onNavigateToChangePassword: () -> Unit
 ) {
-    // Snapshotted once per screen entry — later edits that clear this flag mid-session
-    // (e.g. the user saves a username) must NOT flip the screen back into setup mode.
-    val isFirstTimeSetup = remember(user.uid) { user.username.isNullOrBlank() }
+    // Recomputed every recomposition (not remembered) so a snapshot listener delivering a
+    // now-complete profile mid-session correctly flips this — remembering it against only
+    // user.uid previously let it go stale if username/email/phone changed underneath it.
+    val isFirstTimeSetup = !user.isProfileComplete
     // Falls back to a suggested username (derived from displayName/email) only when the
     // account has none yet — an existing username is never overridden.
     val initialUsername = remember(user.uid) { user.username ?: user.suggestedUsername() ?: "" }
     val usernameAvailability by viewModel.usernameAvailability.collectAsStateWithLifecycle()
     val saveState by viewModel.saveState.collectAsStateWithLifecycle()
     val photoUploadState by viewModel.photoUploadState.collectAsStateWithLifecycle()
-    val changePasswordState by viewModel.changePasswordState.collectAsStateWithLifecycle()
     val emailLinkState by viewModel.emailLinkState.collectAsStateWithLifecycle()
     val phoneLinkState by viewModel.phoneLinkState.collectAsStateWithLifecycle()
     val hasPasswordProvider = remember(user.uid) { viewModel.hasPasswordProvider }
@@ -145,8 +152,6 @@ fun AccountScreen(
         },
         onPhotoPicked             = { uri -> viewModel.uploadPhoto(user.uid, uri) },
         hasPasswordProvider       = hasPasswordProvider,
-        changePasswordState       = changePasswordState,
-        onChangePassword          = { current, new -> viewModel.changePassword(current, new) },
         email                     = user.email,
         phoneNumber               = user.phoneNumber,
         emailLinkState            = emailLinkState,
@@ -155,7 +160,8 @@ fun AccountScreen(
         onStartPhoneLink          = viewModel::startPhoneLink,
         onVerifyPhoneLinkCode     = { code -> viewModel.verifyPhoneLinkCode(code) },
         onNavigateBack            = onNavigateBack,
-        onNavigateToTeamSelection = onNavigateToTeamSelection
+        onNavigateToTeamSelection = onNavigateToTeamSelection,
+        onNavigateToChangePassword = onNavigateToChangePassword
     )
 }
 
@@ -175,8 +181,6 @@ internal fun AccountScreenContent(
     onSave: (username: String, displayName: String) -> Unit,
     onPhotoPicked: (Uri) -> Unit,
     hasPasswordProvider: Boolean,
-    changePasswordState: ChangePasswordState,
-    onChangePassword: (currentPassword: String, newPassword: String) -> Unit,
     email: String,
     phoneNumber: String?,
     emailLinkState: EmailLinkState,
@@ -185,7 +189,8 @@ internal fun AccountScreenContent(
     onStartPhoneLink: (Activity, String) -> Unit,
     onVerifyPhoneLinkCode: (String) -> Unit,
     onNavigateBack: () -> Unit,
-    onNavigateToTeamSelection: () -> Unit
+    onNavigateToTeamSelection: () -> Unit,
+    onNavigateToChangePassword: () -> Unit
 ) {
     val appColors = LocalAppColors.current
     val activity = LocalActivity.current
@@ -193,10 +198,15 @@ internal fun AccountScreenContent(
 
     var username by remember { mutableStateOf(initialUsername) }
     var displayName by remember { mutableStateOf(initialDisplayName) }
+    // Once the user edits displayName by hand, username no longer overwrites it on blur.
+    var displayNameManuallyEdited by remember { mutableStateOf(false) }
 
     val isSaving = saveState is AccountSaveState.Saving
     val isUsernameValid = username.isNotBlank() &&
         (usernameAvailability is UsernameAvailability.Available || usernameAvailability is UsernameAvailability.Unchanged)
+    val hasEmail = email.isNotBlank()
+    val hasPhone = !phoneNumber.isNullOrBlank()
+    val isContactInfoValid = hasEmail || hasPhone
 
     Scaffold(
         containerColor = appColors.background,
@@ -245,34 +255,36 @@ internal fun AccountScreenContent(
             ) { uri -> uri?.let(onPhotoPicked) }
 
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .clickable(enabled = !isUploadingPhoto) {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    UserAvatar(
-                        photoUrl         = photoUrl,
-                        displayName      = displayName,
-                        favoriteTeamAbbr = favoriteTeamAbbr,
-                        size             = 88.dp
-                    )
-                    if (isUploadingPhoto) {
-                        Box(
-                            modifier         = Modifier.size(88.dp).clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.4f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = !isUploadingPhoto) {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        UserAvatar(
+                            photoUrl         = photoUrl,
+                            displayName      = displayName,
+                            favoriteTeamAbbr = favoriteTeamAbbr,
+                            size             = 88.dp
+                        )
+                        if (isUploadingPhoto) {
+                            Box(
+                                modifier         = Modifier.size(88.dp).clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.4f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                            }
                         }
                     }
                     Box(
                         modifier          = Modifier
-                            .align(Alignment.BottomEnd)
                             .size(28.dp)
                             .clip(CircleShape)
                             .background(appColors.primary),
@@ -296,9 +308,17 @@ internal fun AccountScreenContent(
                     username = it
                     onUsernameChanged(it)
                 },
-                label         = { Text(stringResource(R.string.account_username_label)) },
+                label         = { Text(requiredFieldLabel(stringResource(R.string.account_username_label), isRequired = true)) },
                 singleLine    = true,
-                modifier      = Modifier.fillMaxWidth(),
+                modifier      = Modifier
+                    .fillMaxWidth()
+                    // Copies username into displayName the moment this field loses focus, unless
+                    // the user has already edited displayName by hand — that edit always wins.
+                    .onFocusChanged { focusState ->
+                        if (!focusState.isFocused && !displayNameManuallyEdited) {
+                            displayName = username
+                        }
+                    },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor   = appColors.primary,
                     unfocusedBorderColor = appColors.secondary,
@@ -336,8 +356,11 @@ internal fun AccountScreenContent(
 
             OutlinedTextField(
                 value         = displayName,
-                onValueChange = { displayName = it },
-                label         = { Text(stringResource(R.string.account_display_name_label)) },
+                onValueChange = {
+                    displayNameManuallyEdited = true
+                    displayName = it
+                },
+                label         = { Text(requiredFieldLabel(stringResource(R.string.account_display_name_label), isRequired = false)) },
                 singleLine    = true,
                 modifier      = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -370,7 +393,7 @@ internal fun AccountScreenContent(
                 OutlinedTextField(
                     value          = emailInput,
                     onValueChange  = { emailInput = it },
-                    label          = { Text(stringResource(R.string.login_label_email)) },
+                    label          = { Text(requiredFieldLabel(stringResource(R.string.login_label_email), isRequired = !hasPhone)) },
                     singleLine     = true,
                     modifier       = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -493,13 +516,18 @@ internal fun AccountScreenContent(
                 } else {
                     val isSendingCode = phoneLinkState is PhoneLinkState.Sending
 
+                    // PhoneNumberField.label is a plain String (shared with LoginScreen), so the
+                    // required/optional suffix here can't be bolded the way the other fields are.
+                    val phoneRequiredSuffix = stringResource(
+                        if (!hasEmail) R.string.field_required_suffix else R.string.field_optional_suffix
+                    )
                     PhoneNumberField(
                         countries              = supportedCountries,
                         selectedCountry        = selectedCountry,
                         onCountrySelected      = { selectedCountry = it },
                         nationalNumber         = nationalNumber,
                         onNationalNumberChange = { nationalNumber = it },
-                        label                  = stringResource(R.string.login_label_phone_number),
+                        label                  = "${stringResource(R.string.login_label_phone_number)}  $phoneRequiredSuffix",
                         modifier               = Modifier.fillMaxWidth()
                     )
                     if (phoneLinkState is PhoneLinkState.Error) {
@@ -596,7 +624,7 @@ internal fun AccountScreenContent(
 
             Button(
                 onClick  = { onSave(username.trim(), displayName.trim()) },
-                enabled  = isUsernameValid && !isSaving,
+                enabled  = isUsernameValid && isContactInfoValid && !isSaving,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
                 shape    = MaterialTheme.shapes.medium
@@ -617,132 +645,34 @@ internal fun AccountScreenContent(
             }
 
             if (hasPasswordProvider) {
-                Spacer(Modifier.height(24.dp))
-                HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
                 Spacer(Modifier.height(16.dp))
-
-                Text(
-                    text       = stringResource(R.string.account_password_section),
-                    color      = appColors.primary,
-                    style      = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Spacer(Modifier.height(8.dp))
-
-                var currentPassword by remember { mutableStateOf("") }
-                var newPassword by remember { mutableStateOf("") }
-                var confirmPassword by remember { mutableStateOf("") }
-
-                LaunchedEffect(changePasswordState) {
-                    if (changePasswordState is ChangePasswordState.Success) {
-                        currentPassword = ""
-                        newPassword = ""
-                        confirmPassword = ""
-                    }
-                }
-
-                OutlinedTextField(
-                    value                = currentPassword,
-                    onValueChange        = { currentPassword = it },
-                    label                = { Text(stringResource(R.string.account_current_password_label)) },
-                    singleLine           = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier             = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor   = appColors.primary,
-                        unfocusedBorderColor = appColors.secondary,
-                        focusedTextColor     = appColors.onBackground,
-                        unfocusedTextColor   = appColors.onBackground,
-                        cursorColor          = appColors.primary
-                    )
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value                = newPassword,
-                    onValueChange        = { newPassword = it },
-                    label                = { Text(stringResource(R.string.account_new_password_label)) },
-                    singleLine           = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier             = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor   = appColors.primary,
-                        unfocusedBorderColor = appColors.secondary,
-                        focusedTextColor     = appColors.onBackground,
-                        unfocusedTextColor   = appColors.onBackground,
-                        cursorColor          = appColors.primary
-                    )
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value                = confirmPassword,
-                    onValueChange        = { confirmPassword = it },
-                    label                = { Text(stringResource(R.string.account_confirm_password_label)) },
-                    singleLine           = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier             = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor   = appColors.primary,
-                        unfocusedBorderColor = appColors.secondary,
-                        focusedTextColor     = appColors.onBackground,
-                        unfocusedTextColor   = appColors.onBackground,
-                        cursorColor          = appColors.primary
-                    )
-                )
-
-                if (changePasswordState is ChangePasswordState.Error) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text  = stringResource(changePasswordState.error.messageRes()),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                if (changePasswordState is ChangePasswordState.Success) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text  = stringResource(R.string.account_password_changed),
-                        color = Color(0xFF2E7D32),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                val isChangingPassword = changePasswordState is ChangePasswordState.Saving
-                val isPasswordChangeValid = currentPassword.isNotBlank() &&
-                    newPassword.length >= 6 &&
-                    newPassword == confirmPassword
-
-                Button(
-                    onClick  = { onChangePassword(currentPassword, newPassword) },
-                    enabled  = isPasswordChangeValid && !isChangingPassword,
+                OutlinedButton(
+                    onClick  = onNavigateToChangePassword,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = appColors.primary),
+                    border   = BorderStroke(1.dp, appColors.primary),
                     shape    = MaterialTheme.shapes.medium
                 ) {
-                    if (isChangingPassword) {
-                        CircularProgressIndicator(
-                            color       = appColors.onPrimary,
-                            modifier    = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text       = stringResource(R.string.account_change_password_button),
-                            color      = appColors.onPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    Text(
+                        text       = stringResource(R.string.account_change_password_nav_button),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
             Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+/** Appends a bold "*Obligatorio"/"(Opcional)" suffix to a field's label, per the AC that every
+ *  field on this screen state explicitly whether it's required. */
+@Composable
+private fun requiredFieldLabel(text: String, isRequired: Boolean) = buildAnnotatedString {
+    append(text)
+    append("  ")
+    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+        append(stringResource(if (isRequired) R.string.field_required_suffix else R.string.field_optional_suffix))
     }
 }
 
@@ -764,8 +694,6 @@ private fun AccountScreenSetupPreview() {
             onSave                    = { _, _ -> },
             onPhotoPicked             = {},
             hasPasswordProvider       = false,
-            changePasswordState       = ChangePasswordState.Idle,
-            onChangePassword          = { _, _ -> },
             email                     = fakeUser.email,
             phoneNumber               = fakeUser.phoneNumber,
             emailLinkState            = EmailLinkState.Idle,
@@ -774,7 +702,8 @@ private fun AccountScreenSetupPreview() {
             onStartPhoneLink          = { _, _ -> },
             onVerifyPhoneLinkCode     = {},
             onNavigateBack            = {},
-            onNavigateToTeamSelection = {}
+            onNavigateToTeamSelection = {},
+            onNavigateToChangePassword = {}
         )
     }
 }
@@ -797,8 +726,6 @@ private fun AccountScreenEditPreview() {
             onSave                    = { _, _ -> },
             onPhotoPicked             = {},
             hasPasswordProvider       = false,
-            changePasswordState       = ChangePasswordState.Idle,
-            onChangePassword          = { _, _ -> },
             email                     = fakeUser.email,
             phoneNumber               = fakeUser.phoneNumber,
             emailLinkState            = EmailLinkState.Idle,
@@ -807,7 +734,8 @@ private fun AccountScreenEditPreview() {
             onStartPhoneLink          = { _, _ -> },
             onVerifyPhoneLinkCode     = {},
             onNavigateBack            = {},
-            onNavigateToTeamSelection = {}
+            onNavigateToTeamSelection = {},
+            onNavigateToChangePassword = {}
         )
     }
 }
@@ -830,8 +758,6 @@ private fun AccountScreenUsernameTakenPreview() {
             onSave                    = { _, _ -> },
             onPhotoPicked             = {},
             hasPasswordProvider       = false,
-            changePasswordState       = ChangePasswordState.Idle,
-            onChangePassword          = { _, _ -> },
             email                     = fakeUser.email,
             phoneNumber               = fakeUser.phoneNumber,
             emailLinkState            = EmailLinkState.Idle,
@@ -840,7 +766,8 @@ private fun AccountScreenUsernameTakenPreview() {
             onStartPhoneLink          = { _, _ -> },
             onVerifyPhoneLinkCode     = {},
             onNavigateBack            = {},
-            onNavigateToTeamSelection = {}
+            onNavigateToTeamSelection = {},
+            onNavigateToChangePassword = {}
         )
     }
 }

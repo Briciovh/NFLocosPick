@@ -11,6 +11,7 @@ sealed class Screen(val route: String) {
     data object History     : Screen("history/{groupId}")
     data object Settings        : Screen("settings")
     data object Account         : Screen("account")
+    data object ChangePassword  : Screen("change_password")
     data object TeamSelection   : Screen("team_selection")
     data object UserManagement  : Screen("user_management")
     data object GroupSession    : Screen("group_session/{groupId}") {

@@ -58,7 +58,12 @@
 
     <!-- Groups -->
     <string name="groups_empty">Aún no tienes grupos.\nCrea uno o únete con un código.</string>
-    <string name="group_info">Código: %1$s  •  %2$d miembro(s)</string>
+    <string name="group_code_label">Código: %1$s</string>
+    <string name="group_member_count">%1$d miembro(s)</string>
+    <string name="group_code_copied">Código copiado</string>
+    <string name="cd_copy_group_code">Copiar código de grupo</string>
+    <string name="cd_share_group_code">Compartir código de grupo</string>
+    <string name="group_invite_share_text">Únete a mi grupo con el código %1$s en NFLocosPick</string>
     <string name="scoring_none">No hay picks nuevos que puntuar</string>
     <string name="scoring_result">%1$d pick(s) puntuados 🏆</string>
 
@@ -134,6 +139,8 @@
     <string name="account_setup_title">Completa tu perfil</string>
     <string name="account_title">Tu cuenta</string>
     <string name="account_setup_intro">Elige un nombre de usuario único para que otros miembros puedan reconocerte.</string>
+    <string name="field_required_suffix">*Obligatorio</string>
+    <string name="field_optional_suffix">(Opcional)</string>
     <string name="account_username_label">Nombre de usuario</string>
     <string name="account_display_name_label">Nombre para mostrar</string>
     <string name="account_username_checking">Verificando disponibilidad…</string>
@@ -143,7 +150,7 @@
     <string name="account_save_button">Guardar</string>
     <string name="account_saved_confirmation">Perfil actualizado</string>
     <string name="cd_avatar">Foto de perfil</string>
-    <string name="account_password_section">CONTRASEÑA</string>
+    <string name="account_change_password_nav_button">Cambiar contraseña</string>
     <string name="account_current_password_label">Contraseña actual</string>
     <string name="account_new_password_label">Contraseña nueva</string>
     <string name="account_confirm_password_label">Confirma la contraseña nueva</string>

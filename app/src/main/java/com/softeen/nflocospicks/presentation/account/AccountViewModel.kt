@@ -47,9 +47,6 @@ class AccountViewModel @Inject constructor(
     private val _photoUploadState = MutableStateFlow<PhotoUploadState>(PhotoUploadState.Idle)
     val photoUploadState: StateFlow<PhotoUploadState> = _photoUploadState.asStateFlow()
 
-    private val _changePasswordState = MutableStateFlow<ChangePasswordState>(ChangePasswordState.Idle)
-    val changePasswordState: StateFlow<ChangePasswordState> = _changePasswordState.asStateFlow()
-
     private val _emailLinkState = MutableStateFlow<EmailLinkState>(EmailLinkState.Idle)
     val emailLinkState: StateFlow<EmailLinkState> = _emailLinkState.asStateFlow()
 
@@ -124,18 +121,6 @@ class AccountViewModel @Inject constructor(
                 .onFailure { e ->
                     val error = (e as? AuthException)?.error ?: AuthError.PROFILE_UPDATE_FAILED
                     _photoUploadState.value = PhotoUploadState.Error(error)
-                }
-        }
-    }
-
-    fun changePassword(currentPassword: String, newPassword: String) {
-        viewModelScope.launch {
-            _changePasswordState.value = ChangePasswordState.Saving
-            userRepository.changePassword(currentPassword, newPassword)
-                .onSuccess { _changePasswordState.value = ChangePasswordState.Success }
-                .onFailure { e ->
-                    val error = (e as? AuthException)?.error ?: AuthError.PASSWORD_CHANGE_FAILED
-                    _changePasswordState.value = ChangePasswordState.Error(error)
                 }
         }
     }

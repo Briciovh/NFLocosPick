@@ -26,4 +26,6 @@ object TestTags {
     const val GROUPS_GROUP_CARD    = "groups_group_card"
     const val GROUPS_EMPTY_STATE   = "groups_empty_state"
     const val GROUPS_EDIT_PHOTO_BUTTON = "groups_edit_photo_button"
+    const val GROUPS_COPY_CODE_BUTTON = "groups_copy_code_button"
+    const val GROUPS_SHARE_CODE_BUTTON = "groups_share_code_button"
 }

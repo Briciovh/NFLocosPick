@@ -12,7 +12,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.softeen.nflocospicks.domain.model.isProfileComplete
 import com.softeen.nflocospicks.presentation.account.AccountScreen
+import com.softeen.nflocospicks.presentation.account.ChangePasswordScreen
 import com.softeen.nflocospicks.presentation.auth.AuthUiState
 import com.softeen.nflocospicks.presentation.auth.AuthViewModel
 import com.softeen.nflocospicks.presentation.auth.LoginScreen
@@ -116,9 +118,14 @@ fun NavGraph() {
                                 }
                             },
                             onNavigateBack            = { navController.popBackStack() },
-                            onNavigateToTeamSelection = { navController.navigate(Screen.TeamSelection.route) }
+                            onNavigateToTeamSelection = { navController.navigate(Screen.TeamSelection.route) },
+                            onNavigateToChangePassword = { navController.navigate(Screen.ChangePassword.route) }
                         )
                     }
+                }
+
+                composable(Screen.ChangePassword.route) {
+                    ChangePasswordScreen(onNavigateBack = { navController.popBackStack() })
                 }
 
                 composable(Screen.TeamSelection.route) {
@@ -181,8 +188,23 @@ fun NavGraph() {
                 composable(
                     route     = Screen.History.route,
                     arguments = listOf(navArgument("groupId") { type = NavType.StringType })
-                ) {
-                    HistoryScreen(onNavigateBack = { navController.popBackStack() })
+                ) { backStackEntry ->
+                    val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+
+                    // Mismo patrón que Screen.GroupSession: compartimos el GroupViewModel de
+                    // GroupsScreen para mostrar el nombre/código del grupo en el header, sin
+                    // hacer un fetch aparte.
+                    val groupsEntry = remember(backStackEntry) {
+                        navController.getBackStackEntry(Screen.Groups.route)
+                    }
+                    val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
+                    val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
+                    val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
+
+                    HistoryScreen(
+                        group          = group,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
                 }
 
                 composable(
@@ -229,17 +251,19 @@ fun NavGraph() {
     }
 
     // Único punto de redirección tras autenticarse (login recién hecho o sesión restaurada)
-    // y al cerrar sesión. Un usuario sin username (perfil incompleto) es forzado a
-    // Account antes de poder entrar a Groups — ver Screen.Account más arriba.
+    // y al cerrar sesión. Un usuario con perfil incompleto (sin username, o sin ningún medio
+    // de contacto) es forzado a Account antes de poder entrar a Groups — ver Screen.Account
+    // más arriba. Una vez que isProfileComplete es true para una cuenta, nunca debe volver
+    // a mandarse a Account.
     LaunchedEffect(authState) {
         val state = authState
         when {
             state is AuthUiState.Authenticated && state.isProfileSynced &&
                 navController.currentDestination?.route == Screen.Login.route -> {
-                val destination = if (state.user.username.isNullOrBlank()) {
-                    Screen.Account.route
-                } else {
+                val destination = if (state.user.isProfileComplete) {
                     Screen.Groups.route
+                } else {
+                    Screen.Account.route
                 }
                 navController.navigate(destination) {
                     popUpTo(Screen.Login.route) { inclusive = true }

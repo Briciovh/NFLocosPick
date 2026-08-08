@@ -114,6 +114,8 @@
     <string name="settings_delete_account_dialog_title">Delete your account?</string>
     <string name="settings_delete_account_dialog_body">Your profile, photo, username, and membership in every group will be removed. Your past picks and messages stay in the group\'s history, but without your name. This can\'t be undone.</string>
     <string name="settings_delete_account_dialog_confirm">Delete account</string>
+    <string name="settings_footer_version">Version %1$s (%2$d)</string>
+    <string name="settings_footer_credit">Made with ❤️ by the NFLocos Team</string>
     <string name="settings_section_language">LANGUAGE</string>
     <string name="settings_lang_system">System</string>
     <string name="settings_section_font_size">TEXT SIZE</string>

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.rememberScrollState
@@ -28,20 +27,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,14 +41,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.softeen.nflocospicks.BuildConfig
 import com.softeen.nflocospicks.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.softeen.nflocospicks.domain.model.AuthError
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.domain.model.UserRole
 import com.softeen.nflocospicks.domain.model.effectiveDisplayName
-import com.softeen.nflocospicks.presentation.auth.messageRes
 import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.common.UserAvatar
 import com.softeen.nflocospicks.presentation.common.nflTeams
@@ -72,9 +63,6 @@ fun SettingsScreen(
     user: User,
     viewModel: SettingsViewModel,
     onSignOut: () -> Unit,
-    onDeleteAccount: () -> Unit,
-    deleteAccountError: AuthError?,
-    onDismissDeleteAccountError: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToTeamSelection: () -> Unit,
     onNavigateToUserManagement: () -> Unit,
@@ -86,9 +74,6 @@ fun SettingsScreen(
         user                        = user,
         prefs                       = prefs,
         onSignOut                   = onSignOut,
-        onDeleteAccount             = onDeleteAccount,
-        deleteAccountError          = deleteAccountError,
-        onDismissDeleteAccountError = onDismissDeleteAccountError,
         onNavigateBack              = onNavigateBack,
         onNavigateToTeamSelection   = onNavigateToTeamSelection,
         onToggleTestingData         = { viewModel.setUseTestingData(it) },
@@ -108,9 +93,6 @@ internal fun SettingsScreenContent(
     user: User,
     prefs: UserPreferences,
     onSignOut: () -> Unit,
-    onDeleteAccount: () -> Unit = {},
-    deleteAccountError: AuthError? = null,
-    onDismissDeleteAccountError: () -> Unit = {},
     onNavigateBack: () -> Unit,
     onNavigateToTeamSelection: () -> Unit,
     onToggleTestingData: (Boolean) -> Unit,
@@ -124,52 +106,9 @@ internal fun SettingsScreenContent(
 ) {
     val appColors    = LocalAppColors.current
     val favoriteTeam = nflTeams.find { it.abbr == prefs.favoriteTeamAbbr }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text(stringResource(R.string.settings_delete_account_dialog_title)) },
-            text = { Text(stringResource(R.string.settings_delete_account_dialog_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    onDeleteAccount()
-                }) {
-                    Text(
-                        text = stringResource(R.string.settings_delete_account_dialog_confirm),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(stringResource(R.string.btn_cancel))
-                }
-            }
-        )
-    }
-
-    val deleteErrorMessage = deleteAccountError?.let { stringResource(it.messageRes()) }
-    LaunchedEffect(deleteAccountError) {
-        if (deleteErrorMessage != null) {
-            snackbarHostState.showSnackbar(deleteErrorMessage)
-            onDismissDeleteAccountError()
-        }
-    }
 
     Scaffold(
         containerColor = appColors.background,
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
-        },
         topBar = {
             TopAppBar(
                 title = {
@@ -192,144 +131,169 @@ internal fun SettingsScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            SectionHeader(stringResource(R.string.settings_section_account), appColors.primary)
-
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable(onClick = onNavigateToAccount)
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                UserAvatar(
-                    photoUrl         = user.photoUrl,
-                    displayName      = user.effectiveDisplayName,
-                    favoriteTeamAbbr = prefs.favoriteTeamAbbr,
-                    size             = 56.dp
-                )
-                Spacer(Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text       = user.effectiveDisplayName,
-                        color      = appColors.onBackground,
-                        style      = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                SectionHeader(stringResource(R.string.settings_section_account), appColors.primary)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .clickable(onClick = onNavigateToAccount)
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    UserAvatar(
+                        photoUrl         = user.photoUrl,
+                        displayName      = user.effectiveDisplayName,
+                        favoriteTeamAbbr = prefs.favoriteTeamAbbr,
+                        size             = 56.dp
                     )
-                    Text(text = user.email, color = appColors.secondary, style = MaterialTheme.typography.bodySmall)
-                }
-                Icon(
-                    imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint               = appColors.secondary
-                )
-            }
-
-            HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
-            Spacer(Modifier.height(16.dp))
-
-            SectionHeader(stringResource(R.string.settings_section_fav_team), appColors.primary)
-            Spacer(Modifier.height(4.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable(onClick = onNavigateToTeamSelection)
-                    .padding(vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (favoriteTeam != null) {
-                    TeamLogo(abbr = favoriteTeam.abbr, size = 52.dp)
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text       = favoriteTeam.name,
-                            color      = appColors.onSurface,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold
+                            text       = user.effectiveDisplayName,
+                            color      = appColors.onBackground,
+                            style      = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                        Text(text = favoriteTeam.abbr, color = appColors.secondary, style = MaterialTheme.typography.labelSmall)
+                        Text(text = user.email, color = appColors.secondary, style = MaterialTheme.typography.bodySmall)
                     }
-                } else {
-                    Box(
-                        modifier         = Modifier.size(40.dp).clip(CircleShape)
-                            .background(appColors.secondary.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("?", color = appColors.secondary, style = MaterialTheme.typography.titleMedium)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        text     = stringResource(R.string.settings_no_team),
-                        color    = appColors.secondary,
-                        style    = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
+                    Icon(
+                        imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint               = appColors.secondary
                     )
                 }
-                Icon(
-                    imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint               = appColors.secondary
+
+                HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+                Spacer(Modifier.height(16.dp))
+
+                SectionHeader(stringResource(R.string.settings_section_fav_team), appColors.primary)
+                Spacer(Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .clickable(onClick = onNavigateToTeamSelection)
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (favoriteTeam != null) {
+                        TeamLogo(abbr = favoriteTeam.abbr, size = 52.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text       = favoriteTeam.name,
+                                color      = appColors.onSurface,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(text = favoriteTeam.abbr, color = appColors.secondary, style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else {
+                        Box(
+                            modifier         = Modifier.size(40.dp).clip(CircleShape)
+                                .background(appColors.secondary.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("?", color = appColors.secondary, style = MaterialTheme.typography.titleMedium)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text     = stringResource(R.string.settings_no_team),
+                            color    = appColors.secondary,
+                            style    = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Icon(
+                        imageVector        = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint               = appColors.secondary
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+                Spacer(Modifier.height(16.dp))
+
+                SectionHeader(stringResource(R.string.settings_section_language), appColors.primary)
+                Spacer(Modifier.height(8.dp))
+                LanguageSelector(
+                    current    = currentLanguageTag,
+                    onSelected = onLanguageSelected,
+                    appColors  = appColors
+                )
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+                Spacer(Modifier.height(16.dp))
+
+                SectionHeader(stringResource(R.string.settings_section_font_size), appColors.primary)
+                Spacer(Modifier.height(8.dp))
+                FontSizeSelector(
+                    current    = currentFontScale,
+                    onSelected = onFontScaleSelected,
+                    appColors  = appColors
+                )
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+
+                if (user.role == UserRole.INSIDER) {
+                    InsiderSection(
+                        useTestingData        = prefs.useTestingData,
+                        simulateGamesStarted  = prefs.simulateGamesStarted,
+                        onToggleTesting       = onToggleTestingData,
+                        onToggleSimulate      = onToggleSimulateGames,
+                        onManageUsers         = onNavigateToUserManagement,
+                        appColors             = appColors
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                TextButton(
+                    onClick  = onSignOut,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text(text = stringResource(R.string.settings_sign_out), color = MaterialTheme.colorScheme.error)
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // Pinned outside the scrollable area so it sits at the very bottom of the screen
+            // (above only the system insets) when content is short, instead of trailing the
+            // last scrollable item. When content overflows, it simply stays fixed below the
+            // now-shrunk scrollable area rather than requiring a scroll to reach it.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.settings_footer_version,
+                        BuildConfig.VERSION_NAME,
+                        BuildConfig.VERSION_CODE
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = appColors.secondary
+                )
+                Text(
+                    text = stringResource(R.string.settings_footer_credit),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = appColors.secondary
                 )
             }
-
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
-            Spacer(Modifier.height(16.dp))
-
-            SectionHeader(stringResource(R.string.settings_section_language), appColors.primary)
-            Spacer(Modifier.height(8.dp))
-            LanguageSelector(
-                current    = currentLanguageTag,
-                onSelected = onLanguageSelected,
-                appColors  = appColors
-            )
-
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
-            Spacer(Modifier.height(16.dp))
-
-            SectionHeader(stringResource(R.string.settings_section_font_size), appColors.primary)
-            Spacer(Modifier.height(8.dp))
-            FontSizeSelector(
-                current    = currentFontScale,
-                onSelected = onFontScaleSelected,
-                appColors  = appColors
-            )
-
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
-
-            if (user.role == UserRole.INSIDER) {
-                InsiderSection(
-                    useTestingData        = prefs.useTestingData,
-                    simulateGamesStarted  = prefs.simulateGamesStarted,
-                    onToggleTesting       = onToggleTestingData,
-                    onToggleSimulate      = onToggleSimulateGames,
-                    onManageUsers         = onNavigateToUserManagement,
-                    appColors             = appColors
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            TextButton(
-                onClick  = onSignOut,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text(text = stringResource(R.string.settings_sign_out), color = MaterialTheme.colorScheme.error)
-            }
-            TextButton(
-                onClick  = { showDeleteDialog = true },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Text(text = stringResource(R.string.settings_delete_account), color = MaterialTheme.colorScheme.error)
-            }
-            Spacer(Modifier.height(16.dp))
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.softeen.nflocospicks.presentation.navigation
 
+import android.net.Uri
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,6 +19,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -30,7 +34,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.presentation.board.BoardScreen
+import com.softeen.nflocospicks.presentation.common.GroupHeaderBar
+import com.softeen.nflocospicks.presentation.groups.GroupImagePickerDialog
+import com.softeen.nflocospicks.presentation.groups.GroupPhotoUiState
 import com.softeen.nflocospicks.presentation.leaderboard.LeaderboardScreen
 import com.softeen.nflocospicks.presentation.picks.PickScreen
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
@@ -44,17 +52,35 @@ sealed class BottomNavItem(val route: String, @StringRes val titleRes: Int, val 
 @Composable
 fun GroupSessionScreen(
     groupId: String,
+    group: Group?,
+    currentUserId: String?,
+    photoUiState: GroupPhotoUiState,
     onNavigateBack: () -> Unit,
-    onNavigateToHistory: (String) -> Unit
+    onNavigateToHistory: (String) -> Unit,
+    onUploadPhoto: (Uri) -> Unit,
+    onSetIcon: (String) -> Unit,
+    onDismissPhotoPicker: () -> Unit
 ) {
     val navController = rememberNavController()
     val appColors = LocalAppColors.current
+    var showImagePicker by remember { mutableStateOf(false) }
 
     val items = listOf(
         BottomNavItem.Picks,
         BottomNavItem.Leaderboard,
         BottomNavItem.Board
     )
+
+    // Fila delgada de identidad del grupo, renderizada por cada tab justo debajo de
+    // su propio TopAppBar ("NFL PICKS"/"Leaderboard"/"Mensajes") — no es un topBar
+    // de este Scaffold porque eso la dejaría por ENCIMA del TopAppBar de cada tab.
+    val groupHeader: @Composable () -> Unit = {
+        GroupHeaderBar(
+            group          = group,
+            currentUserId  = currentUserId,
+            onEditClick    = { showImagePicker = true }
+        )
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -110,7 +136,8 @@ fun GroupSessionScreen(
                 arguments = listOf(navArgument("groupId") { type = NavType.StringType })
             ) {
                 PickScreen(
-                    onNavigateBack = onNavigateBack
+                    onNavigateBack = onNavigateBack,
+                    groupHeader    = groupHeader
                 )
             }
             composable(
@@ -119,15 +146,28 @@ fun GroupSessionScreen(
             ) {
                 LeaderboardScreen(
                     onNavigateBack = onNavigateBack,
-                    onNavigateToHistory = onNavigateToHistory
+                    onNavigateToHistory = onNavigateToHistory,
+                    groupHeader = groupHeader
                 )
             }
             composable(
                 route = BottomNavItem.Board.route,
                 arguments = listOf(navArgument("groupId") { type = NavType.StringType })
             ) {
-                BoardScreen(onNavigateBack = onNavigateBack)
+                BoardScreen(onNavigateBack = onNavigateBack, groupHeader = groupHeader)
             }
         }
+    }
+
+    if (showImagePicker && group != null) {
+        GroupImagePickerDialog(
+            photoUiState = photoUiState,
+            onPickPhoto  = onUploadPhoto,
+            onPickIcon   = onSetIcon,
+            onDismiss    = {
+                showImagePicker = false
+                onDismissPhotoPicker()
+            }
+        )
     }
 }

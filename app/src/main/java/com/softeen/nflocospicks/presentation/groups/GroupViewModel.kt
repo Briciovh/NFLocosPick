@@ -1,16 +1,20 @@
 package com.softeen.nflocospicks.presentation.groups
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.mock.MockDataProvider
+import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
 import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
+import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
+import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +33,8 @@ class GroupViewModel @Inject constructor(
     private val joinGroupUseCase        : JoinGroupUseCase,
     private val getGroupsForUserUseCase : GetGroupsForUserUseCase,
     private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
+    private val uploadGroupPhotoUseCase : UploadGroupPhotoUseCase,
+    private val setGroupIconUseCase     : SetGroupIconUseCase,
     private val userRepository          : UserRepository,
     private val preferencesRepository   : UserPreferencesRepository,
     private val logger                  : AppLogger
@@ -39,6 +45,12 @@ class GroupViewModel @Inject constructor(
 
     private val _actionState = MutableStateFlow<GroupActionUiState>(GroupActionUiState.Idle)
     val actionState: StateFlow<GroupActionUiState> = _actionState.asStateFlow()
+
+    private val _photoUiState = MutableStateFlow<GroupPhotoUiState>(GroupPhotoUiState.Idle)
+    val photoUiState: StateFlow<GroupPhotoUiState> = _photoUiState.asStateFlow()
+
+    /** Read once per composition — used to gate the group-photo edit badge to the creator. */
+    val currentUserId: String? get() = userRepository.getCurrentUser()?.uid
 
     /**
      * Efectos de un solo disparo (navegación).
@@ -135,6 +147,37 @@ class GroupViewModel @Inject constructor(
                 effects.send(GroupUiEffect.ScoringError(e.message ?: "Error al puntuar"))
             }
         }
+    }
+
+    /**
+     * Sube [uri] como foto del grupo. Rechaza silenciosamente (deja el estado en Idle,
+     * sin llamar al backend) si [requesterUserId] no es el creador del grupo — defensa en
+     * profundidad junto a las reglas de Firestore/Storage, que son la fuente de verdad real.
+     */
+    fun uploadGroupPhoto(group: Group, requesterUserId: String, uri: Uri) {
+        if (group.createdBy != requesterUserId) return
+        viewModelScope.launch {
+            _photoUiState.value = GroupPhotoUiState.Uploading
+            uploadGroupPhotoUseCase(group.id, uri)
+                .onSuccess { _photoUiState.value = GroupPhotoUiState.Idle }
+                .onFailure { e -> _photoUiState.value = GroupPhotoUiState.Error(e.message ?: "Error al subir la foto") }
+        }
+    }
+
+    /** Mismo guard de permisos que [uploadGroupPhoto], para el flujo de ícono predefinido. */
+    fun setGroupIcon(group: Group, requesterUserId: String, iconId: String) {
+        if (group.createdBy != requesterUserId) return
+        viewModelScope.launch {
+            _photoUiState.value = GroupPhotoUiState.Uploading
+            setGroupIconUseCase(group.id, iconId)
+                .onSuccess { _photoUiState.value = GroupPhotoUiState.Idle }
+                .onFailure { e -> _photoUiState.value = GroupPhotoUiState.Error(e.message ?: "Error al fijar el ícono") }
+        }
+    }
+
+    /** Restablece photoUiState a Idle. Llamar al cerrar el picker de imagen. */
+    fun resetPhotoUiState() {
+        _photoUiState.value = GroupPhotoUiState.Idle
     }
 
     fun onSignOut() {

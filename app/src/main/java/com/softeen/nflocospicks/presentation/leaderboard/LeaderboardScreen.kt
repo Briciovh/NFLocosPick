@@ -72,6 +72,7 @@ private val BronzeColor = Color(0xFFBF8970)
 fun LeaderboardScreen(
     onNavigateBack: () -> Unit,
     onNavigateToHistory: (groupId: String) -> Unit = {},
+    groupHeader: @Composable () -> Unit = {},
     viewModel: LeaderboardViewModel = hiltViewModel()
 ) {
     val uiState       by viewModel.uiState.collectAsStateWithLifecycle()
@@ -84,7 +85,8 @@ fun LeaderboardScreen(
         groupId             = groupId,
         onNavigateBack      = onNavigateBack,
         onNavigateToHistory = onNavigateToHistory,
-        onTabSelected       = { viewModel.onTabSelected(it) }
+        onTabSelected       = { viewModel.onTabSelected(it) },
+        groupHeader         = groupHeader
     )
 }
 
@@ -96,7 +98,8 @@ internal fun LeaderboardScreenContent(
     groupId: String,
     onNavigateBack: () -> Unit,
     onNavigateToHistory: (groupId: String) -> Unit,
-    onTabSelected: (SeasonType) -> Unit = {}
+    onTabSelected: (SeasonType) -> Unit = {},
+    groupHeader: @Composable () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
 
@@ -128,6 +131,7 @@ internal fun LeaderboardScreenContent(
         val selectedTabIndex = if (selectedSeasonType == SeasonType.PRESEASON) 1 else 0
 
         Column(modifier = Modifier.padding(innerPadding)) {
+            groupHeader()
             PrimaryTabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = appColors.header,

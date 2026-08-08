@@ -1,5 +1,6 @@
 package com.softeen.nflocospicks.domain.repository
 
+import android.net.Uri
 import com.softeen.nflocospicks.domain.model.Group
 import kotlinx.coroutines.flow.Flow
 
@@ -29,4 +30,17 @@ interface GroupRepository {
      * Lanza excepción si el documento no existe.
      */
     suspend fun getGroupById(groupId: String): Group
+
+    /**
+     * Sube [uri] a Storage como la foto del grupo, guarda la URL resultante en
+     * `photoUrl` y limpia cualquier `iconId` previo (mutuamente excluyentes).
+     * Retorna la URL de descarga. Espejo de [UserRepository.uploadProfilePhoto].
+     */
+    suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String>
+
+    /**
+     * Fija [iconId] (clave del set de íconos predefinidos de grupo) como imagen
+     * del grupo y limpia cualquier `photoUrl` previo.
+     */
+    suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit>
 }

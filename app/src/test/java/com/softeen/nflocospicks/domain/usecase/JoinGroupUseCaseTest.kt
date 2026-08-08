@@ -1,5 +1,6 @@
 package com.softeen.nflocospicks.domain.usecase
 
+import android.net.Uri
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.repository.GroupRepository
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +21,8 @@ private class CapturingJoinRepository : GroupRepository {
     override suspend fun createGroup(name: String, creatorUserId: String): Group = throw NotImplementedError()
     override fun getGroupsForUser(userId: String): Flow<List<Group>> = throw NotImplementedError()
     override suspend fun getGroupById(groupId: String): Group = throw NotImplementedError()
+    override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> = throw NotImplementedError()
+    override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
 
     override suspend fun joinGroup(inviteCode: String, userId: String): Group {
         capturedInviteCode = inviteCode

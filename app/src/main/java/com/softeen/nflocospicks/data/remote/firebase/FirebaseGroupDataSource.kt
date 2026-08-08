@@ -1,7 +1,9 @@
 package com.softeen.nflocospicks.data.remote.firebase
 
+import android.net.Uri
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import com.softeen.nflocospicks.domain.model.Group
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +12,8 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class FirebaseGroupDataSource @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage
 ) {
     companion object {
         private const val COLLECTION = "groups"
@@ -59,6 +62,22 @@ class FirebaseGroupDataSource @Inject constructor(
     suspend fun getGroupById(groupId: String): Group =
         firestore.collection(COLLECTION).document(groupId).get().await().toGroup()
 
+    suspend fun uploadPhoto(groupId: String, uri: Uri): String {
+        val photoRef = storage.reference.child("group_photos/$groupId")
+        photoRef.putFile(uri).await()
+        val downloadUrl = photoRef.downloadUrl.await().toString()
+        firestore.collection(COLLECTION).document(groupId)
+            .update(mapOf("photoUrl" to downloadUrl, "iconId" to FieldValue.delete()))
+            .await()
+        return downloadUrl
+    }
+
+    suspend fun setIcon(groupId: String, iconId: String) {
+        firestore.collection(COLLECTION).document(groupId)
+            .update(mapOf("iconId" to iconId, "photoUrl" to FieldValue.delete()))
+            .await()
+    }
+
     fun getGroupsForUser(userId: String): Flow<List<Group>> = callbackFlow {
         val listener = firestore.collection(COLLECTION)
             .whereArrayContains("memberIds", userId)
@@ -83,5 +102,7 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toGroup(): Group = Gr
     name       = getString("name").orEmpty(),
     inviteCode = getString("inviteCode").orEmpty(),
     createdBy  = getString("createdBy").orEmpty(),
-    memberIds  = (get("memberIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+    memberIds  = (get("memberIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+    photoUrl   = getString("photoUrl"),
+    iconId     = getString("iconId")
 )

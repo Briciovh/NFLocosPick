@@ -11,6 +11,8 @@ import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
 import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
+import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
+import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
 import com.softeen.nflocospicks.presentation.groups.GroupActionUiState
 import com.softeen.nflocospicks.presentation.groups.GroupViewModel
 import com.softeen.nflocospicks.util.MainCoroutineRule
@@ -45,6 +47,8 @@ class GroupViewModelIntegrationTest {
     private val userRepo    = mockk<UserRepository>()
     private val prefsRepo   = mockk<UserPreferencesRepository>()
     private val scoreUseCase = mockk<ScoreWeekPicksUseCase>(relaxed = true)
+    private val uploadGroupPhotoUseCase = mockk<UploadGroupPhotoUseCase>(relaxed = true)
+    private val setGroupIconUseCase = mockk<SetGroupIconUseCase>(relaxed = true)
     private val logger      = mockk<AppLogger>(relaxed = true)
 
     private val testUser = User(uid = "user1", displayName = "Test", email = "t@t.com", photoUrl = null)
@@ -67,6 +71,8 @@ class GroupViewModelIntegrationTest {
         joinGroupUseCase        = JoinGroupUseCase(groupRepo),          // ← REAL
         getGroupsForUserUseCase = GetGroupsForUserUseCase(groupRepo),   // ← REAL
         scoreWeekPicksUseCase   = scoreUseCase,
+        uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
+        setGroupIconUseCase     = setGroupIconUseCase,
         userRepository          = userRepo,
         preferencesRepository   = prefsRepo,
         logger                  = logger

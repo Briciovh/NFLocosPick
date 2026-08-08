@@ -20,6 +20,7 @@ import com.softeen.nflocospicks.presentation.common.defaultTeamColors
 import com.softeen.nflocospicks.presentation.common.nflTeamColorMap
 import com.softeen.nflocospicks.presentation.common.toAppColors
 import com.softeen.nflocospicks.presentation.groups.CreateGroupScreen
+import com.softeen.nflocospicks.presentation.groups.GroupListUiState
 import com.softeen.nflocospicks.presentation.groups.GroupViewModel
 import com.softeen.nflocospicks.presentation.groups.GroupsScreen
 import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
@@ -189,10 +190,29 @@ fun NavGraph() {
                     arguments = listOf(navArgument("groupId") { type = NavType.StringType })
                 ) { backStackEntry ->
                     val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+
+                    // Compartimos la instancia de GroupViewModel con GroupsScreen para leer el
+                    // Group actual (nombre/foto/ícono) del mismo listener en tiempo real, sin
+                    // hacer un fetch aparte.
+                    val groupsEntry = remember(backStackEntry) {
+                        navController.getBackStackEntry(Screen.Groups.route)
+                    }
+                    val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
+                    val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
+                    val photoUiState by groupViewModel.photoUiState.collectAsStateWithLifecycle()
+                    val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
+                    val currentUserId = groupViewModel.currentUserId
+
                     GroupSessionScreen(
                         groupId             = groupId,
+                        group               = group,
+                        currentUserId       = currentUserId,
+                        photoUiState        = photoUiState,
                         onNavigateBack      = { navController.popBackStack() },
-                        onNavigateToHistory = { gId -> navController.navigate("history/$gId") }
+                        onNavigateToHistory = { gId -> navController.navigate("history/$gId") },
+                        onUploadPhoto       = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
+                        onSetIcon           = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
+                        onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() }
                     )
                 }
 

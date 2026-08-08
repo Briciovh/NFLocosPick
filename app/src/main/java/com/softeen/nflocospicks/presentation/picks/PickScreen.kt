@@ -72,6 +72,7 @@ private fun kickoffDisplayFormat() = SimpleDateFormat("EEE, MMM d · h:mm a", Lo
 @Composable
 fun PickScreen(
     onNavigateBack: () -> Unit,
+    groupHeader: @Composable () -> Unit = {},
     viewModel: PickViewModel = hiltViewModel()
 ) {
     val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
@@ -86,7 +87,8 @@ fun PickScreen(
         onPick         = { gameId, teamAbbr, kickoffTime, status ->
             viewModel.submitPick(gameId, teamAbbr, kickoffTime, status)
         },
-        onErrorShown   = { viewModel.onErrorShown() }
+        onErrorShown   = { viewModel.onErrorShown() },
+        groupHeader    = groupHeader
     )
 }
 
@@ -99,7 +101,8 @@ internal fun PickScreenContent(
     onRetry: () -> Unit,
     onSync: () -> Unit,
     onPick: (String, String, Long, GameStatus) -> Unit,
-    onErrorShown: () -> Unit
+    onErrorShown: () -> Unit,
+    groupHeader: @Composable () -> Unit = {}
 ) {
     val appColors     = LocalAppColors.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -166,10 +169,13 @@ internal fun PickScreenContent(
             )
         }
     ) { innerPadding ->
+      Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        groupHeader()
+        Box(modifier = Modifier.weight(1f)) {
         when (uiState) {
             is PickUiState.Loading -> {
                 Box(
-                    modifier         = Modifier.fillMaxSize().padding(innerPadding),
+                    modifier         = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
@@ -183,7 +189,6 @@ internal fun PickScreenContent(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(innerPadding)
                         .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
@@ -209,7 +214,7 @@ internal fun PickScreenContent(
             is PickUiState.Success -> {
                 if (uiState.items.isEmpty()) {
                     Box(
-                        modifier         = Modifier.fillMaxSize().padding(innerPadding),
+                        modifier         = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -219,7 +224,7 @@ internal fun PickScreenContent(
                         )
                     }
                 } else {
-                    Column(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         if (uiState.isPreseason) {
                             Surface(color = appColors.primary.copy(alpha = 0.12f)) {
                                 Text(
@@ -253,6 +258,8 @@ internal fun PickScreenContent(
                 }
             }
         }
+        }
+      }
     }
 }
 

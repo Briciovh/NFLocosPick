@@ -12,5 +12,18 @@ service firebase.storage {
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
+
+    // ── Fotos de grupo ──────────────────────────────────────────────────────
+    // Ruta fija por grupo (group_photos/{groupId}): cada subida sobreescribe
+    // la anterior. Solo el creador del grupo (createdBy en Firestore) puede
+    // escribir — espejo del permiso de edición ya usado en firestore.rules
+    // para los campos photoUrl/iconId del documento del grupo.
+    match /group_photos/{groupId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && firestore.get(/databases/(default)/documents/groups/$(groupId)).data.createdBy == request.auth.uid
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
   }
 }

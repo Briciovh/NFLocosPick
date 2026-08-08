@@ -1,5 +1,6 @@
 package com.softeen.nflocospicks.data.repository
 
+import android.net.Uri
 import com.softeen.nflocospicks.data.remote.firebase.FirebaseGroupDataSource
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.repository.GroupRepository
@@ -21,4 +22,10 @@ class GroupRepositoryImpl @Inject constructor(
 
     override suspend fun getGroupById(groupId: String): Group =
         dataSource.getGroupById(groupId)
+
+    override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> =
+        runCatching { dataSource.uploadPhoto(groupId, uri) }
+
+    override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> =
+        runCatching { dataSource.setIcon(groupId, iconId) }
 }

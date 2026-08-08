@@ -68,6 +68,17 @@
     <string name="create_group_btn">Crear</string>
     <string name="btn_cancel">Cancelar</string>
 
+    <!-- Group Photo -->
+    <string name="cd_edit_group_photo">Editar foto del grupo</string>
+    <string name="group_photo_picker_title">Imagen del grupo</string>
+    <string name="group_photo_choose_gallery">Elegir de la galería</string>
+    <string name="group_photo_choose_icon">O elige un ícono</string>
+    <string name="group_photo_uploading">Subiendo imagen…</string>
+    <string name="group_photo_customize_heading">Personaliza tu grupo</string>
+    <string name="group_photo_customize_subtitle">Agrega una foto o elige un ícono (opcional)</string>
+    <string name="btn_done">Listo</string>
+    <string name="btn_skip">Omitir</string>
+
     <!-- Join Group -->
     <string name="join_group_heading">Unirse a Grupo</string>
     <string name="join_group_code_hint">Código de invitación</string>

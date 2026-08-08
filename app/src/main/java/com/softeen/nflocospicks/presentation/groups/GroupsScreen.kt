@@ -1,5 +1,6 @@
 package com.softeen.nflocospicks.presentation.groups
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,9 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -35,12 +38,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import com.softeen.nflocospicks.presentation.common.GroupAvatar
 import com.softeen.nflocospicks.presentation.common.TestTags
 import com.softeen.nflocospicks.presentation.common.responsiveCardWidth
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +71,8 @@ fun GroupsScreen(
     viewModel: GroupViewModel = hiltViewModel()
 ) {
     val listState by viewModel.groupListState.collectAsStateWithLifecycle()
+    val photoUiState by viewModel.photoUiState.collectAsStateWithLifecycle()
+    val currentUserId = viewModel.currentUserId
     val snackbarHostState = remember { SnackbarHostState() }
     val scoringNoneMsg = stringResource(R.string.scoring_none)
     val scoringResultPattern = stringResource(R.string.scoring_result)
@@ -90,10 +98,15 @@ fun GroupsScreen(
     GroupsScreenContent(
         listState               = listState,
         snackbarHostState       = snackbarHostState,
+        currentUserId           = currentUserId,
+        photoUiState            = photoUiState,
         onNavigateToCreateGroup = onNavigateToCreateGroup,
         onNavigateToJoinGroup   = onNavigateToJoinGroup,
         onNavigateToSettings    = onNavigateToSettings,
-        onGroupClicked          = { viewModel.onGroupClicked(it) }
+        onGroupClicked          = { viewModel.onGroupClicked(it) },
+        onUploadPhoto           = { group, uri -> currentUserId?.let { viewModel.uploadGroupPhoto(group, it, uri) } },
+        onSetIcon               = { group, iconId -> currentUserId?.let { viewModel.setGroupIcon(group, it, iconId) } },
+        onDismissPhotoPicker    = { viewModel.resetPhotoUiState() }
     )
 }
 
@@ -102,12 +115,18 @@ fun GroupsScreen(
 internal fun GroupsScreenContent(
     listState: GroupListUiState,
     snackbarHostState: SnackbarHostState,
+    currentUserId: String? = null,
+    photoUiState: GroupPhotoUiState = GroupPhotoUiState.Idle,
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onGroupClicked: (String) -> Unit
+    onGroupClicked: (String) -> Unit,
+    onUploadPhoto: (Group, Uri) -> Unit = { _, _ -> },
+    onSetIcon: (Group, String) -> Unit = { _, _ -> },
+    onDismissPhotoPicker: () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
+    var editingGroup by remember { mutableStateOf<Group?>(null) }
 
     Scaffold(
         containerColor = appColors.background,
@@ -211,8 +230,10 @@ internal fun GroupsScreenContent(
                         ) {
                             items(listState.groups, key = { it.id }) { group ->
                                 GroupCard(
-                                    group   = group,
-                                    onClick = { onGroupClicked(group.id) }
+                                    group      = group,
+                                    canEdit    = currentUserId != null && group.createdBy == currentUserId,
+                                    onClick    = { onGroupClicked(group.id) },
+                                    onEditPhoto = { editingGroup = group }
                                 )
                             }
                         }
@@ -221,12 +242,26 @@ internal fun GroupsScreenContent(
             }
         }
     }
+
+    editingGroup?.let { group ->
+        GroupImagePickerDialog(
+            photoUiState = photoUiState,
+            onPickPhoto  = { uri -> onUploadPhoto(group, uri) },
+            onPickIcon   = { iconId -> onSetIcon(group, iconId) },
+            onDismiss    = {
+                editingGroup = null
+                onDismissPhotoPicker()
+            }
+        )
+    }
 }
 
 @Composable
 private fun GroupCard(
-    group   : Group,
-    onClick : () -> Unit
+    group       : Group,
+    canEdit     : Boolean = false,
+    onClick     : () -> Unit,
+    onEditPhoto : () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
     Card(
@@ -242,19 +277,31 @@ private fun GroupCard(
             modifier          = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(appColors.primary.copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text       = group.name.firstOrNull()?.uppercase() ?: "?",
-                    style      = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color      = appColors.primary
+            Box(contentAlignment = Alignment.BottomEnd) {
+                GroupAvatar(
+                    photoUrl = group.photoUrl,
+                    iconId   = group.iconId,
+                    name     = group.name,
+                    size     = 96.dp
                 )
+                if (canEdit) {
+                    Box(
+                        modifier          = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(appColors.primary)
+                            .clickable(onClick = onEditPhoto)
+                            .testTag(TestTags.GROUPS_EDIT_PHOTO_BUTTON),
+                        contentAlignment  = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector        = Icons.Filled.Edit,
+                            contentDescription = stringResource(R.string.cd_edit_group_photo),
+                            tint               = appColors.onPrimary,
+                            modifier           = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
             Spacer(Modifier.width(16.dp))
             Column {

@@ -77,6 +77,7 @@ import java.util.Locale
 @Composable
 fun BoardScreen(
     onNavigateBack: () -> Unit,
+    groupHeader: @Composable () -> Unit = {},
     viewModel: BoardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -89,7 +90,8 @@ fun BoardScreen(
         onCancelEditing      = viewModel::cancelEditing,
         onDeleteMessage      = viewModel::deleteMessage,
         onToggleAnnouncement = viewModel::toggleAnnouncement,
-        onSnackbarDismissed  = viewModel::clearSnackbar
+        onSnackbarDismissed  = viewModel::clearSnackbar,
+        groupHeader          = groupHeader
     )
 }
 
@@ -104,7 +106,8 @@ internal fun BoardScreenContent(
     onCancelEditing: () -> Unit,
     onDeleteMessage: (BoardMessage) -> Unit,
     onToggleAnnouncement: (BoardMessage) -> Unit,
-    onSnackbarDismissed: () -> Unit = {}
+    onSnackbarDismissed: () -> Unit = {},
+    groupHeader: @Composable () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
     var messageToDelete by remember { mutableStateOf<BoardMessage?>(null) }
@@ -185,6 +188,7 @@ internal fun BoardScreenContent(
                 .padding(innerPadding)
                 .imePadding()
         ) {
+            groupHeader()
             Box(modifier = Modifier.weight(1f)) {
                 when {
                     uiState.isLoading -> {

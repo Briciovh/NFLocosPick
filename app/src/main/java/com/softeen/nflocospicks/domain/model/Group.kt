@@ -5,5 +5,7 @@ data class Group(
     val name: String,
     val inviteCode: String,
     val createdBy: String,          // userId del creador
-    val memberIds: List<String>
+    val memberIds: List<String>,
+    val photoUrl: String? = null,   // foto subida por el creador; mutuamente excluyente con iconId
+    val iconId: String? = null      // ícono predefinido elegido por el creador
 )

@@ -119,6 +119,8 @@
     <string name="settings_delete_account_dialog_title">¿Eliminar tu cuenta?</string>
     <string name="settings_delete_account_dialog_body">Se eliminará tu perfil, tu foto, tu nombre de usuario y tu sesión de todos tus grupos. Tus picks y mensajes pasados se conservan en el historial del grupo, pero sin tu nombre. Esta acción no se puede deshacer.</string>
     <string name="settings_delete_account_dialog_confirm">Eliminar cuenta</string>
+    <string name="settings_footer_version">Versión %1$s (%2$d)</string>
+    <string name="settings_footer_credit">Hecho con ❤️ por el equipo de NFLocos</string>
     <string name="settings_section_language">IDIOMA</string>
     <string name="settings_lang_system">Sistema</string>
     <!-- Nombres de idioma — siempre en su propio idioma, no se traducen -->

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,7 +40,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ButtonDefaults
@@ -66,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.R
+import com.softeen.nflocospicks.domain.model.AuthError
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.isProfileComplete
 import com.softeen.nflocospicks.domain.model.suggestedUsername
@@ -89,6 +95,9 @@ fun AccountScreen(
     favoriteTeamAbbr: String?,
     viewModel: AccountViewModel = hiltViewModel(),
     onSetupComplete: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    deleteAccountError: AuthError?,
+    onDismissDeleteAccountError: () -> Unit,
     onNavigateBack: () -> Unit,
     onNavigateToTeamSelection: () -> Unit,
     onNavigateToChangePassword: () -> Unit
@@ -159,6 +168,9 @@ fun AccountScreen(
         phoneLinkState            = phoneLinkState,
         onStartPhoneLink          = viewModel::startPhoneLink,
         onVerifyPhoneLinkCode     = { code -> viewModel.verifyPhoneLinkCode(code) },
+        onDeleteAccount            = onDeleteAccount,
+        deleteAccountError         = deleteAccountError,
+        onDismissDeleteAccountError = onDismissDeleteAccountError,
         onNavigateBack            = onNavigateBack,
         onNavigateToTeamSelection = onNavigateToTeamSelection,
         onNavigateToChangePassword = onNavigateToChangePassword
@@ -188,6 +200,9 @@ internal fun AccountScreenContent(
     phoneLinkState: PhoneLinkState,
     onStartPhoneLink: (Activity, String) -> Unit,
     onVerifyPhoneLinkCode: (String) -> Unit,
+    onDeleteAccount: () -> Unit = {},
+    deleteAccountError: AuthError? = null,
+    onDismissDeleteAccountError: () -> Unit = {},
     onNavigateBack: () -> Unit,
     onNavigateToTeamSelection: () -> Unit,
     onNavigateToChangePassword: () -> Unit
@@ -200,6 +215,8 @@ internal fun AccountScreenContent(
     var displayName by remember { mutableStateOf(initialDisplayName) }
     // Once the user edits displayName by hand, username no longer overwrites it on blur.
     var displayNameManuallyEdited by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val isSaving = saveState is AccountSaveState.Saving
     val isUsernameValid = username.isNotBlank() &&
@@ -208,8 +225,49 @@ internal fun AccountScreenContent(
     val hasPhone = !phoneNumber.isNullOrBlank()
     val isContactInfoValid = hasEmail || hasPhone
 
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text(stringResource(R.string.settings_delete_account_dialog_title)) },
+            text = { Text(stringResource(R.string.settings_delete_account_dialog_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDeleteAccount()
+                }) {
+                    Text(
+                        text = stringResource(R.string.settings_delete_account_dialog_confirm),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+            }
+        )
+    }
+
+    val deleteErrorMessage = deleteAccountError?.let { stringResource(it.messageRes()) }
+    LaunchedEffect(deleteAccountError) {
+        if (deleteErrorMessage != null) {
+            snackbarHostState.showSnackbar(deleteErrorMessage)
+            onDismissDeleteAccountError()
+        }
+    }
+
     Scaffold(
         containerColor = appColors.background,
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -656,6 +714,21 @@ internal fun AccountScreenContent(
                     Text(
                         text       = stringResource(R.string.account_change_password_nav_button),
                         fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            // Deletion is only offered on an existing account, not mid-setup.
+            if (!isFirstTimeSetup) {
+                Spacer(Modifier.height(24.dp))
+                TextButton(
+                    onClick  = { showDeleteDialog = true },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text(
+                        text  = stringResource(R.string.settings_delete_account),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall
                     )
                 }
             }

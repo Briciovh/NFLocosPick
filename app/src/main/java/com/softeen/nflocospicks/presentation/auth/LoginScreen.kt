@@ -12,9 +12,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -112,14 +113,22 @@ fun LoginScreenContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier            = Modifier
                 .fillMaxWidth()
+                .safeDrawingPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 32.dp, vertical = 24.dp)
         ) {
-            Image(
-                painter            = painterResource(R.drawable.nflocos_picks_logo),
-                contentDescription = stringResource(R.string.cd_app_logo),
-                modifier           = Modifier.size(160.dp)
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .size(210.dp)
+                        .background(appColors.primary.copy(alpha = 0.15f), CircleShape)
+                )
+                Image(
+                    painter            = painterResource(R.drawable.nflocos_picks_logo),
+                    contentDescription = stringResource(R.string.cd_app_logo),
+                    modifier           = Modifier.size(160.dp)
+                )
+            }
 
             Text(
                 text       = "NFLocos Picks",
@@ -322,7 +331,7 @@ fun LoginScreenContent(
                         enabled  = !isLoading,
                         modifier = Modifier.fillMaxWidth().height(52.dp).testTag(TestTags.LOGIN_SIGN_IN_BUTTON),
                         colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
-                        shape    = RoundedCornerShape(12.dp)
+                        shape    = MaterialTheme.shapes.medium
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(

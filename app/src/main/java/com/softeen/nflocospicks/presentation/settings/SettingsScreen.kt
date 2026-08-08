@@ -18,7 +18,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -65,6 +64,7 @@ import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakePrefs
 import com.softeen.nflocospicks.presentation.preview.fakeUser
 import com.softeen.nflocospicks.presentation.theme.AppColors
+import com.softeen.nflocospicks.presentation.theme.FontScaleOption
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
 @Composable
@@ -96,7 +96,9 @@ fun SettingsScreen(
         onNavigateToUserManagement  = onNavigateToUserManagement,
         onNavigateToAccount         = onNavigateToAccount,
         currentLanguageTag          = prefs.languageTag,
-        onLanguageSelected          = { viewModel.setLanguage(it) }
+        onLanguageSelected          = { viewModel.setLanguage(it) },
+        currentFontScale            = prefs.fontScalePreference,
+        onFontScaleSelected         = { viewModel.setFontScale(it) }
     )
 }
 
@@ -116,7 +118,9 @@ internal fun SettingsScreenContent(
     onNavigateToUserManagement: () -> Unit,
     onNavigateToAccount: () -> Unit,
     currentLanguageTag: String?,
-    onLanguageSelected: (String?) -> Unit
+    onLanguageSelected: (String?) -> Unit,
+    currentFontScale: String?,
+    onFontScaleSelected: (String?) -> Unit
 ) {
     val appColors    = LocalAppColors.current
     val favoriteTeam = nflTeams.find { it.abbr == prefs.favoriteTeamAbbr }
@@ -196,7 +200,7 @@ internal fun SettingsScreenContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .clickable(onClick = onNavigateToAccount)
                     .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -233,13 +237,13 @@ internal fun SettingsScreenContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .clickable(onClick = onNavigateToTeamSelection)
                     .padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (favoriteTeam != null) {
-                    TeamLogo(abbr = favoriteTeam.abbr, size = 40.dp)
+                    TeamLogo(abbr = favoriteTeam.abbr, size = 52.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -282,6 +286,18 @@ internal fun SettingsScreenContent(
             LanguageSelector(
                 current    = currentLanguageTag,
                 onSelected = onLanguageSelected,
+                appColors  = appColors
+            )
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+            Spacer(Modifier.height(16.dp))
+
+            SectionHeader(stringResource(R.string.settings_section_font_size), appColors.primary)
+            Spacer(Modifier.height(8.dp))
+            FontSizeSelector(
+                current    = currentFontScale,
+                onSelected = onFontScaleSelected,
                 appColors  = appColors
             )
 
@@ -355,7 +371,7 @@ private fun InsiderSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onManageUsers)
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -439,7 +455,41 @@ private fun LanguageSelector(
             Button(
                 onClick  = { onSelected(tag) },
                 modifier = Modifier.weight(1f),
-                shape    = RoundedCornerShape(8.dp),
+                shape    = MaterialTheme.shapes.small,
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor = containerColor,
+                    contentColor   = contentColor
+                )
+            ) {
+                Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FontSizeSelector(
+    current: String?,
+    onSelected: (String?) -> Unit,
+    appColors: AppColors
+) {
+    val options = listOf(
+        FontScaleOption.PEQUENO.key to stringResource(R.string.settings_font_size_small),
+        null to stringResource(R.string.settings_font_size_normal),
+        FontScaleOption.GRANDE.key to stringResource(R.string.settings_font_size_large)
+    )
+    Row(
+        modifier              = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { (key, label) ->
+            val isSelected     = current == key
+            val containerColor = if (isSelected) appColors.primary else appColors.surface
+            val contentColor   = if (isSelected) appColors.onPrimary else appColors.secondary
+            Button(
+                onClick  = { onSelected(key) },
+                modifier = Modifier.weight(1f),
+                shape    = MaterialTheme.shapes.small,
                 colors   = ButtonDefaults.buttonColors(
                     containerColor = containerColor,
                     contentColor   = contentColor
@@ -466,7 +516,9 @@ private fun SettingsScreenWithTeamPreview() {
             onNavigateToUserManagement = {},
             onNavigateToAccount        = {},
             currentLanguageTag         = null,
-            onLanguageSelected         = {}
+            onLanguageSelected         = {},
+            currentFontScale           = null,
+            onFontScaleSelected        = {}
         )
     }
 }
@@ -486,7 +538,9 @@ private fun SettingsScreenNoTeamPreview() {
             onNavigateToUserManagement = {},
             onNavigateToAccount        = {},
             currentLanguageTag         = null,
-            onLanguageSelected         = {}
+            onLanguageSelected         = {},
+            currentFontScale           = null,
+            onFontScaleSelected        = {}
         )
     }
 }
@@ -507,7 +561,9 @@ private fun SettingsScreenInsiderPreview() {
             onNavigateToUserManagement = {},
             onNavigateToAccount        = {},
             currentLanguageTag         = "es",
-            onLanguageSelected         = {}
+            onLanguageSelected         = {},
+            currentFontScale           = null,
+            onFontScaleSelected        = {}
         )
     }
 }
@@ -528,7 +584,9 @@ private fun SettingsScreenInsiderSimulatingPreview() {
             onNavigateToUserManagement = {},
             onNavigateToAccount        = {},
             currentLanguageTag         = "en",
-            onLanguageSelected         = {}
+            onLanguageSelected         = {},
+            currentFontScale           = FontScaleOption.GRANDE.key,
+            onFontScaleSelected        = {}
         )
     }
 }

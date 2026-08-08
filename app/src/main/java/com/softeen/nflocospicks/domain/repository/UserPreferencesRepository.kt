@@ -9,4 +9,5 @@ interface UserPreferencesRepository {
     suspend fun setUseTestingData(enabled: Boolean)
     suspend fun setSimulateGamesStarted(enabled: Boolean)
     suspend fun setLanguage(tag: String?)
+    suspend fun setFontScale(key: String?)
 }

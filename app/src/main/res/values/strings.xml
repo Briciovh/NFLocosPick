@@ -108,6 +108,10 @@
     <!-- Nombres de idioma — siempre en su propio idioma, no se traducen -->
     <string name="settings_lang_spanish" translatable="false">Español</string>
     <string name="settings_lang_english" translatable="false">English</string>
+    <string name="settings_section_font_size">TAMAÑO DE LETRA</string>
+    <string name="settings_font_size_small">Pequeño</string>
+    <string name="settings_font_size_normal">Normal</string>
+    <string name="settings_font_size_large">Grande</string>
     <string name="settings_section_insider">MODO INSIDER</string>
     <string name="settings_testing_title">Datos de testing</string>
     <string name="settings_testing_desc">Usa un grupo y juegos de prueba</string>

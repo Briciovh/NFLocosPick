@@ -4,17 +4,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,9 +44,15 @@ import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.settings.SettingsViewModel
 import com.softeen.nflocospicks.presentation.theme.AppColors
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
+import kotlin.math.floor
 
-private val COLUMNS  = 4
-private val CELL_SIZE = 72.dp
+// Column count derives from actually-measured width (BoxWithConstraints), not
+// WindowSizeClass — every phone in portrait stays COMPACT regardless of
+// physical size, so a bucketed breakpoint never distinguishes a small phone
+// from a large one. Cell size stays fixed; more/fewer columns is what adapts.
+private val CELL_SIZE = 104.dp
+private val GRID_MAX_WIDTH = 900.dp
+private val GRID_HORIZONTAL_PADDING = 12.dp
 
 @Composable
 fun TeamSelectionScreen(
@@ -71,7 +80,6 @@ internal fun TeamSelectionScreenContent(
     onSelect: (String) -> Unit
 ) {
     val appColors = LocalAppColors.current
-    val rows      = nflTeams.chunked(COLUMNS)
 
     Scaffold(
         containerColor = appColors.background,
@@ -97,18 +105,28 @@ internal fun TeamSelectionScreenContent(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
-            modifier            = Modifier.fillMaxSize().padding(innerPadding),
-            contentPadding      = PaddingValues(horizontal = 8.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+        BoxWithConstraints(
+            modifier         = Modifier.fillMaxSize().padding(innerPadding),
+            contentAlignment = Alignment.TopCenter
         ) {
-            itemsIndexed(rows) { _, row ->
-                TeamRow(
-                    teams        = row,
-                    selectedAbbr = favoriteTeamAbbr,
-                    appColors    = appColors,
-                    onSelect     = onSelect
-                )
+            val gridWidth = minOf(maxWidth, GRID_MAX_WIDTH)
+            val columns = floor((gridWidth - GRID_HORIZONTAL_PADDING * 2) / CELL_SIZE).toInt().coerceAtLeast(1)
+            val rows = nflTeams.chunked(columns)
+
+            LazyColumn(
+                modifier            = Modifier.fillMaxHeight().widthIn(max = GRID_MAX_WIDTH),
+                contentPadding      = PaddingValues(horizontal = GRID_HORIZONTAL_PADDING, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                itemsIndexed(rows) { _, row ->
+                    TeamRow(
+                        teams        = row,
+                        columns      = columns,
+                        selectedAbbr = favoriteTeamAbbr,
+                        appColors    = appColors,
+                        onSelect     = onSelect
+                    )
+                }
             }
         }
     }
@@ -117,6 +135,7 @@ internal fun TeamSelectionScreenContent(
 @Composable
 private fun TeamRow(
     teams: List<NflTeam>,
+    columns: Int,
     selectedAbbr: String?,
     appColors: AppColors,
     onSelect: (String) -> Unit
@@ -133,7 +152,7 @@ private fun TeamRow(
                 onClick    = { onSelect(team.abbr) }
             )
         }
-        repeat(COLUMNS - teams.size) { Spacer(Modifier.size(CELL_SIZE)) }
+        repeat(columns - teams.size) { Spacer(Modifier.size(CELL_SIZE)) }
     }
 }
 
@@ -150,14 +169,14 @@ private fun TeamCell(
     Column(
         modifier = Modifier
             .size(CELL_SIZE)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(MaterialTheme.shapes.small)
             .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+            .border(1.dp, borderColor, MaterialTheme.shapes.small)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        TeamLogo(abbr = team.abbr, size = 44.dp)
+        TeamLogo(abbr = team.abbr, size = 76.dp)
         Text(
             text       = team.abbr,
             color      = if (isSelected) appColors.primary else appColors.secondary,

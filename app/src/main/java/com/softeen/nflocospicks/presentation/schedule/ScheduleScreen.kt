@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.presentation.schedule
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,7 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -35,9 +36,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.softeen.nflocospicks.presentation.common.TestTags
+import com.softeen.nflocospicks.presentation.common.responsiveCardWidth
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.Game
@@ -167,9 +170,10 @@ internal fun ScheduleScreenContent(
                     }
                 } else {
                     LazyColumn(
-                        modifier            = Modifier.padding(innerPadding),
+                        modifier            = Modifier.fillMaxSize().padding(innerPadding),
                         contentPadding      = PaddingValues(vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         items(uiState.games, key = { it.id }) { game ->
                             GameCard(game = game)
@@ -187,9 +191,10 @@ private fun GameCard(game: Game) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .responsiveCardWidth()
             .padding(horizontal = 16.dp)
             .testTag(TestTags.SCHEDULE_GAME_CARD),
-        shape  = RoundedCornerShape(12.dp),
+        shape  = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = appColors.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -241,6 +246,8 @@ private fun GameCard(game: Game) {
     }
 }
 
+private val TEAM_LOGO_SECTION_PADDING = 8.dp
+
 @Composable
 private fun TeamColumn(
     abbr: String,
@@ -252,7 +259,8 @@ private fun TeamColumn(
     val appColors = LocalAppColors.current
     Column(
         modifier            = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text       = label,
@@ -260,11 +268,14 @@ private fun TeamColumn(
             style      = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.ExtraBold
         )
-        TeamLogo(abbr = abbr, size = 48.dp)
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            TeamLogo(abbr = abbr, size = maxWidth - TEAM_LOGO_SECTION_PADDING * 2)
+        }
         Text(
-            text  = name,
-            color = appColors.secondary,
-            style = MaterialTheme.typography.labelSmall
+            text      = name,
+            color     = appColors.secondary,
+            style     = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
         )
         score?.let {
             Text(
@@ -286,7 +297,7 @@ private fun StatusChip(status: GameStatus) {
         GameStatus.FINAL       -> "FINAL"   to MaterialTheme.colorScheme.error
     }
     Surface(
-        shape = RoundedCornerShape(4.dp),
+        shape = CircleShape,
         color = tint.copy(alpha = 0.15f)
     ) {
         Text(

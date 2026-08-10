@@ -9,6 +9,7 @@ object TestTags {
     const val LOGIN_EMAIL_FIELD        = "login_email_field"
     const val LOGIN_PASSWORD_FIELD     = "login_password_field"
     const val LOGIN_PHONE_FIELD        = "login_phone_field"
+    const val PHONE_COUNTRY_SELECTOR   = "phone_country_selector"
     const val LOGIN_SMS_CODE_FIELD     = "login_sms_code_field"
     const val LOGIN_REGISTER_TOGGLE    = "login_register_toggle"
     const val LOGIN_EMAIL_LINK_TOGGLE  = "login_email_link_toggle"

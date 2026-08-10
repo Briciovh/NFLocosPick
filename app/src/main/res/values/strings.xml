@@ -7,6 +7,7 @@
     <string name="cd_settings">Configuración</string>
     <string name="cd_sync">Sincronizar</string>
     <string name="cd_app_logo">Logo de NFLocos Pick</string>
+    <string name="cd_phone_country_selector">Seleccionar país</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_my_picks">Mis Picks</string>

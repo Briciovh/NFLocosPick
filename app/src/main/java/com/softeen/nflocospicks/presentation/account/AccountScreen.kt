@@ -602,7 +602,7 @@ internal fun AccountScreenContent(
                                 onStartPhoneLink(it, composeE164(selectedCountry, nationalNumber))
                             }
                         },
-                        enabled  = nationalNumber.length == 10 && activity != null && !isSendingCode,
+                        enabled  = nationalNumber.length == selectedCountry.nationalNumberLength && activity != null && !isSendingCode,
                         modifier = Modifier.fillMaxWidth(),
                         colors   = ButtonDefaults.buttonColors(containerColor = appColors.primary),
                         shape    = MaterialTheme.shapes.medium

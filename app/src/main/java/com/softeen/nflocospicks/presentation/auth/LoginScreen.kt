@@ -195,7 +195,7 @@ fun LoginScreenContent(
                                 }
                             },
                             modifier = Modifier.fillMaxWidth().testTag(TestTags.LOGIN_SEND_CODE_BUTTON),
-                            enabled  = nationalNumber.length == 10 && activity != null
+                            enabled  = nationalNumber.length == selectedCountry.nationalNumberLength && activity != null
                         ) {
                             Text(stringResource(R.string.login_action_send_code))
                         }

@@ -8,20 +8,33 @@ data class CountryDialCode(
     val regionCode: String,
     val dialCode: String,
     val displayName: String,
-    val flagEmoji: String
+    val flagEmoji: String,
+    val nationalNumberLength: Int
 )
 
-/** Countries accepted for phone sign-in / phone linking — US and Mexico only, for now. */
-private val SUPPORTED_REGIONS = listOf("US", "MX")
+/** Countries accepted for phone sign-in / phone linking — US, Mexico, and Spain, for now. */
+private val SUPPORTED_REGIONS = listOf("US", "MX", "ES")
+
+/** National significant number length for regions whose mobile example number is missing from
+ *  libphonenumber's metadata — should not happen for any [SUPPORTED_REGIONS] entry, but avoids
+ *  an unusable 0-digit cap if it ever does. */
+private const val FALLBACK_NATIONAL_NUMBER_LENGTH = 10
 
 fun supportedCountryDialCodes(context: Context): List<CountryDialCode> {
     val phoneNumberUtil = PhoneNumberUtil.createInstance(context)
     return SUPPORTED_REGIONS.map { region ->
+        val exampleMobileNumber = phoneNumberUtil.getExampleNumberForType(
+            region,
+            PhoneNumberUtil.PhoneNumberType.MOBILE
+        )
         CountryDialCode(
             regionCode = region,
             dialCode = phoneNumberUtil.getCountryCodeForRegion(region).toString(),
             displayName = Locale.Builder().setRegion(region).build().displayCountry,
-            flagEmoji = flagEmoji(region)
+            flagEmoji = flagEmoji(region),
+            nationalNumberLength = exampleMobileNumber
+                ?.let { phoneNumberUtil.getNationalSignificantNumber(it).length }
+                ?: FALLBACK_NATIONAL_NUMBER_LENGTH
         )
     }
 }
@@ -39,8 +52,8 @@ fun defaultCountry(countries: List<CountryDialCode>): CountryDialCode {
         ?: countries.first()
 }
 
-/** Both US (+1) and Mexico (+52) use a 10-digit national number since Mexico dropped its
- *  extra mobile "1" prefix from the international format in 2019 — no per-country masking
- *  or length differences are needed. */
+/** National number length varies per country (e.g. 10 digits for US/MX, 9 for Spain) — see
+ *  [CountryDialCode.nationalNumberLength] — so no masking is applied here beyond the dial code
+ *  prefix; callers cap/validate digit count against that field. */
 fun composeE164(country: CountryDialCode, nationalNumber: String): String =
     "+${country.dialCode}$nationalNumber"

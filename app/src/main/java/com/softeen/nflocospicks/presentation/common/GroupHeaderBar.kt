@@ -74,6 +74,7 @@ fun GroupHeaderBar(
             modifier   = Modifier.padding(start = 12.dp).weight(1f)
         )
         if (group != null) {
+            val shareMessage = stringResource(R.string.group_invite_share_text, group.inviteCode)
             Box(
                 modifier          = Modifier
                     .size(24.dp)
@@ -102,7 +103,7 @@ fun GroupHeaderBar(
                     .clickable {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, context.getString(R.string.group_invite_share_text, group.inviteCode))
+                            putExtra(Intent.EXTRA_TEXT, shareMessage)
                         }
                         context.startActivity(Intent.createChooser(shareIntent, null))
                     }

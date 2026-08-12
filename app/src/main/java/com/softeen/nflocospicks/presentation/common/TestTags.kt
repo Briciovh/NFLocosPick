@@ -19,10 +19,10 @@ object TestTags {
     const val LOGIN_SEND_LINK_BUTTON   = "login_send_link_button"
     const val LOGIN_FORGOT_PASSWORD_BUTTON = "login_forgot_password_button"
 
-    const val SCHEDULE_GAME_CARD   = "schedule_game_card"
-
     const val PICK_GAME_CARD       = "pick_game_card"
     const val PICK_TEAM_BUTTON     = "pick_team_button"
+    const val PICK_WEEK_TAB_ROW    = "pick_week_tab_row"
+    const val PICK_WEEK_TAB        = "pick_week_tab"
 
     const val GROUPS_GROUP_CARD    = "groups_group_card"
     const val GROUPS_EMPTY_STATE   = "groups_empty_state"

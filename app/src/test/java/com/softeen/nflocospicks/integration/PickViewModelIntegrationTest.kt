@@ -12,7 +12,10 @@ import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.PickRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
+import com.softeen.nflocospicks.domain.model.NflSeasonCalendar
+import com.softeen.nflocospicks.domain.model.SeasonType
 import com.softeen.nflocospicks.domain.usecase.GetCurrentWeekGamesUseCase
+import com.softeen.nflocospicks.domain.usecase.GetGamesForWeekUseCase
 import com.softeen.nflocospicks.domain.usecase.GetWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SubmitPickUseCase
@@ -51,6 +54,7 @@ class PickViewModelIntegrationTest {
     private class FakePickRepository : PickRepository {
         var submitCalled = false
         var lastTeamAbbr: String? = null
+        var lastWeekId: String? = null
 
         override suspend fun submitPick(
             groupId: String, weekId: String, userId: String,
@@ -58,6 +62,7 @@ class PickViewModelIntegrationTest {
         ) {
             submitCalled = true
             lastTeamAbbr = teamAbbr
+            lastWeekId = weekId
         }
 
         override suspend fun getPicksForWeek(
@@ -67,13 +72,14 @@ class PickViewModelIntegrationTest {
 
     // ── Shared mocks (not the subject under test) ─────────────────────────────
 
-    private val getGamesUseCase = mockk<GetCurrentWeekGamesUseCase>()
-    private val getPicksUseCase = mockk<GetWeekPicksUseCase>()
-    private val scoreUseCase    = mockk<ScoreWeekPicksUseCase>()
-    private val userRepo        = mockk<UserRepository>()
-    private val prefsRepo       = mockk<UserPreferencesRepository>()
-    private val mockSessionRepo = mockk<MockSessionRepository>()
-    private val logger          = mockk<AppLogger>(relaxed = true)
+    private val getGamesUseCase        = mockk<GetCurrentWeekGamesUseCase>()
+    private val getGamesForWeekUseCase = mockk<GetGamesForWeekUseCase>()
+    private val getPicksUseCase        = mockk<GetWeekPicksUseCase>()
+    private val scoreUseCase           = mockk<ScoreWeekPicksUseCase>()
+    private val userRepo               = mockk<UserRepository>()
+    private val prefsRepo              = mockk<UserPreferencesRepository>()
+    private val mockSessionRepo        = mockk<MockSessionRepository>()
+    private val logger                 = mockk<AppLogger>(relaxed = true)
 
     private val testUser = User(uid = "user1", displayName = "Test", email = "t@t.com", photoUrl = null)
 
@@ -83,7 +89,8 @@ class PickViewModelIntegrationTest {
         homeTeamAbbr = "KC", awayTeamAbbr = "LV",
         kickoffTime = Long.MAX_VALUE,
         homeScore = null, awayScore = null,
-        status = GameStatus.SCHEDULED
+        status = GameStatus.SCHEDULED,
+        weekNumber = 12
     )
 
     @Before
@@ -92,6 +99,7 @@ class PickViewModelIntegrationTest {
         every { prefsRepo.preferencesFlow }              returns flowOf(UserPreferences())
         every { mockSessionRepo.sessionFlow }            returns flowOf(MockSessionState())
         coEvery { getGamesUseCase(any()) }               returns listOf(testGame)
+        coEvery { getGamesForWeekUseCase(any(), any()) } returns listOf(testGame)
         coEvery { getPicksUseCase(any(), any(), any()) } returns emptyMap()
         coEvery { scoreUseCase(any()) }                  returns 0
     }
@@ -100,6 +108,7 @@ class PickViewModelIntegrationTest {
 
     private fun viewModel(fakePickRepo: FakePickRepository) = PickViewModel(
         getCurrentWeekGamesUseCase = getGamesUseCase,
+        getGamesForWeekUseCase     = getGamesForWeekUseCase,
         getWeekPicksUseCase        = getPicksUseCase,
         submitPickUseCase          = SubmitPickUseCase(fakePickRepo),   // ← REAL
         scoreWeekPicksUseCase      = scoreUseCase,
@@ -156,4 +165,19 @@ class PickViewModelIntegrationTest {
         assertNotNull("errorMessage debe tener el mensaje del use case", vm.errorMessage.value)
         assertFalse("submitPick en el repo no debe haberse llamado", fakeRepo.submitCalled)
     }
+
+    @Test
+    fun `submitPick on a non-current week persists with that week's weekId through the real use case`() =
+        runTest(coroutineRule.dispatcher) {
+            val otherWeekGame = testGame.copy(id = "game3", weekId = "2025-week-03", weekNumber = 3)
+            coEvery { getGamesForWeekUseCase(SeasonType.REGULAR, 3) } returns listOf(otherWeekGame)
+
+            val fakeRepo = FakePickRepository()
+            val vm = viewModel(fakeRepo)
+            vm.onWeekSelected(NflSeasonCalendar.indexOf(SeasonType.REGULAR, 3))
+
+            vm.submitPick(gameId = "game3", teamAbbr = "KC", kickoffTime = Long.MAX_VALUE, status = GameStatus.SCHEDULED)
+
+            assertEquals("2025-week-03", fakeRepo.lastWeekId)
+        }
 }

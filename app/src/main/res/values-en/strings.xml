@@ -96,6 +96,10 @@
     <string name="game_status_live">LIVE</string>
     <string name="game_status_locked">🔒 LOCKED</string>
 
+    <!-- Week tabs -->
+    <string name="week_tab_preseason">PRE WK %1$d</string>
+    <string name="week_tab_regular">WEEK %1$d</string>
+
     <!-- Leaderboard -->
     <string name="leaderboard_title">Leaderboard</string>
     <string name="leaderboard_empty">No scores yet.\nPicks are scored automatically.</string>

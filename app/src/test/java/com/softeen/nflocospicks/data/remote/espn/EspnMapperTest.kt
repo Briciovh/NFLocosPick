@@ -60,6 +60,24 @@ class EspnMapperTest {
         assertThat(game.seasonType).isEqualTo(SeasonType.REGULAR)
         assertThat(game.homeTeamRecord).isEqualTo("1-0")
         assertThat(game.awayTeamRecord).isEqualTo("0-1")
+        assertThat(game.weekNumber).isEqualTo(1)
+    }
+
+    @Test
+    fun `preseason weekId keeps the raw API week number, no HOF offset applied`() {
+        // week.number=2 en la API es "PRE WK 1" en el sitio de ESPN (el Hall of
+        // Fame Game es el 1), pero buildWeekId debe seguir usando el número
+        // crudo — el offset de display es solo cosa de SeasonWeek.displayNumber.
+        val response = EspnScoreboardResponse(
+            events = listOf(
+                singleEvent(id = "4", homeAbbr = "KC", awayAbbr = "LV", seasonType = 1, weekNumber = 2)
+            )
+        )
+
+        val game = response.toDomain().single()
+
+        assertThat(game.weekNumber).isEqualTo(2)
+        assertThat(game.weekId).isEqualTo("2025-pre-week-02")
     }
 
     @Test
@@ -112,11 +130,17 @@ class EspnMapperTest {
         assertThat(domainGames[0].seasonType).isEqualTo(SeasonType.POSTSEASON)
     }
 
-    private fun singleEvent(id: String, homeAbbr: String, awayAbbr: String, seasonType: Int) = EspnEvent(
+    private fun singleEvent(
+        id: String,
+        homeAbbr: String,
+        awayAbbr: String,
+        seasonType: Int,
+        weekNumber: Int = 1
+    ) = EspnEvent(
         id = id,
         date = "2025-08-07T17:00Z",
         season = EspnSeason(type = seasonType),
-        week = EspnWeek(number = 1),
+        week = EspnWeek(number = weekNumber),
         competitions = listOf(
             EspnCompetition(
                 competitors = listOf(

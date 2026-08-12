@@ -33,6 +33,12 @@ private fun Int.toSeasonType(): SeasonType = when (this) {
     else -> SeasonType.REGULAR
 }
 
+internal fun SeasonType.toEspnSeasonTypeParam(): Int = when (this) {
+    SeasonType.PRESEASON  -> 1
+    SeasonType.REGULAR    -> 2
+    SeasonType.POSTSEASON -> 3
+}
+
 // Keep in sync with functions/src/espn.ts::buildWeekId — ambos deben producir el mismo
 // weekId, ya que los picks se escriben en el cliente y se puntúan en Cloud Functions.
 // Post-temporada se deja sin prefijo (misma ambigüedad de hoy, fuera de alcance).
@@ -70,7 +76,8 @@ private fun EspnEvent.toGame(): Game {
         awayScore      = away.score?.toIntOrNull(),
         status         = competition.status.type.toGameStatus(),
         homeTeamRecord = home.records?.firstOrNull { it.name == "overall" }?.summary,
-        awayTeamRecord = away.records?.firstOrNull { it.name == "overall" }?.summary
+        awayTeamRecord = away.records?.firstOrNull { it.name == "overall" }?.summary,
+        weekNumber     = weekNumber
     )
 }
 

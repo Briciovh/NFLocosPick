@@ -11,12 +11,12 @@ class EspnMapperTest {
     fun `toDomain maps scoreboard response correctly`() {
         // Given
         val response = EspnScoreboardResponse(
-            week = EspnWeek(number = 1),
-            season = EspnSeason(type = 2),
             events = listOf(
                 EspnEvent(
                     id = "1",
                     date = "2025-09-07T17:00Z",
+                    season = EspnSeason(type = 2),
+                    week = EspnWeek(number = 1),
                     competitions = listOf(
                         EspnCompetition(
                             competitors = listOf(
@@ -66,12 +66,12 @@ class EspnMapperTest {
     fun `toDomain handles malformed events gracefully`() {
         // Given
         val response = EspnScoreboardResponse(
-            week = EspnWeek(number = 1),
-            season = EspnSeason(type = 2),
             events = listOf(
                 EspnEvent(
                     id = "malformed",
                     date = "invalid-date",
+                    season = EspnSeason(type = 2),
+                    week = EspnWeek(number = 1),
                     competitions = emptyList() // Will cause exception
                 )
             )
@@ -87,9 +87,7 @@ class EspnMapperTest {
     @Test
     fun `toDomain maps preseason weekId with pre- segment`() {
         val response = EspnScoreboardResponse(
-            week = EspnWeek(number = 1),
-            season = EspnSeason(type = 1),
-            events = listOf(singleEvent(id = "2", homeAbbr = "KC", awayAbbr = "LV"))
+            events = listOf(singleEvent(id = "2", homeAbbr = "KC", awayAbbr = "LV", seasonType = 1))
         )
 
         val domainGames = response.toDomain()
@@ -102,9 +100,7 @@ class EspnMapperTest {
     @Test
     fun `toDomain maps postseason without weekId prefix`() {
         val response = EspnScoreboardResponse(
-            week = EspnWeek(number = 1),
-            season = EspnSeason(type = 3),
-            events = listOf(singleEvent(id = "3", homeAbbr = "KC", awayAbbr = "LV"))
+            events = listOf(singleEvent(id = "3", homeAbbr = "KC", awayAbbr = "LV", seasonType = 3))
         )
 
         val domainGames = response.toDomain()
@@ -116,9 +112,11 @@ class EspnMapperTest {
         assertThat(domainGames[0].seasonType).isEqualTo(SeasonType.POSTSEASON)
     }
 
-    private fun singleEvent(id: String, homeAbbr: String, awayAbbr: String) = EspnEvent(
+    private fun singleEvent(id: String, homeAbbr: String, awayAbbr: String, seasonType: Int) = EspnEvent(
         id = id,
         date = "2025-08-07T17:00Z",
+        season = EspnSeason(type = seasonType),
+        week = EspnWeek(number = 1),
         competitions = listOf(
             EspnCompetition(
                 competitors = listOf(

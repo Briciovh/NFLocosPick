@@ -284,6 +284,42 @@ Adds an ESPN-style horizontally scrollable week-tab row to `PickScreen` so users
 - `PickViewModel` — adds per-tab-index in-memory caching, a `selectedWeekIndex`/`currentWeekIndex` state pair (the latter drives disabling the manual sync icon off the current-week tab, since the scoring Cloud Function only ever scores the actual current week), and the ported `isRefreshing`/`refresh()`/5-min auto-refresh loop (`Dispatchers.Default`, not `viewModelScope`'s default `Main.immediate` — the shared `TestDispatcher` used by `PickViewModelTest`/`PickViewModelIntegrationTest` would otherwise hang `runTest`'s cleanup forever on the infinite loop)
 - `PickScreen.kt` — new `WeekTabRow` (`PrimaryScrollableTabRow`) and `PullToRefreshBox` wrapping the games list
 
+### PR-16 — Global Group Foundation
+**Branch:** `feature/16-global-group-foundation`
+
+First of a 5-PR series adding a default, always-present group ("NFLocos de Corazón") every user belongs to — pinned first in the group list, with a fixed admin and its own feed panel on `GroupsScreen` (PR-17 adds auto-membership/standings, PR-18 verifies/tightens board-admin rules, PR-19 adds the feed panel, PR-20 adds inactivity-based deactivation). No prior art exists for a pinned/system group, a non-`createdBy`-derived admin, or auto-membership — this series builds all three on top of existing per-group primitives rather than introducing a parallel group type.
+
+- One-time Admin SDK seed (not a permanent Cloud Function) creates `groups/{GLOBAL_GROUP_ID}` with `name = "NFLocos de Corazón"`, `createdBy` = the UID of `nezaboost@gmail.com` (resolved via the existing `usernames/saulbrisniega` → `userId` lookup, not hardcoded by email), `memberIds = [that uid]`. `GLOBAL_GROUP_ID` is a fixed, reserved id shared between client code and `firestore.rules`.
+- `GroupAvatar.kt` — fallback chain (`photoUrl` → `iconId` → letter) gains a `localIconRes: Int?` tier ahead of `iconId`/letter, to render the bundled `nflocos_picks_icon.png` (already in `app/src/main/res/drawable/`) instead of a remote photo or `Icons.Filled.*` vector.
+- `GroupViewModel.observeGroups` — sorts the real Firestore-backed group list so `id == GLOBAL_GROUP_ID` always comes first (extends the existing "prepend a synthetic group" pattern already used for `MockDataProvider.MOCK_GROUP`, but for a real doc instead of a mock one).
+- `firestore.rules` — new clause on `groups/{groupId}` `delete` denying deletion outright when `groupId == GLOBAL_GROUP_ID`, regardless of `createdBy` (today `delete` only checks `createdBy`, which would otherwise let the admin delete the global group). Deploy immediately per the rules-deploy rule below.
+
+### PR-17 — Global Group Auto-Membership & Standings Seeding
+**Branch:** `feature/17-global-group-membership`
+
+- `UserRepositoryImpl.upsertAndResolveRole` — in the `isNewUser` branch, self-add the user to the global group's `memberIds` via `arrayUnion` (already permitted by the existing `groups/{groupId}` `update` rule's self-join carve-out — no rule change needed for this part).
+- New Cloud Function `onCall` (e.g. `ensureGlobalStanding`, `functions/src/`, same shape as `scoreGroupWeek`) seeds `standings/{GLOBAL_GROUP_ID}/members/{userId}` as `{ totalPoints: 0, weeklyBreakdown: {} }` if missing — called by the client right after the auto-join in `upsertAndResolveRole`, since `standings` writes are `allow write: if false` for clients.
+- One-time Admin SDK backfill script adds every existing `users/{uid}` doc's uid to the global group's `memberIds` and seeds their zero-point standing, so pre-existing users aren't left out.
+
+### PR-18 — Global Board Admin Verification & Rule Tightening
+**Branch:** `feature/18-global-board-admin`
+
+- Verify `BoardViewModel.isGroupAdmin` (already `Group.createdBy == currentUserId`) works unmodified for the global group's board, once `createdBy` is nezaboost's uid from PR-16 — add explicit test coverage for this group specifically.
+- Tighten `firestore.rules` `board/{messageId}` `update` to gate the `isAnnouncement` toggle with `diff(resource.data).affectedKeys()` (same pattern already used for `groups/{groupId}`'s `photoUrl`/`iconId`), instead of allowing any field update from the author or `createdBy` without distinguishing which field changed — closes a pre-existing gap that would otherwise let a non-admin author flip `isAnnouncement` on their own message via a generic update call.
+
+### PR-19 — Global Feed Panel on GroupsScreen
+**Branch:** `feature/19-global-feed-panel`
+
+- New composable (e.g. `GlobalGroupFeedPanel`, `presentation/groups/`) — fixed, read-only, non-scrolling panel showing the latest messages/announcements from the global group's board via the existing `WatchBoardMessagesUseCase` (unchanged); tapping navigates into the full board (`GroupSessionScreen` with `groupId = GLOBAL_GROUP_ID`).
+- `GroupsScreenContent` — restructures the body `Column` under the `Scaffold`: the groups `LazyColumn` keeps ~2/3 of the available height (`weight`), the feed panel takes the bottom ~1/3, with enough bottom padding that the create/join FABs never overlap it.
+
+### PR-20 — Account Inactivity Deactivation
+**Branch:** `feature/20-inactivity-deactivation`
+
+- `User` (domain) + `users/{uid}` gain `lastActive` (timestamp), self-stamped by the owner on every sign-in inside `upsertAndResolveRole` (already permitted by the existing `users/{userId}` write rule — no rule change for this field). This also implements automatic reactivation: any sign-in refreshes `lastActive`.
+- `users/{uid}` gains `isActive`/`disabledAt` — unlike `lastActive`, this field **must** be locked against client writes (new `firestore.rules` clause on `users/{userId}` using `diff().affectedKeys()` to exclude it from the owner's otherwise-unrestricted self-write), since a client could otherwise self-reactivate by writing the field directly.
+- New Cloud Function `onSchedule` (`functions/src/inactivity.ts`, same cron-scheduling pattern as `scheduledScoring`, daily) scans `users` for `lastActive` older than one year, sets `isActive = false`, and removes/hides that user's `standings/{groupId}/members/{userId}` entry across every group they belong to (not just the global one) — same per-group iteration pattern as `accountDeletion.ts`'s `groups.where("memberIds", "array-contains", uid)`. No separate reactivation logic is needed: the next scheduled run simply re-includes anyone whose `lastActive` was refreshed by a sign-in.
+
 ---
 
 ## Rules

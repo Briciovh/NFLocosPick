@@ -29,7 +29,6 @@ import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
 import com.softeen.nflocospicks.presentation.history.HistoryScreen
 import com.softeen.nflocospicks.presentation.leaderboard.LeaderboardScreen
 import com.softeen.nflocospicks.presentation.picks.PickScreen
-import com.softeen.nflocospicks.presentation.schedule.ScheduleScreen
 import com.softeen.nflocospicks.presentation.settings.SettingsScreen
 import com.softeen.nflocospicks.presentation.settings.SettingsViewModel
 import com.softeen.nflocospicks.presentation.teamselection.TeamSelectionScreen
@@ -157,13 +156,6 @@ fun NavGraph() {
                         onNavigateBack = { navController.popBackStack() },
                         viewModel      = groupViewModel
                     )
-                }
-
-                composable(
-                    route     = Screen.Schedule.route,
-                    arguments = listOf(navArgument("groupId") { type = NavType.StringType })
-                ) {
-                    ScheduleScreen(onNavigateBack = { navController.popBackStack() })
                 }
 
                 composable(

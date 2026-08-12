@@ -84,8 +84,7 @@ app/src/main/java/com/softeen/nflocospicks/
 │   ├── preview/                    # PreviewData.kt + PreviewWrapper composable (internal, preview-only)
 │   ├── auth/                       # LoginScreen + AuthViewModel + AuthUiState
 │   ├── groups/                     # GroupsScreen, CreateGroupScreen, JoinGroupScreen + ViewModel + UiState
-│   ├── schedule/                   # ScheduleScreen + ScheduleViewModel + ScheduleUiState
-│   ├── picks/                      # PickScreen + PickViewModel + PickUiState
+│   ├── picks/                      # PickScreen + PickViewModel + PickUiState — also owns the week-tab row (WeekTabLabels.kt)
 │   ├── leaderboard/                # LeaderboardScreen + LeaderboardViewModel + LeaderboardUiState
 │   ├── history/                    # HistoryScreen + HistoryViewModel + HistoryUiState
 │   ├── settings/                   # SettingsScreen + SettingsViewModel (DataStore prefs)
@@ -273,6 +272,17 @@ A corrective PR, not new scope: PR-11, PR-12, and PR-13 all shipped, but none of
 - `GroupsScreen.kt` `GroupCard` — new `Row` layout with a 96dp rounded placeholder avatar (group name's first letter on an accent-tinted background — presentation-only, no domain/Firestore changes, a deliberate seam for a future real group-photo feature that is explicitly out of scope here); card padding 16→20dp, `LazyColumn` spacing 8→20dp
 - `GroupSessionScreen.kt` bottom `NavigationBar` icons 24dp (M3 default) → 30dp
 - Note on `WindowSizeClass`: `Modifier.responsiveCardWidth()` (`presentation/common/AdaptiveLayout.kt`) is untouched — capping card width on genuinely wide tablet screens is exactly what `WindowSizeClass` is for. The PR-12 mistake was specifically using it to gate *phone-scale* sizing decisions (column count, cell size), where it can't distinguish "small phone" from "huge phone" since both stay `COMPACT`.
+
+### PR-15 — Week Tabs & Live Refresh
+**Branch:** `feature/15-week-tabs-refresh`
+
+Adds an ESPN-style horizontally scrollable week-tab row to `PickScreen` so users can browse and submit picks for any week of the season (preseason, regular, postseason), not just whatever ESPN's API currently considers "the current week." Also closes a gap discovered while building this: `PickScreen` is the screen actually wired to the "My Picks" bottom-nav destination, but a previous change had added pull-to-refresh + a 5-minute auto-refresh loop to `ScheduleScreen`/`ScheduleViewModel` instead — a route that was defined (`Screen.kt`, `NavGraph.kt`) but never navigated to anywhere in the app. That dead screen is removed; the refresh work is ported to `PickViewModel`, where it actually runs.
+
+- `domain/model/Game.kt` gains `weekNumber: Int` (ESPN's raw API week number; defaulted so existing call sites don't need updates) — preseason 1=Hall of Fame Game, 2-4=the three real preseason weeks (ESPN's site splits the HOF game into its own tab, offset by +1 from "PRE WK 1-3"); regular season 1-18; postseason 1,2,3,5 (4 is the empty Pro Bowl bye week, intentionally absent as a tab)
+- `domain/model/SeasonWeek.kt` (new) + `NflSeasonCalendar` — the static 26-entry season structure the tab row renders; deliberately never constructs a `weekId` itself (postseason `weekId`'s year comes from each game's own Jan/Feb kickoff, an existing documented ambiguity) — `weekId` always comes from fetched `Game` objects
+- `ScheduleRepository.getGamesForWeek(seasonType, weekNumber)` (new, alongside the existing `getCurrentWeekGames`) backed by ESPN's `?seasontype=&week=` params — unlike `getCurrentWeekGames`, intentionally skips both the Firestore cache (browsing an arbitrary week would otherwise pollute `HistoryScreen`, which surfaces every `weeks/{weekId}` doc with a non-empty `games[]`) and the debug kickoff-time offset (would make every future week falsely appear to kick off tomorrow)
+- `PickViewModel` — adds per-tab-index in-memory caching, a `selectedWeekIndex`/`currentWeekIndex` state pair (the latter drives disabling the manual sync icon off the current-week tab, since the scoring Cloud Function only ever scores the actual current week), and the ported `isRefreshing`/`refresh()`/5-min auto-refresh loop (`Dispatchers.Default`, not `viewModelScope`'s default `Main.immediate` — the shared `TestDispatcher` used by `PickViewModelTest`/`PickViewModelIntegrationTest` would otherwise hang `runTest`'s cleanup forever on the infinite loop)
+- `PickScreen.kt` — new `WeekTabRow` (`PrimaryScrollableTabRow`) and `PullToRefreshBox` wrapping the games list
 
 ---
 

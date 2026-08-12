@@ -13,5 +13,8 @@ data class Game(
     val status: GameStatus,
     val homeTeamRecord: String? = null,  // e.g. "10-3", null fuera de temporada regular
     val awayTeamRecord: String? = null,
-    val seasonType: SeasonType = SeasonType.REGULAR
+    val seasonType: SeasonType = SeasonType.REGULAR,
+    val weekNumber: Int = 0    // número de semana crudo de la ESPN API, no la etiqueta que ve
+                                // el usuario (pretemporada: 1=Hall of Fame Game, 2-4=semanas
+                                // reales; regular: 1-18; postemporada: 1,2,3,5). 0 = desconocido.
 )

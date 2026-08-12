@@ -130,4 +130,81 @@ class PickScreenTest {
 
         assertTrue("onPick must be called with 'KC'", pickedAbbr == "KC")
     }
+
+    @Test
+    fun week_tab_row_is_hidden_when_showWeekTabs_is_false() {
+        composeRule.setContent {
+            MaterialTheme {
+                PickScreenContent(
+                    uiState        = PickUiState.Success(weekId = "2025-week-01", items = emptyList()),
+                    errorMessage   = null,
+                    showWeekTabs   = false,
+                    onNavigateBack = {},
+                    onRetry        = {},
+                    onSync         = {},
+                    onPick         = { _, _, _, _ -> },
+                    onErrorShown   = {}
+                )
+            }
+        }
+
+        composeRule
+            .onAllNodesWithTag(TestTags.PICK_WEEK_TAB_ROW)
+            .assertCountEquals(0)
+    }
+
+    @Test
+    fun clicking_a_week_tab_reports_its_index() {
+        var selected: Int? = null
+
+        composeRule.setContent {
+            MaterialTheme {
+                PickScreenContent(
+                    uiState           = PickUiState.Success(weekId = "2025-week-01", items = emptyList()),
+                    errorMessage      = null,
+                    selectedWeekIndex = 4,
+                    showWeekTabs      = true,
+                    onNavigateBack    = {},
+                    onRetry           = {},
+                    onSync            = {},
+                    onPick            = { _, _, _, _ -> },
+                    onErrorShown      = {},
+                    onWeekSelected    = { selected = it }
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag("${TestTags.PICK_WEEK_TAB}_5")
+            .performClick()
+
+        assertTrue("onWeekSelected must be called with index 5", selected == 5)
+    }
+
+    @Test
+    fun refreshing_state_keeps_game_cards_visible() {
+        val game1 = game("g1", "KC", "LV", locked = false)
+
+        composeRule.setContent {
+            MaterialTheme {
+                PickScreenContent(
+                    uiState        = PickUiState.Success(
+                        weekId       = "2025-week-01",
+                        items        = listOf(pickItem(game1)),
+                        isRefreshing = true
+                    ),
+                    errorMessage   = null,
+                    onNavigateBack = {},
+                    onRetry        = {},
+                    onSync         = {},
+                    onPick         = { _, _, _, _ -> },
+                    onErrorShown   = {}
+                )
+            }
+        }
+
+        composeRule
+            .onAllNodesWithTag(TestTags.PICK_GAME_CARD)
+            .assertCountEquals(1)
+    }
 }

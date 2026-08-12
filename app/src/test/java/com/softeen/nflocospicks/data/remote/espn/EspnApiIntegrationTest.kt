@@ -112,4 +112,25 @@ class EspnApiIntegrationTest {
 
         assertNotNull("Una respuesta HTTP 500 debe lanzar excepción", thrown)
     }
+
+    @Test
+    fun `getScoreboardForWeek sends the seasontype and week query params`() = runTest {
+        server.enqueue(jsonResponse(fixture("espn_scoreboard.json")))
+
+        val games = service.getScoreboardForWeek(seasonType = 2, week = 12).toDomain()
+
+        val request = server.takeRequest()
+        assertTrue(request.path!!.contains("seasontype=2"))
+        assertTrue(request.path!!.contains("week=12"))
+        assertEquals(2, games.size)
+    }
+
+    @Test
+    fun `a week with no events returns an empty list`() = runTest {
+        server.enqueue(jsonResponse("""{"events":[]}"""))
+
+        val games = service.getScoreboardForWeek(seasonType = 3, week = 4).toDomain()
+
+        assertTrue(games.isEmpty())
+    }
 }

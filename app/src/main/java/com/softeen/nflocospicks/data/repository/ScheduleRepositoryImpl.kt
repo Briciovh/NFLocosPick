@@ -6,8 +6,10 @@ import com.softeen.nflocospicks.BuildConfig
 import com.softeen.nflocospicks.data.remote.espn.EspnApiService
 import com.softeen.nflocospicks.data.remote.espn.currentNflWeekDatesParam
 import com.softeen.nflocospicks.data.remote.espn.toDomain
+import com.softeen.nflocospicks.data.remote.espn.toEspnSeasonTypeParam
 import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.GameStatus
+import com.softeen.nflocospicks.domain.model.SeasonType
 import com.softeen.nflocospicks.domain.repository.ScheduleRepository
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -29,20 +31,31 @@ class ScheduleRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getCurrentWeekGames(groupId: String): List<Game> {
-        val response = espnApiService.getScoreboard(dates = currentNflWeekDatesParam())
-        val games = response.toDomain().map { game ->
-            if (BuildConfig.DEBUG && game.status == GameStatus.SCHEDULED) {
-                game.copy(kickoffTime = System.currentTimeMillis() + DEBUG_KICKOFF_OFFSET_MS)
-            } else {
-                game
-            }
-        }
+        val games = espnApiService.getScoreboard(dates = currentNflWeekDatesParam())
+            .toDomain()
+            .withDebugKickoffOffset()
 
         if (games.isNotEmpty()) {
             cacheGamesToFirestore(groupId, games)
         }
 
         return games
+    }
+
+    // A propósito SIN cache en Firestore y SIN el offset de debug (ver
+    // KDoc en ScheduleRepository.getGamesForWeek): cachear semanas solo
+    // navegadas llenaría el historial de semanas sin picks, y el offset de
+    // debug haría que cualquier semana futura pareciera arrancar mañana,
+    // justo lo que esta función existe para evitar.
+    override suspend fun getGamesForWeek(seasonType: SeasonType, weekNumber: Int): List<Game> =
+        espnApiService.getScoreboardForWeek(seasonType.toEspnSeasonTypeParam(), weekNumber).toDomain()
+
+    private fun List<Game>.withDebugKickoffOffset(): List<Game> = map { game ->
+        if (BuildConfig.DEBUG && game.status == GameStatus.SCHEDULED) {
+            game.copy(kickoffTime = System.currentTimeMillis() + DEBUG_KICKOFF_OFFSET_MS)
+        } else {
+            game
+        }
     }
 
     /**

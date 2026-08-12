@@ -101,6 +101,16 @@
     <!-- Terminología de fútbol americano — igual en todos los idiomas -->
     <string name="game_status_final" translatable="false">FINAL</string>
 
+    <!-- Week tabs -->
+    <string name="week_tab_preseason">PRE %1$d</string>
+    <string name="week_tab_regular">SEM %1$d</string>
+    <!-- Nombres de ronda NFL — igual en todos los idiomas -->
+    <string name="week_tab_hof" translatable="false">HOF</string>
+    <string name="week_tab_wildcard" translatable="false">WILD CARD</string>
+    <string name="week_tab_divisional" translatable="false">DIVISIONAL</string>
+    <string name="week_tab_conference" translatable="false">CONF CHAMP</string>
+    <string name="week_tab_superbowl" translatable="false">SUPER BOWL</string>
+
     <!-- Leaderboard -->
     <string name="leaderboard_title">Líderes del Grupo</string>
     <string name="leaderboard_empty">Aún no hay puntuaciones.\nLos picks se puntúan automáticamente.</string>

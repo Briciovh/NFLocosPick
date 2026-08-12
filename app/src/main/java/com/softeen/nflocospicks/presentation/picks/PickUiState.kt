@@ -13,7 +13,8 @@ sealed class PickUiState {
     data class Success(
         val items: List<GamePickItem>,
         val weekId: String,
-        val isPreseason: Boolean = false
+        val isPreseason: Boolean = false,
+        val isRefreshing: Boolean = false
     ) : PickUiState()
     data class Error(val message: String) : PickUiState()
 }

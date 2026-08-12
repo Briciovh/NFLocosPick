@@ -29,14 +29,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +59,7 @@ import com.softeen.nflocospicks.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.softeen.nflocospicks.domain.model.GameStatus
+import com.softeen.nflocospicks.domain.model.NflSeasonCalendar
 import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakePickItem
@@ -75,20 +79,27 @@ fun PickScreen(
     groupHeader: @Composable () -> Unit = {},
     viewModel: PickViewModel = hiltViewModel()
 ) {
-    val uiState      by viewModel.uiState.collectAsStateWithLifecycle()
-    val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val uiState          by viewModel.uiState.collectAsStateWithLifecycle()
+    val errorMessage     by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val selectedWeekIndex by viewModel.selectedWeekIndex.collectAsStateWithLifecycle()
+    val currentWeekIndex  by viewModel.currentWeekIndex.collectAsStateWithLifecycle()
 
     PickScreenContent(
-        uiState        = uiState,
-        errorMessage   = errorMessage,
-        onNavigateBack = onNavigateBack,
-        onRetry        = { viewModel.loadData() },
-        onSync         = { viewModel.triggerSync() },
-        onPick         = { gameId, teamAbbr, kickoffTime, status ->
+        uiState           = uiState,
+        errorMessage      = errorMessage,
+        selectedWeekIndex = selectedWeekIndex,
+        showWeekTabs      = viewModel.weekTabsVisible,
+        canSync           = currentWeekIndex == null || selectedWeekIndex == currentWeekIndex,
+        onNavigateBack    = onNavigateBack,
+        onRetry           = { viewModel.loadData() },
+        onSync            = { viewModel.triggerSync() },
+        onPick            = { gameId, teamAbbr, kickoffTime, status ->
             viewModel.submitPick(gameId, teamAbbr, kickoffTime, status)
         },
-        onErrorShown   = { viewModel.onErrorShown() },
-        groupHeader    = groupHeader
+        onErrorShown      = { viewModel.onErrorShown() },
+        onWeekSelected    = { viewModel.onWeekSelected(it) },
+        onRefresh         = { viewModel.refresh() },
+        groupHeader       = groupHeader
     )
 }
 
@@ -97,11 +108,16 @@ fun PickScreen(
 internal fun PickScreenContent(
     uiState: PickUiState,
     errorMessage: String?,
+    selectedWeekIndex: Int = -1,
+    showWeekTabs: Boolean = false,
+    canSync: Boolean = true,
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
     onSync: () -> Unit,
     onPick: (String, String, Long, GameStatus) -> Unit,
     onErrorShown: () -> Unit,
+    onWeekSelected: (Int) -> Unit = {},
+    onRefresh: () -> Unit = {},
     groupHeader: @Composable () -> Unit = {}
 ) {
     val appColors     = LocalAppColors.current
@@ -157,11 +173,12 @@ internal fun PickScreenContent(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onSync) {
+                    IconButton(onClick = onSync, enabled = canSync) {
                         Icon(
                             imageVector        = Icons.Default.Refresh,
                             contentDescription = stringResource(R.string.cd_sync),
-                            tint               = appColors.onBackground
+                            tint               = if (canSync) appColors.onBackground
+                                                 else appColors.onBackground.copy(alpha = 0.35f)
                         )
                     }
                 },
@@ -171,6 +188,9 @@ internal fun PickScreenContent(
     ) { innerPadding ->
       Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
         groupHeader()
+        if (showWeekTabs) {
+            WeekTabRow(selectedIndex = selectedWeekIndex, onWeekSelected = onWeekSelected)
+        }
         Box(modifier = Modifier.weight(1f)) {
         when (uiState) {
             is PickUiState.Loading -> {
@@ -212,46 +232,52 @@ internal fun PickScreenContent(
             }
 
             is PickUiState.Success -> {
-                if (uiState.items.isEmpty()) {
-                    Box(
-                        modifier         = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text  = stringResource(R.string.picks_no_games),
-                            color = appColors.secondary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                } else {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (uiState.isPreseason) {
-                            Surface(color = appColors.primary.copy(alpha = 0.12f)) {
-                                Text(
-                                    text       = stringResource(R.string.picks_preseason_subtitle),
-                                    color      = appColors.primary,
-                                    style      = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign  = TextAlign.Center,
-                                    modifier   = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp, horizontal = 16.dp)
-                                )
-                            }
-                        }
-                        LazyColumn(
-                            modifier            = Modifier.weight(1f),
-                            contentPadding      = PaddingValues(vertical = 12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                PullToRefreshBox(
+                    isRefreshing = uiState.isRefreshing,
+                    onRefresh    = onRefresh,
+                    modifier     = Modifier.fillMaxSize()
+                ) {
+                    if (uiState.items.isEmpty()) {
+                        Box(
+                            modifier         = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            items(uiState.items, key = { it.game.id }) { item ->
-                                GamePickCard(
-                                    item   = item,
-                                    onPick = { teamAbbr ->
-                                        onPick(item.game.id, teamAbbr, item.game.kickoffTime, item.game.status)
-                                    }
-                                )
+                            Text(
+                                text  = stringResource(R.string.picks_no_games),
+                                color = appColors.secondary,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    } else {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            if (uiState.isPreseason) {
+                                Surface(color = appColors.primary.copy(alpha = 0.12f)) {
+                                    Text(
+                                        text       = stringResource(R.string.picks_preseason_subtitle),
+                                        color      = appColors.primary,
+                                        style      = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        textAlign  = TextAlign.Center,
+                                        modifier   = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp, horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                            LazyColumn(
+                                modifier            = Modifier.weight(1f),
+                                contentPadding      = PaddingValues(vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                items(uiState.items, key = { it.game.id }) { item ->
+                                    GamePickCard(
+                                        item   = item,
+                                        onPick = { teamAbbr ->
+                                            onPick(item.game.id, teamAbbr, item.game.kickoffTime, item.game.status)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -260,6 +286,40 @@ internal fun PickScreenContent(
         }
         }
       }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WeekTabRow(
+    selectedIndex: Int,
+    onWeekSelected: (Int) -> Unit
+) {
+    val appColors = LocalAppColors.current
+
+    PrimaryScrollableTabRow(
+        selectedTabIndex = selectedIndex.coerceAtLeast(0),
+        containerColor   = appColors.header,
+        contentColor     = appColors.primary,
+        edgePadding      = 8.dp,
+        modifier         = Modifier.testTag(TestTags.PICK_WEEK_TAB_ROW)
+    ) {
+        NflSeasonCalendar.WEEKS.forEachIndexed { index, week ->
+            val isSelected = index == selectedIndex
+            Tab(
+                selected = isSelected,
+                onClick  = { onWeekSelected(index) },
+                text     = {
+                    Text(
+                        text       = week.tabLabel(),
+                        maxLines   = 1,
+                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Normal,
+                        color      = if (isSelected) appColors.primary else appColors.secondary
+                    )
+                },
+                modifier = Modifier.testTag("${TestTags.PICK_WEEK_TAB}_$index")
+            )
+        }
     }
 }
 
@@ -489,6 +549,28 @@ private fun PickScreenLoadingPreview() {
             onSync         = {},
             onPick         = { _, _, _, _ -> },
             onErrorShown   = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun PickScreenWeekTabsPreview() {
+    PreviewWrapper {
+        PickScreenContent(
+            uiState           = PickUiState.Success(
+                weekId = "2025-week-01",
+                items  = listOf(fakePickItem, fakePickItemLocked)
+            ),
+            errorMessage      = null,
+            selectedWeekIndex = 4,
+            showWeekTabs      = true,
+            onNavigateBack    = {},
+            onRetry           = {},
+            onSync            = {},
+            onPick            = { _, _, _, _ -> },
+            onErrorShown      = {},
+            onWeekSelected    = {}
         )
     }
 }

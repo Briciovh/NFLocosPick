@@ -60,7 +60,7 @@ class EspnApiIntegrationTest {
     fun `full fixture deserializes to correct domain Games`() = runTest {
         server.enqueue(jsonResponse(fixture("espn_scoreboard.json")))
 
-        val games = service.getScoreboard().toDomain()
+        val games = service.getScoreboard(dates = "20250101-20250108").toDomain()
 
         assertEquals(2, games.size)
     }
@@ -69,7 +69,7 @@ class EspnApiIntegrationTest {
     fun `FINAL game in fixture has correct fields after mapping`() = runTest {
         server.enqueue(jsonResponse(fixture("espn_scoreboard.json")))
 
-        val game = service.getScoreboard().toDomain().first { it.id == "401671876" }
+        val game = service.getScoreboard(dates = "20250101-20250108").toDomain().first { it.id == "401671876" }
 
         assertEquals("2025-week-12",   game.weekId)
         assertEquals(GameStatus.FINAL, game.status)
@@ -83,7 +83,7 @@ class EspnApiIntegrationTest {
     fun `SCHEDULED game in fixture has null scores after mapping`() = runTest {
         server.enqueue(jsonResponse(fixture("espn_scoreboard.json")))
 
-        val game = service.getScoreboard().toDomain().first { it.id == "401671877" }
+        val game = service.getScoreboard(dates = "20250101-20250108").toDomain().first { it.id == "401671877" }
 
         assertEquals(GameStatus.SCHEDULED, game.status)
         assertNull(game.homeScore)
@@ -94,7 +94,7 @@ class EspnApiIntegrationTest {
     fun `empty events array produces an empty list without error`() = runTest {
         server.enqueue(jsonResponse("""{"week":{"number":1},"season":{"type":2},"events":[]}"""))
 
-        val games = service.getScoreboard().toDomain()
+        val games = service.getScoreboard(dates = "20250101-20250108").toDomain()
 
         assertTrue(games.isEmpty())
     }
@@ -105,7 +105,7 @@ class EspnApiIntegrationTest {
 
         var thrown: Exception? = null
         try {
-            service.getScoreboard()
+            service.getScoreboard(dates = "20250101-20250108")
         } catch (e: Exception) {
             thrown = e
         }

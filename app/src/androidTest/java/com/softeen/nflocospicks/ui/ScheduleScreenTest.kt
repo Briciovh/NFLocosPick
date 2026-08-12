@@ -42,7 +42,8 @@ class ScheduleScreenTest {
                 ScheduleScreenContent(
                     uiState        = ScheduleUiState.Loading,
                     onNavigateBack = {},
-                    onRetry        = {}
+                    onRetry        = {},
+                    onRefresh      = {}
                 )
             }
         }
@@ -65,7 +66,8 @@ class ScheduleScreenTest {
                         )
                     ),
                     onNavigateBack = {},
-                    onRetry        = {}
+                    onRetry        = {},
+                    onRefresh      = {}
                 )
             }
         }
@@ -82,7 +84,8 @@ class ScheduleScreenTest {
                 ScheduleScreenContent(
                     uiState        = ScheduleUiState.Error("No se pudo cargar"),
                     onNavigateBack = {},
-                    onRetry        = {}
+                    onRetry        = {},
+                    onRefresh      = {}
                 )
             }
         }

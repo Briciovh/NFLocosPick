@@ -30,6 +30,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -68,7 +69,8 @@ fun ScheduleScreen(
     ScheduleScreenContent(
         uiState        = uiState,
         onNavigateBack = onNavigateBack,
-        onRetry        = { viewModel.loadGames() }
+        onRetry        = { viewModel.loadGames() },
+        onRefresh      = { viewModel.refresh() }
     )
 }
 
@@ -77,7 +79,8 @@ fun ScheduleScreen(
 internal fun ScheduleScreenContent(
     uiState: ScheduleUiState,
     onNavigateBack: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onRefresh: () -> Unit
 ) {
     val appColors = LocalAppColors.current
 
@@ -157,26 +160,32 @@ internal fun ScheduleScreenContent(
             }
 
             is ScheduleUiState.Success -> {
-                if (uiState.games.isEmpty()) {
-                    Box(
-                        modifier         = Modifier.fillMaxSize().padding(innerPadding),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text  = "No hay partidos esta semana.",
-                            color = appColors.secondary,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier            = Modifier.fillMaxSize().padding(innerPadding),
-                        contentPadding      = PaddingValues(vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        items(uiState.games, key = { it.id }) { game ->
-                            GameCard(game = game)
+                PullToRefreshBox(
+                    isRefreshing = uiState.isRefreshing,
+                    onRefresh    = onRefresh,
+                    modifier     = Modifier.fillMaxSize().padding(innerPadding)
+                ) {
+                    if (uiState.games.isEmpty()) {
+                        Box(
+                            modifier         = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text  = "No hay partidos esta semana.",
+                                color = appColors.secondary,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier            = Modifier.fillMaxSize(),
+                            contentPadding      = PaddingValues(vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            items(uiState.games, key = { it.id }) { game ->
+                                GameCard(game = game)
+                            }
                         }
                     }
                 }
@@ -320,7 +329,8 @@ private fun ScheduleScreenSuccessPreview() {
                 games  = listOf(fakeGame, fakeGameLive)
             ),
             onNavigateBack = {},
-            onRetry        = {}
+            onRetry        = {},
+            onRefresh      = {}
         )
     }
 }
@@ -332,7 +342,8 @@ private fun ScheduleScreenLoadingPreview() {
         ScheduleScreenContent(
             uiState        = ScheduleUiState.Loading,
             onNavigateBack = {},
-            onRetry        = {}
+            onRetry        = {},
+            onRefresh      = {}
         )
     }
 }

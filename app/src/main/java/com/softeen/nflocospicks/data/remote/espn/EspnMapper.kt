@@ -15,14 +15,17 @@ private val espnDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US
 /**
  * Mapea la respuesta completa del scoreboard a una lista de domain [Game].
  * Eventos malformados se descartan silenciosamente con runCatching.
+ *
+ * week/season se leen de cada evento, no de la respuesta — cuando se pide
+ * con "dates" como rango (ver EspnDateRange.kt), ESPN puede omitir el
+ * week/season a nivel de respuesta por completo, y un rango puede además
+ * cruzar un límite de semana o de tipo de temporada. Cada evento siempre
+ * trae su propio week/season, sin esa ambigüedad.
  */
-fun EspnScoreboardResponse.toDomain(): List<Game> {
-    val weekNumber = week.number
-    val seasonType = season.type.toSeasonType()
-    return events.mapNotNull { event ->
-        runCatching { event.toGame(weekNumber, seasonType) }.getOrNull()
+fun EspnScoreboardResponse.toDomain(): List<Game> =
+    events.mapNotNull { event ->
+        runCatching { event.toGame() }.getOrNull()
     }
-}
 
 private fun Int.toSeasonType(): SeasonType = when (this) {
     1    -> SeasonType.PRESEASON
@@ -38,7 +41,9 @@ private fun buildWeekId(year: Int, weekNumber: Int, seasonType: SeasonType): Str
     return if (seasonType == SeasonType.PRESEASON) "$year-pre-week-$nn" else "$year-week-$nn"
 }
 
-private fun EspnEvent.toGame(weekNumber: Int, seasonType: SeasonType): Game {
+private fun EspnEvent.toGame(): Game {
+    val weekNumber = week.number
+    val seasonType = season.type.toSeasonType()
     val competition = competitions.first()
     val home = competition.competitors.first { it.homeAway == "home" }
     val away = competition.competitors.first { it.homeAway == "away" }

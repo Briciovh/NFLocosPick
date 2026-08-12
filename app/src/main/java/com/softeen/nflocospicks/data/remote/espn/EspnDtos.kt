@@ -3,9 +3,15 @@ package com.softeen.nflocospicks.data.remote.espn
 import com.google.gson.annotations.SerializedName
 
 data class EspnScoreboardResponse(
-    val week: EspnWeek,
-    val season: EspnSeason,
     val events: List<EspnEvent>
+)
+
+data class EspnEvent(
+    val id: String,
+    val date: String,                           // ISO 8601 UTC e.g. "2025-11-24T18:00Z"
+    val season: EspnSeason,                     // por-evento, no a nivel de respuesta —
+    val week: EspnWeek,                         // ver comentario en EspnMapper.toDomain()
+    val competitions: List<EspnCompetition>
 )
 
 data class EspnWeek(
@@ -14,12 +20,6 @@ data class EspnWeek(
 
 data class EspnSeason(
     val type: Int    // 1=pre-temporada, 2=temporada regular, 3=post-temporada
-)
-
-data class EspnEvent(
-    val id: String,
-    val date: String,                           // ISO 8601 UTC e.g. "2025-11-24T18:00Z"
-    val competitions: List<EspnCompetition>
 )
 
 data class EspnCompetition(

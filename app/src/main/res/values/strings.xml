@@ -143,6 +143,10 @@
     <string name="settings_font_size_small">Pequeño</string>
     <string name="settings_font_size_normal">Normal</string>
     <string name="settings_font_size_large">Grande</string>
+    <string name="settings_section_icon_size">TAMAÑO DE ÍCONOS</string>
+    <string name="settings_icon_size_small">Pequeño</string>
+    <string name="settings_icon_size_medium">Mediano</string>
+    <string name="settings_icon_size_large">Grande</string>
     <string name="settings_section_insider">MODO INSIDER</string>
     <string name="settings_testing_title">Datos de testing</string>
     <string name="settings_testing_desc">Usa un grupo y juegos de prueba</string>

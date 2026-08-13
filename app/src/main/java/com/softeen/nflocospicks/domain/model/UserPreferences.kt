@@ -5,5 +5,6 @@ data class UserPreferences(
     val useTestingData:       Boolean  = false,
     val simulateGamesStarted: Boolean  = false,
     val languageTag:          String?  = null,
-    val fontScalePreference:  String?  = null
+    val fontScalePreference:  String?  = null,
+    val iconScalePreference:  String?  = null
 )

@@ -18,16 +18,20 @@ import com.softeen.nflocospicks.domain.usecase.GetGamesForWeekUseCase
 import com.softeen.nflocospicks.domain.usecase.GetWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SubmitPickUseCase
+import com.softeen.nflocospicks.presentation.theme.IconScaleOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -66,6 +70,10 @@ class PickViewModel @Inject constructor(
     // Cloud Function) tiene sentido en el tab que se está viendo.
     private val _currentWeekIndex = MutableStateFlow<Int?>(null)
     val currentWeekIndex: StateFlow<Int?> = _currentWeekIndex.asStateFlow()
+
+    val iconScale: StateFlow<IconScaleOption> = preferencesRepository.preferencesFlow
+        .map { IconScaleOption.fromKey(it.iconScalePreference) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), IconScaleOption.GRANDE)
 
     // Cache en memoria por índice de tab — evitar re-pedir a ESPN cada vez que
     // el usuario va y viene entre semanas ya visitadas en esta sesión.

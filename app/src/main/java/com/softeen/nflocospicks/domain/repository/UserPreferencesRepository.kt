@@ -10,4 +10,5 @@ interface UserPreferencesRepository {
     suspend fun setSimulateGamesStarted(enabled: Boolean)
     suspend fun setLanguage(tag: String?)
     suspend fun setFontScale(key: String?)
+    suspend fun setIconScale(key: String?)
 }

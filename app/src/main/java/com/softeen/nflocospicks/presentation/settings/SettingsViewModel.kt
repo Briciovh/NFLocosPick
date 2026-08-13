@@ -75,4 +75,10 @@ class SettingsViewModel @Inject constructor(
             repo.setFontScale(key)
         }
     }
+
+    fun setIconScale(key: String?) {
+        viewModelScope.launch {
+            repo.setIconScale(key)
+        }
+    }
 }

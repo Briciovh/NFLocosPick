@@ -56,6 +56,7 @@ import com.softeen.nflocospicks.presentation.preview.fakePrefs
 import com.softeen.nflocospicks.presentation.preview.fakeUser
 import com.softeen.nflocospicks.presentation.theme.AppColors
 import com.softeen.nflocospicks.presentation.theme.FontScaleOption
+import com.softeen.nflocospicks.presentation.theme.IconScaleOption
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
 @Composable
@@ -83,7 +84,9 @@ fun SettingsScreen(
         currentLanguageTag          = prefs.languageTag,
         onLanguageSelected          = { viewModel.setLanguage(it) },
         currentFontScale            = prefs.fontScalePreference,
-        onFontScaleSelected         = { viewModel.setFontScale(it) }
+        onFontScaleSelected         = { viewModel.setFontScale(it) },
+        currentIconScale            = prefs.iconScalePreference,
+        onIconScaleSelected         = { viewModel.setIconScale(it) }
     )
 }
 
@@ -102,7 +105,9 @@ internal fun SettingsScreenContent(
     currentLanguageTag: String?,
     onLanguageSelected: (String?) -> Unit,
     currentFontScale: String?,
-    onFontScaleSelected: (String?) -> Unit
+    onFontScaleSelected: (String?) -> Unit,
+    currentIconScale: String?,
+    onIconScaleSelected: (String?) -> Unit
 ) {
     val appColors    = LocalAppColors.current
     val favoriteTeam = nflTeams.find { it.abbr == prefs.favoriteTeamAbbr }
@@ -241,6 +246,18 @@ internal fun SettingsScreenContent(
                 FontSizeSelector(
                     current    = currentFontScale,
                     onSelected = onFontScaleSelected,
+                    appColors  = appColors
+                )
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = appColors.secondary.copy(alpha = 0.2f))
+                Spacer(Modifier.height(16.dp))
+
+                SectionHeader(stringResource(R.string.settings_section_icon_size), appColors.primary)
+                Spacer(Modifier.height(8.dp))
+                IconSizeSelector(
+                    current    = currentIconScale,
+                    onSelected = onIconScaleSelected,
                     appColors  = appColors
                 )
 
@@ -465,6 +482,40 @@ private fun FontSizeSelector(
     }
 }
 
+@Composable
+private fun IconSizeSelector(
+    current: String?,
+    onSelected: (String?) -> Unit,
+    appColors: AppColors
+) {
+    val options = listOf(
+        IconScaleOption.PEQUENO.key to stringResource(R.string.settings_icon_size_small),
+        IconScaleOption.MEDIANO.key to stringResource(R.string.settings_icon_size_medium),
+        null to stringResource(R.string.settings_icon_size_large)
+    )
+    Row(
+        modifier              = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { (key, label) ->
+            val isSelected     = current == key
+            val containerColor = if (isSelected) appColors.primary else appColors.surface
+            val contentColor   = if (isSelected) appColors.onPrimary else appColors.secondary
+            Button(
+                onClick  = { onSelected(key) },
+                modifier = Modifier.weight(1f),
+                shape    = MaterialTheme.shapes.small,
+                colors   = ButtonDefaults.buttonColors(
+                    containerColor = containerColor,
+                    contentColor   = contentColor
+                )
+            ) {
+                Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true, backgroundColor = 0xFF0B2156)
 @Composable
 private fun SettingsScreenWithTeamPreview() {
@@ -482,7 +533,9 @@ private fun SettingsScreenWithTeamPreview() {
             currentLanguageTag         = null,
             onLanguageSelected         = {},
             currentFontScale           = null,
-            onFontScaleSelected        = {}
+            onFontScaleSelected        = {},
+            currentIconScale           = null,
+            onIconScaleSelected        = {}
         )
     }
 }
@@ -504,7 +557,9 @@ private fun SettingsScreenNoTeamPreview() {
             currentLanguageTag         = null,
             onLanguageSelected         = {},
             currentFontScale           = null,
-            onFontScaleSelected        = {}
+            onFontScaleSelected        = {},
+            currentIconScale           = null,
+            onIconScaleSelected        = {}
         )
     }
 }
@@ -527,7 +582,9 @@ private fun SettingsScreenInsiderPreview() {
             currentLanguageTag         = "es",
             onLanguageSelected         = {},
             currentFontScale           = null,
-            onFontScaleSelected        = {}
+            onFontScaleSelected        = {},
+            currentIconScale           = null,
+            onIconScaleSelected        = {}
         )
     }
 }
@@ -550,7 +607,9 @@ private fun SettingsScreenInsiderSimulatingPreview() {
             currentLanguageTag         = "en",
             onLanguageSelected         = {},
             currentFontScale           = FontScaleOption.GRANDE.key,
-            onFontScaleSelected        = {}
+            onFontScaleSelected        = {},
+            currentIconScale           = IconScaleOption.GRANDE.key,
+            onIconScaleSelected        = {}
         )
     }
 }

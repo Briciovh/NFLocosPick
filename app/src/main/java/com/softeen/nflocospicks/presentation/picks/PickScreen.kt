@@ -53,6 +53,7 @@ import com.softeen.nflocospicks.presentation.common.TestTags
 import com.softeen.nflocospicks.presentation.common.responsiveCardWidth
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.softeen.nflocospicks.R
@@ -64,6 +65,7 @@ import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakePickItem
 import com.softeen.nflocospicks.presentation.preview.fakePickItemLocked
+import com.softeen.nflocospicks.presentation.theme.IconScaleOption
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -83,6 +85,7 @@ fun PickScreen(
     val errorMessage     by viewModel.errorMessage.collectAsStateWithLifecycle()
     val selectedWeekIndex by viewModel.selectedWeekIndex.collectAsStateWithLifecycle()
     val currentWeekIndex  by viewModel.currentWeekIndex.collectAsStateWithLifecycle()
+    val iconScale         by viewModel.iconScale.collectAsStateWithLifecycle()
 
     PickScreenContent(
         uiState           = uiState,
@@ -90,6 +93,7 @@ fun PickScreen(
         selectedWeekIndex = selectedWeekIndex,
         showWeekTabs      = viewModel.weekTabsVisible,
         canSync           = currentWeekIndex == null || selectedWeekIndex == currentWeekIndex,
+        iconScale         = iconScale,
         onNavigateBack    = onNavigateBack,
         onRetry           = { viewModel.loadData() },
         onSync            = { viewModel.triggerSync() },
@@ -111,6 +115,7 @@ internal fun PickScreenContent(
     selectedWeekIndex: Int = -1,
     showWeekTabs: Boolean = false,
     canSync: Boolean = true,
+    iconScale: IconScaleOption = IconScaleOption.GRANDE,
     onNavigateBack: () -> Unit,
     onRetry: () -> Unit,
     onSync: () -> Unit,
@@ -272,8 +277,9 @@ internal fun PickScreenContent(
                             ) {
                                 items(uiState.items, key = { it.game.id }) { item ->
                                     GamePickCard(
-                                        item   = item,
-                                        onPick = { teamAbbr ->
+                                        item      = item,
+                                        iconScale = iconScale,
+                                        onPick    = { teamAbbr ->
                                             onPick(item.game.id, teamAbbr, item.game.kickoffTime, item.game.status)
                                         }
                                     )
@@ -326,6 +332,7 @@ private fun WeekTabRow(
 @Composable
 private fun GamePickCard(
     item: GamePickItem,
+    iconScale: IconScaleOption,
     onPick: (String) -> Unit
 ) {
     val game = item.game
@@ -373,6 +380,7 @@ private fun GamePickCard(
                     label      = stringResource(R.string.picks_team_away),
                     isSelected = item.pickedTeam == game.awayTeamAbbr,
                     isLocked   = item.isLocked,
+                    iconScale  = iconScale,
                     modifier   = Modifier.weight(1f),
                     onClick    = { onPick(game.awayTeamAbbr) }
                 )
@@ -389,6 +397,7 @@ private fun GamePickCard(
                     label      = stringResource(R.string.picks_team_home),
                     isSelected = item.pickedTeam == game.homeTeamAbbr,
                     isLocked   = item.isLocked,
+                    iconScale  = iconScale,
                     modifier   = Modifier.weight(1f),
                     onClick    = { onPick(game.homeTeamAbbr) }
                 )
@@ -408,6 +417,7 @@ private fun TeamPickButton(
     label: String,
     isSelected: Boolean,
     isLocked: Boolean,
+    iconScale: IconScaleOption,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -446,13 +456,16 @@ private fun TeamPickButton(
                 style      = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.ExtraBold
             )
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                TeamLogo(abbr = abbr, size = maxWidth - TEAM_LOGO_SECTION_PADDING * 2)
+            BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                TeamLogo(abbr = abbr, size = (maxWidth - TEAM_LOGO_SECTION_PADDING * 2) * iconScale.multiplier)
             }
             Text(
                 text      = name,
                 style     = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                minLines  = 2,
+                maxLines  = 2,
+                overflow  = TextOverflow.Ellipsis
             )
             if (record != null) {
                 Text(

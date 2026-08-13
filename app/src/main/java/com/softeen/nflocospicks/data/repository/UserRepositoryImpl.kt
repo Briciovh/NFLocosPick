@@ -18,6 +18,7 @@ import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.functions.FirebaseFunctions
@@ -26,6 +27,7 @@ import com.softeen.nflocospicks.data.local.EmailLinkPrefs
 import com.softeen.nflocospicks.data.remote.firebase.FirebaseAuthDataSource
 import com.softeen.nflocospicks.domain.model.AuthError
 import com.softeen.nflocospicks.domain.model.AuthException
+import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
 import com.softeen.nflocospicks.domain.model.PhoneVerificationEvent
 import com.softeen.nflocospicks.domain.model.SignInResult
 import com.softeen.nflocospicks.domain.model.User
@@ -376,7 +378,11 @@ class UserRepositoryImpl @Inject constructor(
                 "displayName" to fbUser.displayName.orEmpty(),
                 "email"       to fbUser.email.orEmpty(),
                 "photoUrl"    to fbUser.photoUrl?.toString(),
-                "phoneNumber" to fbUser.phoneNumber
+                "phoneNumber" to fbUser.phoneNumber,
+                // Se reescribe en CADA login (no solo el primero, a diferencia de "role") — es
+                // lo que resetea el reloj de 1 año de inactividad (PR-20) y reactiva una cuenta
+                // que la Cloud Function "scheduledInactivityCheck" hubiera deshabilitado.
+                "lastActive"  to FieldValue.serverTimestamp()
             ),
             SetOptions.merge()
         ).await()
@@ -387,6 +393,7 @@ class UserRepositoryImpl @Inject constructor(
         if (isNewUser) {
             ref.update("role", UserRole.REGULAR.name).await()
             role = UserRole.REGULAR
+            ensureGlobalGroupMembership(fbUser.uid)
         } else {
             role = snap.getString("role")
                 ?.let { runCatching { UserRole.valueOf(it) }.getOrDefault(UserRole.REGULAR) }
@@ -401,10 +408,30 @@ class UserRepositoryImpl @Inject constructor(
                 photoUrl    = fbUser.photoUrl?.toString(),
                 role        = role,
                 phoneNumber = fbUser.phoneNumber,
-                username    = snap.getString("username")
+                username    = snap.getString("username"),
+                lastActive  = snap.getTimestamp("lastActive")?.toDate()?.time
             ),
             isNewUser = isNewUser
         )
+    }
+
+    /**
+     * Auto-afilia al usuario recién registrado al grupo global "NFLocos de Corazón" (PR-17):
+     * se autoagrega a `memberIds` (ya permitido por la regla `update` existente — mismo
+     * mecanismo que unirse por código) y siembra su standing en 0 puntos vía la Cloud
+     * Function `ensureGlobalStanding` (standings tiene `allow write: if false` para
+     * clientes). Falla en silencio: es un efecto secundario del sign-in, no debe poder
+     * tumbar el login si el grupo global no existe todavía o si hay un error de red.
+     */
+    private suspend fun ensureGlobalGroupMembership(uid: String) {
+        runCatching {
+            firestore.collection("groups").document(GlobalGroupConstants.GROUP_ID)
+                .update("memberIds", FieldValue.arrayUnion(uid))
+                .await()
+            functions.getHttpsCallable("ensureGlobalStanding").call().await()
+        }.onFailure { e ->
+            Timber.w(e, "ensureGlobalGroupMembership: no se pudo afiliar uid=$uid al grupo global")
+        }
     }
 
     /**
@@ -456,7 +483,8 @@ class UserRepositoryImpl @Inject constructor(
         username    = getString("username"),
         role        = getString("role")
             ?.let { runCatching { UserRole.valueOf(it) }.getOrDefault(UserRole.REGULAR) }
-            ?: UserRole.REGULAR
+            ?: UserRole.REGULAR,
+        lastActive  = getTimestamp("lastActive")?.toDate()?.time
     )
 
     private companion object {

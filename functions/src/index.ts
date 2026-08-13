@@ -6,6 +6,8 @@ import { logger } from "firebase-functions";
 import { fetchCurrentWeekGames, computeWinners } from "./espn";
 import { scoreGroupForWeek } from "./scoring";
 import { deleteUserAccount } from "./accountDeletion";
+import { seedGlobalStanding } from "./globalGroup";
+import { deactivateInactiveUsers } from "./inactivity";
 
 initializeApp();
 
@@ -98,3 +100,33 @@ export const deleteAccount = onCall(async (request) => {
   await deleteUserAccount(uid);
   return { success: true };
 });
+
+/**
+ * Siembra el standing en 0 puntos del usuario autenticado en el grupo global
+ * (PR-17). El cliente la llama justo después de auto-unirse a memberIds del
+ * grupo global en su primer sign-in — necesaria porque standings tiene
+ * `allow write: if false` para clientes.
+ */
+export const ensureGlobalStanding = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  await seedGlobalStanding(uid);
+  return { success: true };
+});
+
+/**
+ * Deshabilita cuentas inactivas por más de un año y las retira de standings
+ * (PR-20). Corre una vez al día — a diferencia de scheduledScoring, la
+ * inactividad no tiene "días de partido", así que no se restringe por día
+ * de la semana.
+ */
+export const scheduledInactivityCheck = onSchedule(
+  { schedule: "0 6 * * *", timeZone: "America/New_York" },
+  async () => {
+    const count = await deactivateInactiveUsers();
+    logger.info(`scheduledInactivityCheck: ${count} cuentas deshabilitadas`);
+  }
+);

@@ -30,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.softeen.nflocospicks.R
+import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 import kotlinx.coroutines.launch
@@ -62,10 +63,11 @@ fun GroupHeaderBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         GroupAvatar(
-            photoUrl = group?.photoUrl,
-            iconId   = group?.iconId,
-            name     = group?.name.orEmpty(),
-            size     = 28.dp
+            photoUrl     = group?.photoUrl,
+            iconId       = group?.iconId,
+            name         = group?.name.orEmpty(),
+            size         = 28.dp,
+            localIconRes = if (group?.id == GlobalGroupConstants.GROUP_ID) R.drawable.nflocos_picks_icon else null
         )
         Text(
             text       = group?.name.orEmpty(),

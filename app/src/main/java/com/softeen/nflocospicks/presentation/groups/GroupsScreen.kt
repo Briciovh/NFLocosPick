@@ -63,6 +63,8 @@ import androidx.compose.ui.unit.dp
 import com.softeen.nflocospicks.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.softeen.nflocospicks.domain.model.BoardMessage
+import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakeGroup
@@ -80,6 +82,7 @@ fun GroupsScreen(
 ) {
     val listState by viewModel.groupListState.collectAsStateWithLifecycle()
     val photoUiState by viewModel.photoUiState.collectAsStateWithLifecycle()
+    val globalFeedMessages by viewModel.globalFeedMessages.collectAsStateWithLifecycle()
     val currentUserId = viewModel.currentUserId
     val snackbarHostState = remember { SnackbarHostState() }
     val scoringNoneMsg = stringResource(R.string.scoring_none)
@@ -108,6 +111,7 @@ fun GroupsScreen(
         snackbarHostState       = snackbarHostState,
         currentUserId           = currentUserId,
         photoUiState            = photoUiState,
+        globalFeedMessages      = globalFeedMessages,
         onNavigateToCreateGroup = onNavigateToCreateGroup,
         onNavigateToJoinGroup   = onNavigateToJoinGroup,
         onNavigateToSettings    = onNavigateToSettings,
@@ -125,6 +129,7 @@ internal fun GroupsScreenContent(
     snackbarHostState: SnackbarHostState,
     currentUserId: String? = null,
     photoUiState: GroupPhotoUiState = GroupPhotoUiState.Idle,
+    globalFeedMessages: List<BoardMessage> = emptyList(),
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -195,59 +200,77 @@ internal fun GroupsScreenContent(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(20.dp))
 
-            when (listState) {
-                is GroupListUiState.Loading -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(
-                            color    = appColors.primary,
-                            modifier = Modifier.testTag(TestTags.LOADING_INDICATOR)
-                        )
-                    }
-                }
-
-                is GroupListUiState.Error -> {
-                    Text(
-                        text     = listState.message,
-                        color    = MaterialTheme.colorScheme.error,
-                        style    = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 16.dp).testTag(TestTags.ERROR_MESSAGE)
-                    )
-                }
-
-                is GroupListUiState.Success -> {
-                    if (listState.groups.isEmpty()) {
-                        Box(
-                            modifier = Modifier.weight(1f).fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text      = stringResource(R.string.groups_empty),
-                                color     = appColors.secondary,
-                                style     = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center,
-                                modifier  = Modifier.testTag(TestTags.GROUPS_EMPTY_STATE)
+            Box(Modifier.weight(0.6f)) {
+                when (listState) {
+                    is GroupListUiState.Loading -> {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                color    = appColors.primary,
+                                modifier = Modifier.testTag(TestTags.LOADING_INDICATOR)
                             )
                         }
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            items(listState.groups, key = { it.id }) { group ->
-                                GroupCard(
-                                    group      = group,
-                                    canEdit    = currentUserId != null && group.createdBy == currentUserId,
-                                    onClick    = { onGroupClicked(group.id) },
-                                    onEditPhoto = { editingGroup = group }
+                    }
+
+                    is GroupListUiState.Error -> {
+                        Text(
+                            text     = listState.message,
+                            color    = MaterialTheme.colorScheme.error,
+                            style    = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 16.dp).testTag(TestTags.ERROR_MESSAGE)
+                        )
+                    }
+
+                    is GroupListUiState.Success -> {
+                        if (listState.groups.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text      = stringResource(R.string.groups_empty),
+                                    color     = appColors.secondary,
+                                    style     = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center,
+                                    modifier  = Modifier.testTag(TestTags.GROUPS_EMPTY_STATE)
                                 )
+                            }
+                        } else {
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(listState.groups, key = { it.id }) { group ->
+                                    GroupCard(
+                                        group      = group,
+                                        canEdit    = currentUserId != null && group.createdBy == currentUserId,
+                                        onClick    = { onGroupClicked(group.id) },
+                                        onEditPhoto = { editingGroup = group }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Panel del grupo global: 40% inferior de la pantalla. Deja un margen a la
+            // DERECHA (80dp — 56dp de diámetro del FAB + 16dp de margen del Scaffold +
+            // respiro) para no taparse con los FABs de crear/unirse, y un margen inferior
+            // de 16dp — el mismo margen que Scaffold usa para separar el FAB del borde de
+            // la pantalla — para que el fondo del panel quede alineado con el fondo del
+            // botón de crear grupo en vez de seguir bajando más allá de él.
+            GlobalGroupFeedPanel(
+                messages = globalFeedMessages,
+                onClick  = { onGroupClicked(GlobalGroupConstants.GROUP_ID) },
+                modifier = Modifier
+                    .weight(0.4f)
+                    .padding(end = 80.dp, bottom = 16.dp)
+            )
         }
     }
 
@@ -292,10 +315,11 @@ private fun GroupCard(
         ) {
             Box(contentAlignment = Alignment.BottomEnd) {
                 GroupAvatar(
-                    photoUrl = group.photoUrl,
-                    iconId   = group.iconId,
-                    name     = group.name,
-                    size     = 96.dp
+                    photoUrl     = group.photoUrl,
+                    iconId       = group.iconId,
+                    name         = group.name,
+                    size         = 96.dp,
+                    localIconRes = if (group.id == GlobalGroupConstants.GROUP_ID) R.drawable.nflocos_picks_icon else null
                 )
                 if (canEdit) {
                     Box(

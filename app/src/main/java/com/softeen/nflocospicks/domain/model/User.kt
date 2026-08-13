@@ -9,7 +9,10 @@ data class User(
     val photoUrl: String?,
     val role: UserRole = UserRole.REGULAR,
     val phoneNumber: String? = null,
-    val username: String? = null
+    val username: String? = null,
+    // Epoch millis del último sign-in (PR-20). Re-escrito en CADA login (no solo el primero) —
+    // es lo que resetea el reloj de 1 año de inactividad y reactiva una cuenta deshabilitada.
+    val lastActive: Long? = null
 )
 
 /** Falls back to the username wherever a blank displayName would otherwise show empty text. */

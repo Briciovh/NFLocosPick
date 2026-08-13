@@ -62,6 +62,8 @@
     <string name="cd_copy_group_code">Copy group code</string>
     <string name="cd_share_group_code">Share group code</string>
     <string name="group_invite_share_text">Join my group with code %1$s on NFLocosPick</string>
+    <string name="global_group_feed_title">NFLocos de Corazón</string>
+    <string name="global_group_feed_empty">No messages yet</string>
     <string name="scoring_none">No new picks to score</string>
     <string name="scoring_result">%1$d pick(s) scored 🏆</string>
 

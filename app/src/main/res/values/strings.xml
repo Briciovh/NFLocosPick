@@ -65,6 +65,8 @@
     <string name="cd_copy_group_code">Copiar código de grupo</string>
     <string name="cd_share_group_code">Compartir código de grupo</string>
     <string name="group_invite_share_text">Únete a mi grupo con el código %1$s en NFLocosPick</string>
+    <string name="global_group_feed_title">NFLocos de Corazón</string>
+    <string name="global_group_feed_empty">Sin mensajes todavía</string>
     <string name="scoring_none">No hay picks nuevos que puntuar</string>
     <string name="scoring_result">%1$d pick(s) puntuados 🏆</string>
 

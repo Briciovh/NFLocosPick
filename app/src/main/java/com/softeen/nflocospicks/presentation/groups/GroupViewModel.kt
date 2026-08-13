@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.mock.MockDataProvider
+import com.softeen.nflocospicks.domain.model.BoardMessage
+import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -15,6 +17,7 @@ import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
+import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +29,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import timber.log.Timber
 
 @HiltViewModel
 class GroupViewModel @Inject constructor(
@@ -35,6 +39,7 @@ class GroupViewModel @Inject constructor(
     private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
     private val uploadGroupPhotoUseCase : UploadGroupPhotoUseCase,
     private val setGroupIconUseCase     : SetGroupIconUseCase,
+    private val watchBoardMessagesUseCase : WatchBoardMessagesUseCase,
     private val userRepository          : UserRepository,
     private val preferencesRepository   : UserPreferencesRepository,
     private val logger                  : AppLogger
@@ -42,6 +47,10 @@ class GroupViewModel @Inject constructor(
 
     private val _groupListState = MutableStateFlow<GroupListUiState>(GroupListUiState.Loading)
     val groupListState: StateFlow<GroupListUiState> = _groupListState.asStateFlow()
+
+    /** Últimos mensajes del board del grupo global, para el panel de PR-19 en GroupsScreen. */
+    private val _globalFeedMessages = MutableStateFlow<List<BoardMessage>>(emptyList())
+    val globalFeedMessages: StateFlow<List<BoardMessage>> = _globalFeedMessages.asStateFlow()
 
     private val _actionState = MutableStateFlow<GroupActionUiState>(GroupActionUiState.Idle)
     val actionState: StateFlow<GroupActionUiState> = _actionState.asStateFlow()
@@ -65,7 +74,16 @@ class GroupViewModel @Inject constructor(
             viewModelScope.launch { effects.send(GroupUiEffect.NavigateToLogin) }
         } else {
             observeGroups(currentUser.uid)
+            observeGlobalFeed()
         }
+    }
+
+    /** Alimenta [globalFeedMessages] — falla en silencio, el panel es un accesorio no crítico. */
+    private fun observeGlobalFeed() {
+        watchBoardMessagesUseCase(GlobalGroupConstants.GROUP_ID)
+            .onEach { messages -> _globalFeedMessages.value = messages }
+            .catch { e -> Timber.w(e, "observeGlobalFeed: no se pudo cargar el feed del grupo global") }
+            .launchIn(viewModelScope)
     }
 
     private fun observeGroups(userId: String) {
@@ -73,7 +91,7 @@ class GroupViewModel @Inject constructor(
             getGroupsForUserUseCase(userId),
             preferencesRepository.preferencesFlow
         ) { realGroups, prefs ->
-            if (prefs.useTestingData) {
+            val groups = if (prefs.useTestingData) {
                 // Inyectar el grupo mock al inicio de la lista, con el UID real incluido.
                 val mockGroup = MockDataProvider.MOCK_GROUP.copy(
                     memberIds = listOf(userId) + MockDataProvider.MOCK_GROUP.memberIds
@@ -82,6 +100,10 @@ class GroupViewModel @Inject constructor(
             } else {
                 realGroups
             }
+            // El grupo global (PR-16) siempre queda primero, sin importar el orden en que
+            // Firestore lo haya devuelto — sortedByDescending es estable, así que el resto
+            // conserva su orden relativo.
+            groups.sortedByDescending { it.id == GlobalGroupConstants.GROUP_ID }
         }
             .onEach { groups ->
                 _groupListState.value = GroupListUiState.Success(groups)

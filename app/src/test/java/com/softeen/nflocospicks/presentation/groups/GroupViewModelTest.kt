@@ -12,6 +12,7 @@ import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
+import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
 import com.softeen.nflocospicks.util.MainCoroutineRule
 import io.mockk.coEvery
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -39,6 +40,7 @@ class GroupViewModelTest {
     private val scoreUseCase        = mockk<ScoreWeekPicksUseCase>()
     private val uploadGroupPhotoUseCase = mockk<UploadGroupPhotoUseCase>()
     private val setGroupIconUseCase = mockk<SetGroupIconUseCase>()
+    private val watchBoardMessagesUseCase = mockk<WatchBoardMessagesUseCase>()
     private val userRepo            = mockk<UserRepository>()
     private val prefsRepo           = mockk<UserPreferencesRepository>()
     private val logger              = mockk<AppLogger>(relaxed = true)
@@ -61,6 +63,7 @@ class GroupViewModelTest {
         every { userRepo.getCurrentUser() }   returns testUser
         every { getGroupsUseCase(any()) }     returns flowOf(emptyList())
         every { prefsRepo.preferencesFlow }   returns flowOf(UserPreferences())
+        every { watchBoardMessagesUseCase(any()) } returns flowOf(emptyList())
     }
 
     // ── Factory ───────────────────────────────────────────────────────────────
@@ -72,6 +75,7 @@ class GroupViewModelTest {
         scoreWeekPicksUseCase   = scoreUseCase,
         uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
         setGroupIconUseCase     = setGroupIconUseCase,
+        watchBoardMessagesUseCase = watchBoardMessagesUseCase,
         userRepository          = userRepo,
         preferencesRepository   = prefsRepo,
         logger                  = logger

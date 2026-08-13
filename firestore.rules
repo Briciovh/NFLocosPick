@@ -6,8 +6,21 @@ service cloud.firestore {
     // Solo el propio usuario puede escribir su perfil.
     // Cualquier usuario autenticado puede leer (para mostrar nombres en grupos).
     match /users/{userId} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read:   if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // isActive/disabledAt (PR-20) son la excepción: el dueño puede escribir
+      // cualquier otro campo de su perfil (incluido lastActive, que se
+      // reescribe en cada login), pero NUNCA esos dos — si pudiera, una cuenta
+      // deshabilitada por inactividad podría auto-reactivarse escribiendo el
+      // doc directamente, sin pasar por un login real. Solo los escribe la
+      // Cloud Function "scheduledInactivityCheck" (Admin SDK, bypassa reglas).
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['isActive', 'disabledAt']);
+
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // ── Reserva de nombres de usuario ────────────────────────────────────────
@@ -53,9 +66,14 @@ service cloud.firestore {
                       || request.auth.uid == resource.data.createdBy
                     );
 
-      // Solo el creador puede eliminar el grupo.
+      // Solo el creador puede eliminar el grupo — excepto el grupo global
+      // "NFLocos de Corazón" (PR-16), que nunca se puede borrar aunque el
+      // requester sea su createdBy. Este id debe coincidir exactamente con
+      // GlobalGroupConstants.GROUP_ID (cliente) y con el groupId usado en
+      // functions/src/scripts/seedGlobalGroup.ts.
       allow delete: if request.auth != null
-                    && request.auth.uid == resource.data.createdBy;
+                    && request.auth.uid == resource.data.createdBy
+                    && groupId != "global_nflocos_de_corazon";
 
       // ── Subcolecciones de semanas y picks (PR-5 y PR-6) ──────────────────
       match /weeks/{weekId} {
@@ -88,8 +106,11 @@ service cloud.firestore {
 
       // ── Tablero de mensajes / anuncios (feature de Group Board) ───────────
       // Espejo del modelo de permisos de BoardViewModel: cualquier miembro
-      // puede leer y enviar; editar contenido solo el autor; eliminar o marcar
-      // como anuncio el autor o el admin del grupo (createdBy).
+      // puede leer y enviar; editar contenido el autor o el admin; eliminar el
+      // autor o el admin del grupo (createdBy). El campo isAnnouncement (PR-18)
+      // es la excepción: solo el admin puede tocarlo, sin importar que el
+      // requester sea el autor del mensaje — mismo patrón que photoUrl/iconId
+      // en groups/{groupId} más arriba.
       match /board/{messageId} {
         allow read: if request.auth != null
                     && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
@@ -98,7 +119,18 @@ service cloud.firestore {
                       && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds
                       && request.resource.data.senderId == request.auth.uid;
 
-        allow update, delete: if request.auth != null
+        allow update: if request.auth != null
+                      && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds
+                      && (
+                        request.auth.uid == resource.data.senderId
+                        || request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy
+                      )
+                      && (
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAnnouncement'])
+                        || request.auth.uid == get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy
+                      );
+
+        allow delete: if request.auth != null
                       && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds
                       && (
                         request.auth.uid == resource.data.senderId

@@ -1,12 +1,12 @@
 <resources>
     <!-- Nombre de marca — igual en todos los idiomas, no se traduce -->
-    <string name="app_name" translatable="false">NFLocos Pick</string>
+    <string name="app_name" translatable="false">NFLocos Picks</string>
 
     <!-- Accesibilidad / Shared -->
     <string name="cd_back">Regresar</string>
     <string name="cd_settings">Configuración</string>
     <string name="cd_sync">Sincronizar</string>
-    <string name="cd_app_logo">Logo de NFLocos Pick</string>
+    <string name="cd_app_logo">Logo de NFLocos Picks</string>
     <string name="cd_phone_country_selector">Seleccionar país</string>
 
     <!-- Bottom Navigation -->
@@ -64,7 +64,7 @@
     <string name="group_code_copied">Código copiado</string>
     <string name="cd_copy_group_code">Copiar código de grupo</string>
     <string name="cd_share_group_code">Compartir código de grupo</string>
-    <string name="group_invite_share_text">Únete a mi grupo con el código %1$s en NFLocosPick</string>
+    <string name="group_invite_share_text">Únete a mi grupo con el código %1$s en NFLocos Picks</string>
     <string name="global_group_feed_title">NFLocos de Corazón</string>
     <string name="global_group_feed_empty">Sin mensajes todavía</string>
     <string name="scoring_none">No hay picks nuevos que puntuar</string>

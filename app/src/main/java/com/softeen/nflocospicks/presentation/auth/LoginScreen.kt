@@ -131,7 +131,7 @@ fun LoginScreenContent(
             }
 
             Text(
-                text       = "NFLocos Picks",
+                text       = stringResource(R.string.app_name),
                 color      = appColors.primary,
                 style      = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.ExtraBold

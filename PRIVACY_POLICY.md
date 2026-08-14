@@ -1,18 +1,18 @@
-# Política de Privacidad de NFLocosPick
+# Política de Privacidad de NFLocos Picks
 
 *[English version below](#privacy-policy-of-nflocospick-english)*
 
 **Última actualización:** 5 de agosto de 2026
 
-NFLocosPick ("la app", "nosotros") es una aplicación para grupos privados de amigos que hacen picks semanales de la NFL. Esta política explica qué información recopilamos, para qué la usamos, con quién se comparte y qué control tienes sobre ella.
+NFLocos Picks ("la app", "nosotros") es una aplicación para grupos privados de amigos que hacen picks semanales de la NFL. Esta política explica qué información recopilamos, para qué la usamos, con quién se comparte y qué control tienes sobre ella.
 
-Al usar NFLocosPick aceptas las prácticas descritas en este documento.
+Al usar NFLocos Picks aceptas las prácticas descritas en este documento.
 
 ---
 
 ## 1. Quién es responsable de tus datos
 
-NFLocosPick es desarrollada y mantenida por **Bricio Velázquez** ("el desarrollador"). Si tienes preguntas sobre esta política o sobre tus datos, puedes escribir a:
+NFLocos Picks es desarrollada y mantenida por **Bricio Velázquez** ("el desarrollador"). Si tienes preguntas sobre esta política o sobre tus datos, puedes escribir a:
 
 **briciovh@gmail.com**
 
@@ -22,7 +22,7 @@ NFLocosPick es desarrollada y mantenida por **Bricio Velázquez** ("el desarroll
 
 ### 2.1 Al iniciar sesión
 
-NFLocosPick usa **Google Sign-In** como único método de autenticación. Al iniciar sesión, recibimos y guardamos:
+NFLocos Picks usa **Google Sign-In** como único método de autenticación. Al iniciar sesión, recibimos y guardamos:
 
 - Tu dirección de correo electrónico
 - Tu nombre visible (el de tu cuenta de Google)
@@ -32,7 +32,7 @@ No tenemos acceso a tu contraseña de Google ni a ningún otro dato de tu cuenta
 
 ### 2.2 Contenido que generas dentro de la app
 
-Cuando usas NFLocosPick con tu grupo, guardamos el contenido que tú mismo creas:
+Cuando usas NFLocos Picks con tu grupo, guardamos el contenido que tú mismo creas:
 
 - **Grupos**: nombre del grupo, código de invitación, quién lo creó y quiénes son sus miembros.
 - **Picks**: qué equipo elegiste en cada partido de cada semana, y si acertaste o no una vez que el partido termina.
@@ -57,7 +57,7 @@ Usamos **Firebase Analytics** y **Firebase Crashlytics** (servicios de Google) p
 
 ### 2.5 Publicidad
 
-NFLocosPick **no muestra anuncios** y **no usa redes publicitarias ni SDKs de rastreo de terceros** con fines de mercadotecnia.
+NFLocos Picks **no muestra anuncios** y **no usa redes publicitarias ni SDKs de rastreo de terceros** con fines de mercadotecnia.
 
 ---
 
@@ -112,7 +112,7 @@ Para ejercer cualquier otro derecho de esta sección, escríbenos a **briciovh@g
 
 ## 7. Menores de edad
 
-NFLocosPick no está dirigida a menores de 13 años y no recopilamos intencionalmente información de menores de esa edad. Si crees que un menor nos proporcionó datos personales, contáctanos para eliminarlos.
+NFLocos Picks no está dirigida a menores de 13 años y no recopilamos intencionalmente información de menores de esa edad. Si crees que un menor nos proporcionó datos personales, contáctanos para eliminarlos.
 
 ---
 
@@ -141,21 +141,21 @@ Si tienes preguntas, dudas o solicitudes relacionadas con tu privacidad, escríb
 
 <a id="privacy-policy-of-nflocospick-english"></a>
 
-# Privacy Policy of NFLocosPick
+# Privacy Policy of NFLocos Picks
 
-*[Versión en español arriba](#política-de-privacidad-de-nflocospick)*
+*[Versión en español arriba](#política-de-privacidad-de-nflocos-picks)*
 
 **Last updated:** August 5, 2026
 
-NFLocosPick ("the app", "we") is an app for private groups of friends making weekly NFL picks. This policy explains what information we collect, what we use it for, who we share it with, and what control you have over it.
+NFLocos Picks ("the app", "we") is an app for private groups of friends making weekly NFL picks. This policy explains what information we collect, what we use it for, who we share it with, and what control you have over it.
 
-By using NFLocosPick, you agree to the practices described in this document.
+By using NFLocos Picks, you agree to the practices described in this document.
 
 ---
 
 ## 1. Who is responsible for your data
 
-NFLocosPick is developed and maintained by **Bricio Velázquez** ("the developer"). If you have questions about this policy or your data, you can write to:
+NFLocos Picks is developed and maintained by **Bricio Velázquez** ("the developer"). If you have questions about this policy or your data, you can write to:
 
 **briciovh@gmail.com**
 
@@ -165,7 +165,7 @@ NFLocosPick is developed and maintained by **Bricio Velázquez** ("the developer
 
 ### 2.1 When you sign in
 
-NFLocosPick uses **Google Sign-In** as its only authentication method. When you sign in, we receive and store:
+NFLocos Picks uses **Google Sign-In** as its only authentication method. When you sign in, we receive and store:
 
 - Your email address
 - Your display name (from your Google account)
@@ -175,7 +175,7 @@ We never have access to your Google password or any other data from your Google 
 
 ### 2.2 Content you create inside the app
 
-When you use NFLocosPick with your group, we store the content you create:
+When you use NFLocos Picks with your group, we store the content you create:
 
 - **Groups**: group name, invite code, who created it, and who its members are.
 - **Picks**: which team you picked for each game each week, and whether you got it right once the game ends.
@@ -200,7 +200,7 @@ We use **Firebase Analytics** and **Firebase Crashlytics** (Google services) to 
 
 ### 2.5 Advertising
 
-NFLocosPick **does not show ads** and **does not use ad networks or third-party tracking SDKs** for marketing purposes.
+NFLocos Picks **does not show ads** and **does not use ad networks or third-party tracking SDKs** for marketing purposes.
 
 ---
 
@@ -255,7 +255,7 @@ To exercise any other right in this section, email us at **briciovh@gmail.com**.
 
 ## 7. Children
 
-NFLocosPick is not directed at children under 13, and we do not knowingly collect personal information from children under that age. If you believe a child has provided us with personal data, contact us so we can delete it.
+NFLocos Picks is not directed at children under 13, and we do not knowingly collect personal information from children under that age. If you believe a child has provided us with personal data, contact us so we can delete it.
 
 ---
 

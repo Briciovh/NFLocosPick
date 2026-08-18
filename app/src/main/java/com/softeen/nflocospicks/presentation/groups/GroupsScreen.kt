@@ -319,7 +319,7 @@ private fun GroupCard(
                     iconId       = group.iconId,
                     name         = group.name,
                     size         = 96.dp,
-                    localIconRes = if (group.id == GlobalGroupConstants.GROUP_ID) R.drawable.nflocos_picks_icon else null
+                    localIconRes = if (group.id == GlobalGroupConstants.GROUP_ID) R.drawable.nflocos_ball_avatar else null
                 )
                 if (canEdit) {
                     Box(

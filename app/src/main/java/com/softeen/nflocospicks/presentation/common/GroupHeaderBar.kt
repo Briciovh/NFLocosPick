@@ -67,7 +67,7 @@ fun GroupHeaderBar(
             iconId       = group?.iconId,
             name         = group?.name.orEmpty(),
             size         = 28.dp,
-            localIconRes = if (group?.id == GlobalGroupConstants.GROUP_ID) R.drawable.nflocos_picks_icon else null
+            localIconRes = if (group?.id == GlobalGroupConstants.GROUP_ID) R.drawable.nflocos_ball_avatar else null
         )
         Text(
             text       = group?.name.orEmpty(),

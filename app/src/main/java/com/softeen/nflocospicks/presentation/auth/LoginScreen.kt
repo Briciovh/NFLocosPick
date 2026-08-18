@@ -124,7 +124,7 @@ fun LoginScreenContent(
                         .background(appColors.primary.copy(alpha = 0.15f), CircleShape)
                 )
                 Image(
-                    painter            = painterResource(R.drawable.nflocos_picks_logo),
+                    painter            = painterResource(R.drawable.nflocos_ball_logo),
                     contentDescription = stringResource(R.string.cd_app_logo),
                     modifier           = Modifier.size(160.dp)
                 )

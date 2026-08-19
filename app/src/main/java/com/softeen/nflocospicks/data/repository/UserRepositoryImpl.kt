@@ -233,7 +233,7 @@ class UserRepositoryImpl @Inject constructor(
     override fun getCurrentUser(): User? =
         authDataSource.getCurrentFirebaseUser()?.toBasicUser()
 
-    override fun isUsernameAvailable(username: String): Flow<Boolean> = callbackFlow {
+    override fun isUsernameAvailable(username: String, uid: String): Flow<Boolean> = callbackFlow {
         val normalized = username.trim().lowercase()
         val listener = firestore.collection("usernames").document(normalized)
             .addSnapshotListener { snap, error ->
@@ -241,7 +241,10 @@ class UserRepositoryImpl @Inject constructor(
                     close(error)
                     return@addSnapshotListener
                 }
-                trySend(snap?.exists() != true)
+                // A reservation that already belongs to this uid (e.g. a stale/orphaned doc left
+                // over from a prior account-deletion bug) must count as available, not taken.
+                val takenByOther = snap?.exists() == true && snap.getString("userId") != uid
+                trySend(!takenByOther)
             }
         awaitClose { listener.remove() }
     }
@@ -269,10 +272,16 @@ class UserRepositoryImpl @Inject constructor(
                 if (normalizedUsername != oldNormalizedUsername) {
                     val newUsernameRef = usernamesRef.document(normalizedUsername)
                     val newUsernameSnap = transaction.get(newUsernameRef)
-                    if (newUsernameSnap.exists()) {
+                    // A reservation that already exists but belongs to this same uid isn't
+                    // actually taken — it's the user's own (possibly orphaned, e.g. left behind
+                    // by a prior account-deletion bug) reservation, so just claim/keep it instead
+                    // of rejecting the write.
+                    if (newUsernameSnap.exists() && newUsernameSnap.getString("userId") != uid) {
                         throw AuthException(AuthError.USERNAME_TAKEN)
                     }
-                    transaction.set(newUsernameRef, mapOf("userId" to uid))
+                    if (!newUsernameSnap.exists()) {
+                        transaction.set(newUsernameRef, mapOf("userId" to uid))
+                    }
                     if (oldNormalizedUsername != null) {
                         transaction.delete(usernamesRef.document(oldNormalizedUsername))
                     }
@@ -333,13 +342,26 @@ class UserRepositoryImpl @Inject constructor(
                     return@addSnapshotListener
                 }
                 if (snap == null || !snap.exists()) return@addSnapshotListener
-                // Diagnostic breadcrumb for the profile-completion-screen-reappears bug report:
-                // confirms exactly what this device read back for username on this snapshot.
+                // Root cause of the profile-completion-screen-reappears bug: on a fresh install
+                // (empty local Firestore cache), the very first snapshot after sign-in reflects
+                // upsertAndResolveRole's own set(..., merge()) write applied *optimistically* to
+                // that empty cache — it contains only the fields that write touched (displayName/
+                // email/photoUrl/phoneNumber/lastActive), NOT the rest of the real server doc,
+                // because the cache has no prior copy to merge against yet. That phantom
+                // snapshot (isFromCache=true && hasPendingWrites=true) reports no username even
+                // though the server genuinely has one, and callers (AuthViewModel) used to treat
+                // any emission here as proof of a real sync, routing to the setup screen before
+                // the true, server-confirmed snapshot (a few hundred ms later) could correct it.
+                // Skipping this specific cache+pending combination waits for a trustworthy read.
+                val isUnreliableOptimisticSnapshot =
+                    snap.metadata.isFromCache && snap.metadata.hasPendingWrites()
                 Timber.i(
                     "watchCurrentUser: uid=$uid hasUsername=${snap.contains("username")} " +
                         "isFromCache=${snap.metadata.isFromCache} " +
-                        "hasPendingWrites=${snap.metadata.hasPendingWrites()}"
+                        "hasPendingWrites=${snap.metadata.hasPendingWrites()} " +
+                        "skipped=$isUnreliableOptimisticSnapshot"
                 )
+                if (isUnreliableOptimisticSnapshot) return@addSnapshotListener
                 trySend(snap.toUser(uid))
             }
         awaitClose { listener.remove() }
@@ -373,17 +395,25 @@ class UserRepositoryImpl @Inject constructor(
     private suspend fun upsertAndResolveRole(fbUser: FirebaseUser): SignInResult {
         val ref = firestore.collection("users").document(fbUser.uid)
 
+        // Only seed displayName/photoUrl from the FirebaseAuth identity when the doc doesn't
+        // exist yet. Both are also editable in-app (Account screen / profile photo upload) —
+        // unconditionally re-writing them from fbUser on every sign-in silently clobbered any
+        // customization back to Google's raw account values the next time the user signed in
+        // (e.g. after a reinstall), even though the custom value had genuinely persisted.
+        val isNewDoc = !ref.get().await().exists()
         ref.set(
-            mapOf(
-                "displayName" to fbUser.displayName.orEmpty(),
-                "email"       to fbUser.email.orEmpty(),
-                "photoUrl"    to fbUser.photoUrl?.toString(),
-                "phoneNumber" to fbUser.phoneNumber,
+            buildMap {
+                put("email", fbUser.email.orEmpty())
+                put("phoneNumber", fbUser.phoneNumber)
                 // Se reescribe en CADA login (no solo el primero, a diferencia de "role") — es
                 // lo que resetea el reloj de 1 año de inactividad (PR-20) y reactiva una cuenta
                 // que la Cloud Function "scheduledInactivityCheck" hubiera deshabilitado.
-                "lastActive"  to FieldValue.serverTimestamp()
-            ),
+                put("lastActive", FieldValue.serverTimestamp())
+                if (isNewDoc) {
+                    put("displayName", fbUser.displayName.orEmpty())
+                    put("photoUrl", fbUser.photoUrl?.toString())
+                }
+            },
             SetOptions.merge()
         ).await()
 
@@ -401,11 +431,14 @@ class UserRepositoryImpl @Inject constructor(
         }
 
         return SignInResult(
+            // Reads displayName/photoUrl back from the just-written doc (not fbUser directly) so
+            // a returning user with a customized value never sees a momentary flash of their raw
+            // Google account name/photo before watchCurrentUser's snapshot corrects it.
             user = User(
                 uid         = fbUser.uid,
-                displayName = fbUser.displayName.orEmpty(),
+                displayName = snap.getString("displayName") ?: fbUser.displayName.orEmpty(),
                 email       = fbUser.email.orEmpty(),
-                photoUrl    = fbUser.photoUrl?.toString(),
+                photoUrl    = snap.getString("photoUrl") ?: fbUser.photoUrl?.toString(),
                 role        = role,
                 phoneNumber = fbUser.phoneNumber,
                 username    = snap.getString("username"),

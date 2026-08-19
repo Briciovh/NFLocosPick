@@ -124,7 +124,7 @@ fun AccountScreen(
     // (saved or suggested) — without this, usernameAvailability stays Unknown until the
     // user retypes the field, leaving Save permanently disabled.
     LaunchedEffect(user.uid) {
-        viewModel.onUsernameChanged(initialUsername, user.username)
+        viewModel.onUsernameChanged(initialUsername, user.username, user.uid)
     }
 
     LaunchedEffect(Unit) {
@@ -155,7 +155,7 @@ fun AccountScreen(
         photoUrl                  = localPhotoUrl,
         isUploadingPhoto          = photoUploadState is PhotoUploadState.Uploading,
         favoriteTeamAbbr          = favoriteTeamAbbr,
-        onUsernameChanged         = { viewModel.onUsernameChanged(it, user.username) },
+        onUsernameChanged         = { viewModel.onUsernameChanged(it, user.username, user.uid) },
         onSave                    = { username, displayName ->
             viewModel.saveProfile(uid = user.uid, username = username, displayName = displayName)
         },
@@ -370,10 +370,14 @@ internal fun AccountScreenContent(
                 singleLine    = true,
                 modifier      = Modifier
                     .fillMaxWidth()
-                    // Copies username into displayName the moment this field loses focus, unless
-                    // the user has already edited displayName by hand — that edit always wins.
+                    // Suggests username as a starting displayName only when displayName is still
+                    // blank (first-time setup) and hasn't been hand-edited. Compose's
+                    // onFocusChanged fires once on initial composition with isFocused=false even
+                    // when the user never touched the field — without the isBlank() check, that
+                    // synthetic callback silently overwrote an already-saved displayName (loaded
+                    // from Firestore) with the username on every screen open.
                     .onFocusChanged { focusState ->
-                        if (!focusState.isFocused && !displayNameManuallyEdited) {
+                        if (!focusState.isFocused && !displayNameManuallyEdited && displayName.isBlank()) {
                             displayName = username
                         }
                     },

@@ -32,7 +32,11 @@ export async function deleteUserAccount(uid: string): Promise<void> {
   }
 
   if (username) {
-    await db.collection("usernames").doc(username).delete();
+    // The reservation doc ID is always lowercase-normalized (see UserRepositoryImpl.
+    // updateProfile on the client) while users/{uid}.username preserves the typed casing —
+    // deleting by the raw casing here missed the doc whenever it had any uppercase letter,
+    // leaving an orphaned reservation that made the username look permanently "taken".
+    await db.collection("usernames").doc(username.toLowerCase()).delete();
   }
 
   await userRef.set(

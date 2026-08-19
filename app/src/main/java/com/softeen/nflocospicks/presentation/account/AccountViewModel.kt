@@ -63,9 +63,10 @@ class AccountViewModel @Inject constructor(
     /** One-shot side effects (e.g. save confirmation). BUFFERED so rapid emissions aren't dropped. */
     val effects = Channel<AccountUiEffect>(Channel.BUFFERED)
 
-    // Pair(candidate query, user's current username) — the current username travels alongside
-    // each query so flatMapLatest can short-circuit "unchanged" without a second field to key on.
-    private val usernameQueries = MutableStateFlow<Pair<String, String?>?>(null)
+    // Triple(candidate query, user's current username, uid) — the current username travels
+    // alongside each query so flatMapLatest can short-circuit "unchanged" without a second field
+    // to key on; uid is needed so the availability check can recognize the user's own reservation.
+    private val usernameQueries = MutableStateFlow<Triple<String, String?, String>?>(null)
 
     init {
         usernameQueries
@@ -73,12 +74,12 @@ class AccountViewModel @Inject constructor(
             .distinctUntilChanged()
             .flatMapLatest { query ->
                 if (query == null) return@flatMapLatest flowOf(UsernameAvailability.Unknown)
-                val (candidate, current) = query
+                val (candidate, current, uid) = query
                 val normalized = candidate.trim().lowercase()
                 when {
                     normalized.isBlank() -> flowOf(UsernameAvailability.Unknown)
                     normalized == current?.trim()?.lowercase() -> flowOf(UsernameAvailability.Unchanged)
-                    else -> userRepository.isUsernameAvailable(normalized)
+                    else -> userRepository.isUsernameAvailable(normalized, uid)
                         .map { available -> if (available) UsernameAvailability.Available else UsernameAvailability.Taken }
                         .onStart { emit(UsernameAvailability.Checking) }
                         // Without this, an uncaught exception here (e.g. a permission-denied
@@ -91,8 +92,8 @@ class AccountViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    fun onUsernameChanged(candidate: String, currentUsername: String?) {
-        usernameQueries.value = candidate to currentUsername
+    fun onUsernameChanged(candidate: String, currentUsername: String?, uid: String) {
+        usernameQueries.value = Triple(candidate, currentUsername, uid)
     }
 
     fun saveProfile(uid: String, username: String, displayName: String) {

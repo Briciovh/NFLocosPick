@@ -102,7 +102,12 @@ fun LoginScreenContent(
     var useEmailLink by remember { mutableStateOf(false) }
     var usePhoneAuth by remember { mutableStateOf(false) }
 
-    val isLoading = state is AuthUiState.Loading
+    // Also covers the gap between a successful sign-in and the Firestore profile sync that
+    // decides where to navigate next (NavGraph waits for isProfileSynced) — without this, the
+    // spinner would disappear and the login form would flash back as interactive during that
+    // round-trip, right before the screen navigates away.
+    val isLoading = state is AuthUiState.Loading ||
+        (state is AuthUiState.Authenticated && !state.isProfileSynced)
 
     Box(
         modifier         = Modifier.fillMaxSize().background(appColors.background),

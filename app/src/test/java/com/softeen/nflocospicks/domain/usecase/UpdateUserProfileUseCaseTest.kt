@@ -36,7 +36,7 @@ private class CapturingUserRepository : UserRepository {
         return Result.success(Unit)
     }
 
-    override fun isUsernameAvailable(username: String): Flow<Boolean> = throw NotImplementedError()
+    override fun isUsernameAvailable(username: String, uid: String): Flow<Boolean> = throw NotImplementedError()
     override suspend fun uploadProfilePhoto(uid: String, uri: Uri): Result<String> = throw NotImplementedError()
     override suspend fun linkEmailCredential(email: String, link: String): Result<Unit> = throw NotImplementedError()
     override fun linkPhoneNumber(activity: Activity, phoneNumber: String): Flow<PhoneVerificationEvent> = throw NotImplementedError()

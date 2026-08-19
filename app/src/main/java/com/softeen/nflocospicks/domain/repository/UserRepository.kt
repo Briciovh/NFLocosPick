@@ -80,9 +80,11 @@ interface UserRepository {
 
     /**
      * Live availability of a username: emits `true` when `usernames/{username}` (lowercased)
-     * has no reservation document, `false` when it's already claimed by any user.
+     * has no reservation document, or when the existing reservation already belongs to [uid]
+     * (so a user resubmitting their own current/former username is never told it's taken).
+     * Emits `false` when it's claimed by a different user.
      */
-    fun isUsernameAvailable(username: String): Flow<Boolean>
+    fun isUsernameAvailable(username: String, uid: String): Flow<Boolean>
 
     /**
      * Claims [username] (case-insensitively, via the `usernames/{username}` reservation

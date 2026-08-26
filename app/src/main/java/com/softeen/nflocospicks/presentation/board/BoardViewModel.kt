@@ -66,15 +66,19 @@ class BoardViewModel @Inject constructor(
             val currentUserId = currentUser?.uid.orEmpty()
             Timber.d("loadInitialData: groupId=$groupId currentUserId=$currentUserId isMockMode=$isMockMode")
 
-            val isGroupAdmin = if (isMockMode) {
-                false // Real user is never mock_user_1
-            } else {
-                runCatching { groupRepository.getGroupById(groupId).createdBy == currentUserId }
-                    .onFailure { Timber.w(it, "getGroupById failed") }
-                    .getOrDefault(false)
-            }
+            val groupResult = if (isMockMode) null
+            else runCatching { groupRepository.getGroupById(groupId) }.getOrNull()
 
-            _uiState.update { it.copy(currentUserId = currentUserId, isGroupAdmin = isGroupAdmin) }
+            val isGroupAdmin = groupResult?.createdBy == currentUserId
+            val groupName = groupResult?.name
+
+            _uiState.update {
+                it.copy(
+                    currentUserId = currentUserId,
+                    isGroupAdmin = isGroupAdmin,
+                    groupName = groupName
+                )
+            }
 
             if (isMockMode) observeMockMessages()
             else observeRealMessages()
@@ -130,6 +134,14 @@ class BoardViewModel @Inject constructor(
                     } else {
                         updateBoardMessage(groupId, editing.id, text)
                     }
+                    val state = _uiState.value
+                    logger.logEvent(AppEvent.BoardMessageSent(
+                        groupId,
+                        "chat",
+                        action = "edited",
+                        isGroupAdmin = state.isGroupAdmin,
+                        groupName = state.groupName
+                    ))
                     _uiState.update { it.copy(editingMessage = null, inputText = "") }
                 } else {
                     val newMessage = BoardMessage(
@@ -147,7 +159,14 @@ class BoardViewModel @Inject constructor(
                         sendBoardMessage(newMessage)
                         Timber.d("sendOrSaveMessage: Firestore add succeeded")
                     }
-                    logger.logEvent(AppEvent.BoardMessageSent(groupId, "chat"))
+                    val state = _uiState.value
+                    logger.logEvent(AppEvent.BoardMessageSent(
+                        groupId,
+                        "chat",
+                        action = "sent",
+                        isGroupAdmin = state.isGroupAdmin,
+                        groupName = state.groupName
+                    ))
                     _uiState.update { it.copy(inputText = "") }
                 }
             }.onFailure { e ->
@@ -179,7 +198,12 @@ class BoardViewModel @Inject constructor(
                 } else {
                     deleteBoardMessage(groupId, message.id)
                 }
-                logger.logEvent(AppEvent.BoardMessageDeleted(groupId))
+                logger.logEvent(AppEvent.BoardMessageDeleted(
+                    groupId,
+                    isGroupAdmin = state.isGroupAdmin,
+                    isOwnMessage = message.senderId == state.currentUserId,
+                    groupName = state.groupName
+                ))
             }.onFailure { e ->
                 Timber.e(e, "deleteMessage failed: ${e.message}")
                 _uiState.update { it.copy(snackbarMessage = e.message) }
@@ -202,7 +226,7 @@ class BoardViewModel @Inject constructor(
                 } else {
                     setBoardAnnouncement(groupId, message.id, newValue)
                 }
-                logger.logEvent(AppEvent.BoardAnnouncementToggled(groupId, newValue))
+                logger.logEvent(AppEvent.BoardAnnouncementToggled(groupId, newValue, _uiState.value.groupName))
             }.onFailure { e ->
                 Timber.e(e, "toggleAnnouncement failed: ${e.message}")
                 _uiState.update { it.copy(snackbarMessage = e.message) }

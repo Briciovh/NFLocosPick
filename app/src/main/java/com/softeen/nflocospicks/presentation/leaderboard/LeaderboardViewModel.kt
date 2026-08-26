@@ -10,6 +10,7 @@ import com.softeen.nflocospicks.domain.model.MockSessionState
 import com.softeen.nflocospicks.domain.model.SeasonType
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.effectiveDisplayName
+import com.softeen.nflocospicks.domain.repository.GroupRepository
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -34,6 +35,7 @@ class LeaderboardViewModel @Inject constructor(
     private val getLeaderboardUseCase: GetLeaderboardUseCase,
     private val getCurrentWeekGamesUseCase: GetCurrentWeekGamesUseCase,
     private val userRepository:        UserRepository,
+    private val groupRepository:       GroupRepository,
     private val preferencesRepository: UserPreferencesRepository,
     private val mockSessionRepository: MockSessionRepository,
     private val logger:                AppLogger
@@ -52,13 +54,17 @@ class LeaderboardViewModel @Inject constructor(
     init {
         if (groupId == MockDataProvider.MOCK_GROUP_ID) observeMockLeaderboard()
         else {
-            logger.logEvent(AppEvent.LeaderboardViewed(groupId))
+            viewModelScope.launch {
+                val groupName = runCatching { groupRepository.getGroupById(groupId).name }.getOrNull()
+                logger.logEvent(AppEvent.LeaderboardViewed(groupId, groupName))
+            }
             detectCurrentSeasonType()
             observeRealLeaderboard()
         }
     }
 
     fun onTabSelected(seasonType: SeasonType) {
+        logger.logEvent(AppEvent.LeaderboardTabSelected(groupId, seasonType.name))
         _selectedSeasonType.value = seasonType
         recompute()
     }

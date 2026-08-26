@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.presentation.history
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.domain.repository.GroupRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
@@ -19,6 +20,7 @@ class HistoryViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getPickHistoryUseCase: GetPickHistoryUseCase,
     private val userRepository: UserRepository,
+    private val groupRepository: GroupRepository,
     private val logger: AppLogger
 ) : ViewModel() {
 
@@ -36,8 +38,9 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { getPickHistoryUseCase(groupId, userId) }
                 .onSuccess { weeks ->
+                    val groupName = runCatching { groupRepository.getGroupById(groupId).name }.getOrNull()
                     _uiState.value = HistoryUiState.Success(weeks)
-                    logger.logEvent(AppEvent.PickHistoryViewed(groupId))
+                    logger.logEvent(AppEvent.PickHistoryViewed(groupId, groupName))
                 }
                 .onFailure { e -> _uiState.value = HistoryUiState.Error(e.message ?: "Error al cargar historial") }
         }
@@ -45,6 +48,8 @@ class HistoryViewModel @Inject constructor(
 
     fun toggleWeek(weekId: String) {
         val current = _uiState.value as? HistoryUiState.Success ?: return
+        val expanded = current.expandedWeekId != weekId
+        logger.logEvent(AppEvent.HistoryWeekToggled(groupId, weekId, expanded))
         _uiState.value = current.copy(
             expandedWeekId = if (current.expandedWeekId == weekId) null else weekId
         )

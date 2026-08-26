@@ -19,13 +19,8 @@ import com.softeen.nflocospicks.domain.usecase.GetWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SubmitPickUseCase
 import com.softeen.nflocospicks.util.MainCoroutineRule
-import io.mockk.coEvery
+import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.just
-import io.mockk.mockk
-import io.mockk.Runs
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -152,6 +147,7 @@ class PickViewModelTest {
 
         val state = vm.uiState.value as PickUiState.Success
         assertEquals("KC", state.items.single().pickedTeam)
+        verify { logger.logEvent(match { it.name == "pick_submitted" && it.params["team_abbr"] == "KC" }) }
     }
 
     @Test
@@ -193,6 +189,7 @@ class PickViewModelTest {
         vm.triggerSync()
 
         coVerify(exactly = 1) { scoreUseCase("real-group-1") }
+        verify { logger.logEvent(match { it.name == "scoring_completed" && it.params["source"] == "pick_manual_sync" }) }
         // La semana "actual" solo se resuelve una vez (init) — triggerSync recarga
         // la semana seleccionada vía getGamesForWeekUseCase, no getGamesUseCase de nuevo.
         coVerify(exactly = 1) { getGamesUseCase("real-group-1") }
@@ -224,7 +221,7 @@ class PickViewModelTest {
     }
 
     @Test
-    fun `onWeekSelected maps the HOF tab to ESPN preseason week 1`() = runTest(coroutineRule.dispatcher) {
+    fun `onWeekSelected maps the HOF tab to ESPN preseason week 1 and logs it`() = runTest(coroutineRule.dispatcher) {
         coEvery { getGamesForWeekUseCase(SeasonType.PRESEASON, 1) } returns
             listOf(testGame.copy(weekId = "2025-pre-week-01", seasonType = SeasonType.PRESEASON, weekNumber = 1))
 
@@ -232,6 +229,7 @@ class PickViewModelTest {
         vm.onWeekSelected(0)
 
         coVerify(exactly = 1) { getGamesForWeekUseCase(SeasonType.PRESEASON, 1) }
+        verify { logger.logEvent(match { it.name == "week_tab_selected" && it.params["week_number"] == 1 }) }
     }
 
     @Test
@@ -331,7 +329,7 @@ class PickViewModelTest {
     }
 
     @Test
-    fun `refresh reloads the selected week and ends with isRefreshing false`() = runTest(coroutineRule.dispatcher) {
+    fun `refresh reloads the selected week, logs it, and ends with isRefreshing false`() = runTest(coroutineRule.dispatcher) {
         val vm = viewModel()
         val initialItems = (vm.uiState.value as PickUiState.Success).items
 
@@ -341,5 +339,17 @@ class PickViewModelTest {
         assertFalse(state.isRefreshing)
         assertEquals(initialItems, state.items)
         coVerify(exactly = 1) { getGamesForWeekUseCase(SeasonType.REGULAR, 12) }
+        verify { logger.logEvent(match { it.name == "pick_refresh" && it.params["trigger"] == "manual" }) }
+    }
+
+    @Test
+    fun `auto-refresh failure logs pick_auto_refresh_failed and never logs pick_refresh`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+        coEvery { getGamesForWeekUseCase(SeasonType.REGULAR, 12) } throws RuntimeException("espn down")
+
+        vm.refresh(manual = false)
+
+        verify { logger.logEvent(match { it.name == "pick_auto_refresh_failed" && it.params["group_id"] == "real-group-1" }) }
+        verify(exactly = 0) { logger.logEvent(match { it.name == "pick_refresh" }) }
     }
 }

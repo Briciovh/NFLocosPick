@@ -18,6 +18,7 @@ import com.softeen.nflocospicks.domain.usecase.GetGamesForWeekUseCase
 import com.softeen.nflocospicks.domain.usecase.GetWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SubmitPickUseCase
+import com.softeen.nflocospicks.presentation.common.nflTeamNameByAbbr
 import com.softeen.nflocospicks.presentation.theme.IconScaleOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -125,6 +126,8 @@ class PickViewModel @Inject constructor(
     fun onWeekSelected(index: Int) {
         if (groupId == MockDataProvider.MOCK_GROUP_ID || index == _selectedWeekIndex.value) return
         _selectedWeekIndex.value = index
+        val week = NflSeasonCalendar.WEEKS[index]
+        logger.logEvent(AppEvent.WeekTabSelected(groupId, week.seasonType.name, week.weekNumber))
         val cached = weekCache[index]
         // Una vez cacheada, una semana se confía tal cual al volver a ella — no
         // se revalida en silencio. Revalidar acá pisaría un pick optimista que
@@ -138,13 +141,14 @@ class PickViewModel @Inject constructor(
 
     // Pull-to-refresh y auto-refresh: re-consulta la semana SELECCIONADA sin
     // ocultar lo que ya se está mostrando.
-    fun refresh() {
+    fun refresh(manual: Boolean = true) {
         if (groupId == MockDataProvider.MOCK_GROUP_ID) return
         if (_uiState.value !is PickUiState.Success) return
-        loadWeek(_selectedWeekIndex.value, showLoading = false)
+        if (manual) logger.logEvent(AppEvent.PickRefresh(groupId))
+        loadWeek(_selectedWeekIndex.value, showLoading = false, manual = manual)
     }
 
-    private fun loadWeek(index: Int, showLoading: Boolean) {
+    private fun loadWeek(index: Int, showLoading: Boolean, manual: Boolean = true) {
         val userId = userRepository.getCurrentUser()?.uid ?: return
         val week = NflSeasonCalendar.WEEKS[index]
         viewModelScope.launch {
@@ -163,6 +167,7 @@ class PickViewModel @Inject constructor(
                     }
                 } else {
                     Timber.w(e, "No se pudo refrescar la semana (no fatal)")
+                    if (!manual) logger.logEvent(AppEvent.PickAutoRefreshFailed(groupId))
                     markRefreshing(index, false)
                 }
             }
@@ -208,7 +213,7 @@ class PickViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             while (true) {
                 delay(AUTO_REFRESH_INTERVAL_MS)
-                refresh()
+                refresh(manual = false)
             }
         }
     }
@@ -269,6 +274,7 @@ class PickViewModel @Inject constructor(
         // optimista y su revert deben seguir aplicando a la semana donde se
         // hizo el pick, no a la que esté seleccionada en ese momento.
         val targetIndex = _selectedWeekIndex.value
+        val week = NflSeasonCalendar.WEEKS[targetIndex]
         val currentState = _uiState.value as? PickUiState.Success ?: return
         val previousItems = currentState.items
         val weekId = currentState.weekId
@@ -293,7 +299,15 @@ class PickViewModel @Inject constructor(
                     kickoffTime = kickoffTime,
                     status      = status
                 )
-                logger.logEvent(AppEvent.PickSubmitted(groupId, weekId, gameId, teamAbbr))
+                logger.logEvent(AppEvent.PickSubmitted(
+                    groupId,
+                    weekId,
+                    gameId,
+                    teamAbbr,
+                    teamName = nflTeamNameByAbbr[teamAbbr],
+                    seasonType = week.seasonType.name,
+                    weekNumber = week.weekNumber
+                ))
             } catch (e: Exception) {
                 weekCache[targetIndex]?.let { cached ->
                     publish(targetIndex, cached.copy(items = previousItems))
@@ -311,7 +325,8 @@ class PickViewModel @Inject constructor(
         if (groupId == MockDataProvider.MOCK_GROUP_ID) return
         viewModelScope.launch {
             try {
-                scoreWeekPicksUseCase(groupId)
+                val count = scoreWeekPicksUseCase(groupId)
+                logger.logEvent(AppEvent.ScoringCompleted(groupId, count, source = "pick_manual_sync"))
                 loadWeek(_selectedWeekIndex.value, showLoading = _uiState.value !is PickUiState.Success)
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "Error al sincronizar"

@@ -15,6 +15,11 @@ class AppLogger @Inject constructor(
         firebaseAnalytics.logEvent(event.name, event.params.toBundle())
     }
 
+    fun setUserId(uid: String?) {
+        Timber.i("[Analytics] setUserId=$uid")
+        firebaseAnalytics.setUserId(uid)
+    }
+
     private fun Map<String, Any>.toBundle(): Bundle = Bundle().also { b ->
         forEach { (k, v) ->
             when (v) {

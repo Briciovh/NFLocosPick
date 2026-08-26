@@ -10,5 +10,6 @@ data class BoardUiState(
     val currentUserId: String = "",
     val isGroupAdmin: Boolean = false,
     val inputText: String = "",
-    val editingMessage: BoardMessage? = null
+    val editingMessage: BoardMessage? = null,
+    val groupName: String? = null
 )

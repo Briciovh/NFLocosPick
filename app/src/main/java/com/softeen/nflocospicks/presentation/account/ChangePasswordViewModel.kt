@@ -2,6 +2,8 @@ package com.softeen.nflocospicks.presentation.account
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.model.AuthError
 import com.softeen.nflocospicks.domain.model.AuthException
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -14,7 +16,8 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ChangePasswordViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val logger: AppLogger
 ) : ViewModel() {
 
     private val _changePasswordState = MutableStateFlow<ChangePasswordState>(ChangePasswordState.Idle)
@@ -24,7 +27,10 @@ class ChangePasswordViewModel @Inject constructor(
         viewModelScope.launch {
             _changePasswordState.value = ChangePasswordState.Saving
             userRepository.changePassword(currentPassword, newPassword)
-                .onSuccess { _changePasswordState.value = ChangePasswordState.Success }
+                .onSuccess {
+                    _changePasswordState.value = ChangePasswordState.Success
+                    logger.logEvent(AppEvent.PasswordChanged)
+                }
                 .onFailure { e ->
                     val error = (e as? AuthException)?.error ?: AuthError.PASSWORD_CHANGE_FAILED
                     _changePasswordState.value = ChangePasswordState.Error(error)

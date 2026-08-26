@@ -44,7 +44,7 @@ class GroupsScreenTest {
                     onNavigateToCreateGroup = {},
                     onNavigateToJoinGroup   = {},
                     onNavigateToSettings    = {},
-                    onGroupClicked          = {}
+                    onGroupClicked          = { _, _ -> }
                 )
             }
         }
@@ -64,7 +64,7 @@ class GroupsScreenTest {
                     onNavigateToCreateGroup = {},
                     onNavigateToJoinGroup   = {},
                     onNavigateToSettings    = {},
-                    onGroupClicked          = {}
+                    onGroupClicked          = { _, _ -> }
                 )
             }
         }
@@ -87,7 +87,7 @@ class GroupsScreenTest {
                     onNavigateToCreateGroup = {},
                     onNavigateToJoinGroup   = {},
                     onNavigateToSettings    = {},
-                    onGroupClicked          = {},
+                    onGroupClicked          = { _, _ -> },
                     onUploadPhoto           = { group, _ -> editedGroupId = group.id }
                 )
             }
@@ -115,7 +115,7 @@ class GroupsScreenTest {
                     onNavigateToCreateGroup = {},
                     onNavigateToJoinGroup   = {},
                     onNavigateToSettings    = {},
-                    onGroupClicked          = {}
+                    onGroupClicked          = { _, _ -> }
                 )
             }
         }

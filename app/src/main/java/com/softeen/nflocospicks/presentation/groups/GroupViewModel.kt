@@ -119,7 +119,7 @@ class GroupViewModel @Inject constructor(
             try {
                 val group = createGroupUseCase(name, userId)
                 _actionState.value = GroupActionUiState.Success(group)
-                logger.logEvent(AppEvent.GroupCreated(group.id))
+                logger.logEvent(AppEvent.GroupCreated(group.id, name))
             } catch (e: Exception) {
                 _actionState.value = GroupActionUiState.Error(e.message ?: "Error al crear el grupo")
             }
@@ -133,7 +133,7 @@ class GroupViewModel @Inject constructor(
             try {
                 val group = joinGroupUseCase(inviteCode, userId)
                 _actionState.value = GroupActionUiState.Success(group)
-                logger.logEvent(AppEvent.GroupJoined(group.id))
+                logger.logEvent(AppEvent.GroupJoined(group.id, group.name))
             } catch (e: NoSuchElementException) {
                 _actionState.value = GroupActionUiState.Error("Código de invitación inválido")
             } catch (e: Exception) {
@@ -147,8 +147,10 @@ class GroupViewModel @Inject constructor(
         _actionState.value = GroupActionUiState.Idle
     }
 
-    fun onGroupClicked(groupId: String) {
-        logger.logEvent(AppEvent.GroupOpened(groupId))
+    fun onGroupClicked(groupId: String, source: String = "group_list") {
+        val groupName = (groupListState.value as? GroupListUiState.Success)
+            ?.groups?.find { it.id == groupId }?.name
+        logger.logEvent(AppEvent.GroupOpened(groupId, groupName, source))
         viewModelScope.launch { effects.send(GroupUiEffect.NavigateToGroupSession(groupId)) }
     }
 
@@ -159,12 +161,12 @@ class GroupViewModel @Inject constructor(
      * usuario vía Snackbar. El puntuado periódico ya no corre en el cliente:
      * lo dispara Cloud Scheduler cada 30 min en días de partido.
      */
-    fun onScoreClicked(groupId: String) {
+    fun onScoreClicked(groupId: String, source: String = "group_card") {
         viewModelScope.launch {
             try {
                 val count = scoreWeekPicksUseCase(groupId)
                 effects.send(GroupUiEffect.ScoringResult(groupId, count))
-                logger.logEvent(AppEvent.ScoringCompleted(groupId, count))
+                logger.logEvent(AppEvent.ScoringCompleted(groupId, count, source))
             } catch (e: Exception) {
                 effects.send(GroupUiEffect.ScoringError(e.message ?: "Error al puntuar"))
             }
@@ -181,7 +183,10 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             _photoUiState.value = GroupPhotoUiState.Uploading
             uploadGroupPhotoUseCase(group.id, uri)
-                .onSuccess { _photoUiState.value = GroupPhotoUiState.Idle }
+                .onSuccess {
+                    _photoUiState.value = GroupPhotoUiState.Idle
+                    logger.logEvent(AppEvent.GroupPhotoUploaded(group.id))
+                }
                 .onFailure { e -> _photoUiState.value = GroupPhotoUiState.Error(e.message ?: "Error al subir la foto") }
         }
     }
@@ -192,7 +197,10 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             _photoUiState.value = GroupPhotoUiState.Uploading
             setGroupIconUseCase(group.id, iconId)
-                .onSuccess { _photoUiState.value = GroupPhotoUiState.Idle }
+                .onSuccess {
+                    _photoUiState.value = GroupPhotoUiState.Idle
+                    logger.logEvent(AppEvent.GroupIconSet(group.id, iconId))
+                }
                 .onFailure { e -> _photoUiState.value = GroupPhotoUiState.Error(e.message ?: "Error al fijar el ícono") }
         }
     }

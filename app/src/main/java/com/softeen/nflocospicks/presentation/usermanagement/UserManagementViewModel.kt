@@ -2,6 +2,8 @@ package com.softeen.nflocospicks.presentation.usermanagement
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserRole
 import com.softeen.nflocospicks.domain.repository.UserRepository
@@ -14,7 +16,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class UserManagementViewModel @Inject constructor(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val logger: AppLogger
 ) : ViewModel() {
 
     val users: StateFlow<List<User>> = userRepository.getAllUsers()
@@ -25,6 +28,9 @@ class UserManagementViewModel @Inject constructor(
         )
 
     fun setRole(uid: String, role: UserRole) {
-        viewModelScope.launch { userRepository.updateUserRole(uid, role) }
+        viewModelScope.launch {
+            userRepository.updateUserRole(uid, role)
+            logger.logEvent(AppEvent.UserRoleChanged(uid, role.name))
+        }
     }
 }

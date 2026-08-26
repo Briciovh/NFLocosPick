@@ -115,7 +115,7 @@ fun GroupsScreen(
         onNavigateToCreateGroup = onNavigateToCreateGroup,
         onNavigateToJoinGroup   = onNavigateToJoinGroup,
         onNavigateToSettings    = onNavigateToSettings,
-        onGroupClicked          = { viewModel.onGroupClicked(it) },
+        onGroupClicked          = { id, source -> viewModel.onGroupClicked(id, source) },
         onUploadPhoto           = { group, uri -> currentUserId?.let { viewModel.uploadGroupPhoto(group, it, uri) } },
         onSetIcon               = { group, iconId -> currentUserId?.let { viewModel.setGroupIcon(group, it, iconId) } },
         onDismissPhotoPicker    = { viewModel.resetPhotoUiState() }
@@ -133,7 +133,7 @@ internal fun GroupsScreenContent(
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onGroupClicked: (String) -> Unit,
+    onGroupClicked: (String, String) -> Unit,
     onUploadPhoto: (Group, Uri) -> Unit = { _, _ -> },
     onSetIcon: (Group, String) -> Unit = { _, _ -> },
     onDismissPhotoPicker: () -> Unit = {}
@@ -246,7 +246,7 @@ internal fun GroupsScreenContent(
                                     GroupCard(
                                         group      = group,
                                         canEdit    = currentUserId != null && group.createdBy == currentUserId,
-                                        onClick    = { onGroupClicked(group.id) },
+                                        onClick    = { onGroupClicked(group.id, "group_list") },
                                         onEditPhoto = { editingGroup = group }
                                     )
                                 }
@@ -266,7 +266,7 @@ internal fun GroupsScreenContent(
             // botón de crear grupo en vez de seguir bajando más allá de él.
             GlobalGroupFeedPanel(
                 messages = globalFeedMessages,
-                onClick  = { onGroupClicked(GlobalGroupConstants.GROUP_ID) },
+                onClick  = { onGroupClicked(GlobalGroupConstants.GROUP_ID, "global_feed_panel") },
                 modifier = Modifier
                     .weight(0.4f)
                     .padding(end = 80.dp, bottom = 16.dp)
@@ -398,7 +398,7 @@ private fun GroupsScreenSuccessPreview() {
             onNavigateToCreateGroup = {},
             onNavigateToJoinGroup   = {},
             onNavigateToSettings    = {},
-            onGroupClicked          = {}
+            onGroupClicked          = { _, _ -> }
         )
     }
 }
@@ -413,7 +413,7 @@ private fun GroupsScreenEmptyPreview() {
             onNavigateToCreateGroup = {},
             onNavigateToJoinGroup   = {},
             onNavigateToSettings    = {},
-            onGroupClicked          = {}
+            onGroupClicked          = { _, _ -> }
         )
     }
 }

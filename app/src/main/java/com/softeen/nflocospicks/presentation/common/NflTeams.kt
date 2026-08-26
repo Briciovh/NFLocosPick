@@ -20,3 +20,5 @@ val nflTeams = listOf(
     NflTeam("SF",  "49ers"),      NflTeam("TB",  "Buccaneers"),
     NflTeam("TEN", "Titans"),     NflTeam("WSH", "Commanders")
 )
+
+val nflTeamNameByAbbr: Map<String, String> = nflTeams.associate { it.abbr to it.name }

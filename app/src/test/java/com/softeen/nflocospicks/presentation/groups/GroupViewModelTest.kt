@@ -14,10 +14,8 @@ import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
 import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
 import com.softeen.nflocospicks.util.MainCoroutineRule
-import io.mockk.coEvery
+import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import io.mockk.every
-import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -94,6 +92,7 @@ class GroupViewModelTest {
 
         val state = vm.actionState.value as GroupActionUiState.Success
         assertEquals(stubGroup, state.group)
+        verify { logger.logEvent(match { it.name == "group_created" && it.params["group_name"] == "Los Locos" }) }
     }
 
     @Test
@@ -105,6 +104,7 @@ class GroupViewModelTest {
 
         val state = vm.actionState.value as GroupActionUiState.Success
         assertEquals(stubGroup, state.group)
+        verify { logger.logEvent(match { it.name == "group_joined" && it.params["group_name"] == "Los Locos" }) }
     }
 
     @Test
@@ -129,12 +129,51 @@ class GroupViewModelTest {
     }
 
     @Test
-    fun `onGroupClicked sends NavigateToGroupSession effect with the correct groupId`() = runTest(coroutineRule.dispatcher) {
+    fun `onGroupClicked sends NavigateToGroupSession effect and logs event`() = runTest(coroutineRule.dispatcher) {
         val vm = viewModel()
 
-        vm.onGroupClicked("group-xyz")
+        vm.onGroupClicked("group-xyz", source = "group_list")
 
         val effect = vm.effects.receive()
         assertEquals(GroupUiEffect.NavigateToGroupSession("group-xyz"), effect)
+        io.mockk.verify { logger.logEvent(match { event ->
+            event.name == "group_opened" &&
+            event.params["group_id"] == "group-xyz" &&
+            event.params["source"] == "group_list"
+        }) }
+    }
+
+    @Test
+    fun `onScoreClicked logs scoring_completed with source group_card`() = runTest(coroutineRule.dispatcher) {
+        coEvery { scoreUseCase("g1") } returns 5
+        val vm = viewModel()
+
+        vm.onScoreClicked("g1")
+
+        verify { logger.logEvent(match { event ->
+            event.name == "scoring_completed" &&
+            event.params["source"] == "group_card" &&
+            event.params["scored_count"] == 5
+        }) }
+    }
+
+    @Test
+    fun `uploadGroupPhoto logs group_photo_uploaded on success`() = runTest(coroutineRule.dispatcher) {
+        coEvery { uploadGroupPhotoUseCase("g1", any()) } returns Result.success("https://example.com/photo.jpg")
+        val vm = viewModel()
+
+        vm.uploadGroupPhoto(stubGroup, requesterUserId = "user1", uri = mockk())
+
+        verify { logger.logEvent(match { it.name == "group_photo_uploaded" && it.params["group_id"] == "g1" }) }
+    }
+
+    @Test
+    fun `setGroupIcon logs group_icon_set on success`() = runTest(coroutineRule.dispatcher) {
+        coEvery { setGroupIconUseCase("g1", "icon_1") } returns Result.success(Unit)
+        val vm = viewModel()
+
+        vm.setGroupIcon(stubGroup, requesterUserId = "user1", iconId = "icon_1")
+
+        verify { logger.logEvent(match { it.name == "group_icon_set" && it.params["icon_id"] == "icon_1" }) }
     }
 }

@@ -4,6 +4,8 @@ import android.app.Activity
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.softeen.nflocospicks.analytics.AppEvent
+import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.model.AuthError
 import com.softeen.nflocospicks.domain.model.AuthException
 import com.softeen.nflocospicks.domain.model.PhoneVerificationEvent
@@ -35,7 +37,8 @@ import kotlinx.coroutines.launch
 class AccountViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val updateUserProfileUseCase: UpdateUserProfileUseCase,
-    private val uploadProfilePhotoUseCase: UploadProfilePhotoUseCase
+    private val uploadProfilePhotoUseCase: UploadProfilePhotoUseCase,
+    private val logger: AppLogger
 ) : ViewModel() {
 
     private val _usernameAvailability = MutableStateFlow<UsernameAvailability>(UsernameAvailability.Unknown)
@@ -102,6 +105,7 @@ class AccountViewModel @Inject constructor(
             updateUserProfileUseCase(uid = uid, username = username, displayName = displayName)
                 .onSuccess {
                     _saveState.value = AccountSaveState.Idle
+                    logger.logEvent(AppEvent.ProfileSaved)
                     effects.send(AccountUiEffect.Saved)
                 }
                 .onFailure { e ->
@@ -117,6 +121,7 @@ class AccountViewModel @Inject constructor(
             uploadProfilePhotoUseCase(uid, uri)
                 .onSuccess { downloadUrl ->
                     _photoUploadState.value = PhotoUploadState.Idle
+                    logger.logEvent(AppEvent.ProfilePhotoUploaded)
                     effects.send(AccountUiEffect.PhotoUploaded(downloadUrl))
                 }
                 .onFailure { e ->
@@ -130,7 +135,10 @@ class AccountViewModel @Inject constructor(
         viewModelScope.launch {
             _emailLinkState.value = EmailLinkState.Sending
             userRepository.sendSignInLinkToEmail(email)
-                .onSuccess { _emailLinkState.value = EmailLinkState.Sent(email) }
+                .onSuccess {
+                    _emailLinkState.value = EmailLinkState.Sent(email)
+                    logger.logEvent(AppEvent.AccountEmailLinkSent)
+                }
                 .onFailure { e ->
                     val error = (e as? AuthException)?.error ?: AuthError.LINK_EMAIL_FAILED
                     _emailLinkState.value = EmailLinkState.Error(error)
@@ -169,7 +177,10 @@ class AccountViewModel @Inject constructor(
         viewModelScope.launch {
             _phoneLinkState.value = PhoneLinkState.Verifying
             userRepository.linkPhoneCredential(id, smsCode)
-                .onSuccess { _phoneLinkState.value = PhoneLinkState.Idle }
+                .onSuccess {
+                    _phoneLinkState.value = PhoneLinkState.Idle
+                    logger.logEvent(AppEvent.PhoneLinkVerified)
+                }
                 .onFailure { e ->
                     val error = (e as? AuthException)?.error ?: AuthError.LINK_PHONE_FAILED
                     _phoneLinkState.value = PhoneLinkState.Error(error)

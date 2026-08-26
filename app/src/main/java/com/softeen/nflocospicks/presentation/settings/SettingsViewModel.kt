@@ -8,6 +8,7 @@ import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.analytics.AppEvent
 import com.softeen.nflocospicks.analytics.AppLogger
+import com.softeen.nflocospicks.presentation.common.nflTeamNameByAbbr
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +34,7 @@ class SettingsViewModel @Inject constructor(
     fun setFavoriteTeam(abbr: String?) {
         viewModelScope.launch {
             repo.setFavoriteTeam(abbr)
-            if (abbr != null) logger.logEvent(AppEvent.FavoriteTeamSet(abbr))
+            if (abbr != null) logger.logEvent(AppEvent.FavoriteTeamSet(abbr, nflTeamNameByAbbr[abbr]))
         }
     }
 
@@ -73,12 +74,14 @@ class SettingsViewModel @Inject constructor(
     fun setFontScale(key: String?) {
         viewModelScope.launch {
             repo.setFontScale(key)
+            if (key != null) logger.logEvent(AppEvent.FontScaleChanged(key))
         }
     }
 
     fun setIconScale(key: String?) {
         viewModelScope.launch {
             repo.setIconScale(key)
+            if (key != null) logger.logEvent(AppEvent.IconScaleChanged(key))
         }
     }
 }

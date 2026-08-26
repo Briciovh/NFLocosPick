@@ -1,6 +1,7 @@
 package com.softeen.nflocospicks.presentation.auth
 
 import android.app.Activity
+import android.content.Context
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.softeen.nflocospicks.analytics.AppLogger
@@ -15,6 +16,7 @@ import com.softeen.nflocospicks.util.MainDispatcherRule
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -153,5 +155,73 @@ class AuthViewModelTest {
         viewModel.uiState.test {
             assertThat(awaitItem()).isEqualTo(AuthUiState.Error(AuthError.VERIFICATION_SESSION_EXPIRED))
         }
+    }
+
+    // ── Analytics: User-ID + GlobalGroupAutoJoined (PR-21/22) ──────────────────
+
+    @Test
+    fun `init sets the analytics user id when a session is restored synchronously`() = runTest {
+        val user = User("uid", "name", "email", null, role = UserRole.REGULAR)
+        every { userRepository.getCurrentUser() } returns user
+        every { userRepository.watchCurrentUser("uid") } returns flowOf(user)
+        every { userRepository.currentUserFlow } returns MutableStateFlow(user)
+
+        AuthViewModel(userRepository, logger)
+
+        verify { logger.setUserId("uid") }
+    }
+
+    @Test
+    fun `signOut clears the analytics user id`() = runTest {
+        val user = User("uid", "name", "email", null, role = UserRole.REGULAR)
+        every { userRepository.getCurrentUser() } returns user
+        val viewModel = AuthViewModel(userRepository, logger)
+
+        viewModel.signOut()
+
+        verify { logger.setUserId(null) }
+    }
+
+    @Test
+    fun `signIn with google for a new user logs SignUp and GlobalGroupAutoJoined`() = runTest {
+        val context = mockk<Context>(relaxed = true)
+        val user = User("uid", "name", "email", null, role = UserRole.REGULAR)
+        coEvery { userRepository.signInWithGoogle(context) } returns
+            Result.success(SignInResult(user, isNewUser = true))
+        every { userRepository.watchCurrentUser("uid") } returns flowOf(user)
+        val viewModel = AuthViewModel(userRepository, logger)
+
+        viewModel.signIn(context)
+
+        verify { logger.logEvent(match { it.name == "sign_up" && it.params["method"] == "google" }) }
+        verify { logger.logEvent(match { it.name == "global_group_auto_joined" }) }
+    }
+
+    @Test
+    fun `signIn with google for a returning user does not log GlobalGroupAutoJoined`() = runTest {
+        val context = mockk<Context>(relaxed = true)
+        val user = User("uid", "name", "email", null, role = UserRole.REGULAR)
+        coEvery { userRepository.signInWithGoogle(context) } returns
+            Result.success(SignInResult(user, isNewUser = false))
+        every { userRepository.watchCurrentUser("uid") } returns flowOf(user)
+        val viewModel = AuthViewModel(userRepository, logger)
+
+        viewModel.signIn(context)
+
+        verify(inverse = true) { logger.logEvent(match { it.name == "global_group_auto_joined" }) }
+    }
+
+    @Test
+    fun `signUpWithEmail always logs GlobalGroupAutoJoined`() = runTest {
+        val user = User("uid", "name", "email", null, role = UserRole.REGULAR)
+        coEvery { userRepository.signUpWithEmail("email", "pw") } returns
+            Result.success(SignInResult(user, isNewUser = true))
+        every { userRepository.watchCurrentUser("uid") } returns flowOf(user)
+        val viewModel = AuthViewModel(userRepository, logger)
+
+        viewModel.signUpWithEmail("email", "pw")
+
+        verify { logger.logEvent(match { it.name == "sign_up" && it.params["method"] == "email" }) }
+        verify { logger.logEvent(match { it.name == "global_group_auto_joined" }) }
     }
 }

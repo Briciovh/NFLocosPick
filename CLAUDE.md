@@ -320,24 +320,58 @@ First of a 5-PR series adding a default, always-present group ("NFLocos de Coraz
 - `users/{uid}` gains `isActive`/`disabledAt` — unlike `lastActive`, this field **must** be locked against client writes (new `firestore.rules` clause on `users/{userId}` using `diff().affectedKeys()` to exclude it from the owner's otherwise-unrestricted self-write), since a client could otherwise self-reactivate by writing the field directly.
 - New Cloud Function `onSchedule` (`functions/src/inactivity.ts`, same cron-scheduling pattern as `scheduledScoring`, daily) scans `users` for `lastActive` older than one year, sets `isActive = false`, and removes/hides that user's `standings/{groupId}/members/{userId}` entry across every group they belong to (not just the global one) — same per-group iteration pattern as `accountDeletion.ts`'s `groups.where("memberIds", "array-contains", uid)`. No separate reactivation logic is needed: the next scheduled run simply re-includes anyone whose `lastActive` was refreshed by a sign-in.
 
+### PR-21 — Analytics Infrastructure, User-ID & Event Enrichment
+**Branch:** `feature/21-analytics-infrastructure`
+
+Full parameter-level specification, exact file/function references, and event signatures for this 3-PR series live in `docs/plans/analytics-enrichment.md` — read that file before implementing any of PR-21/22/23.
+
+First of a 3-PR series closing the gap between what the app logs to Firebase Analytics and what the owner can actually read on the dashboard (475 unattributable `screen_view` events, 231 unattributable `pick_submitted` events, no group/team names anywhere). Root cause: all 16 existing events (defined in `analytics/AppEvent.kt`, logged through the single `AppLogger.logEvent()` choke point) carry almost no context, and `AppEvent.ScreenViewed` — defined from the start — has never actually been called, so the app relies on GA4's near-useless automatic `screen_view` under a single-Activity Compose app. Per policy, no event may ever carry `display_name`/`email` (Google prohibits PII in event params/user properties); user attribution instead goes through Firebase's native Analytics User-ID.
+
+- `AppLogger.setUserId(uid: String?)` — new method, same Timber-then-Firebase pattern as `logEvent`. Called once per session from `AuthViewModel.watchRole(uid)` (the single choke point every sign-in/session-restore path already funnels through), and cleared (`setUserId(null)`) in `signOut()`/`deleteAccount()`. No event needs a repeated `user_id` param — dashboard filtering by user comes from the native User-ID/User Explorer feature.
+- New `ScreenTrackingViewModel` + reusable `TrackScreenView` composable + `routeToScreenName()` mapping (`presentation/navigation/`), wired into both `NavGraph.kt`'s NavHost and `GroupSessionScreen.kt`'s nested NavHost, keyed on the route pattern (not the backstack entry) to avoid duplicate firing on recomposition. Activates the previously dead `screen_viewed` event.
+- Enrichment of all 16 existing events with non-PII context already in scope at each call site: `group_name` on `GroupCreated`/`GroupJoined`/`GroupOpened`/`LeaderboardViewed`/`PickHistoryViewed`/board events; `source` on `GroupOpened` and `ScoringCompleted`; `team_name`/`season_type`/`week_number` on `PickSubmitted`; `team_name` on `FavoriteTeamSet`; `is_group_admin`/`is_own_message` on board events. New `nflTeamNameByAbbr` map in `NflTeams.kt`; `GroupRepository` newly injected into `LeaderboardViewModel`/`HistoryViewModel` for `group_name` resolution.
+
+### PR-22 — Expanded Analytics Coverage for Untracked Actions
+**Branch:** `feature/22-analytics-coverage`
+
+Second of the series — instruments the ~14 user actions that have zero analytics tracking today, following the non-PII conventions PR-21 established. Excludes the inactivity Cloud Function (server-side, no client Analytics path) and deliberately avoids logging every tick of the 5-minute pick auto-refresh loop, to keep the dashboard from drowning in a periodic background event.
+
+- `AppLogger` newly injected into `UserManagementViewModel`, `AccountViewModel`, `ChangePasswordViewModel` (none of the three have it today).
+- New events: `week_tab_selected`, `pick_refresh` (manual only), `pick_auto_refresh_failed` (failures only), `leaderboard_tab_selected`, `history_week_toggled`, `font_scale_changed`, `icon_scale_changed`, `group_photo_uploaded`, `group_icon_set`, `user_role_changed`, `profile_saved`, `profile_photo_uploaded`, `account_email_link_sent`, `phone_link_verified`, `password_changed`, `global_group_auto_joined`.
+- `board_message_sent` gains an `action` param (`"sent"` vs `"edited"`) and now also fires from the previously-silent edit branch of `BoardViewModel.sendOrSaveMessage()`.
+- `scoring_completed` reused (not duplicated) from `PickViewModel.triggerSync()` with `source="pick_manual_sync"`, distinguishing manual sync from the group-card scoring trigger.
+
+### PR-23 — GA4 Console Custom Dimensions & Analytics Documentation
+**Branch:** `feature/23-ga4-console-setup`
+
+Third and final PR of the series — mostly a console/ops step plus documentation, not app code: registering a new event param in `AppEvent.kt` does not make it filterable in the GA4 console until it's separately registered as a Custom Dimension (Admin → Custom definitions), and the free tier caps event-scoped dimensions at 50 / user-scoped at 25.
+
+- Manual step (Firebase console): register a prioritized subset (~10) of the new/enriched params as event-scoped Custom Dimensions — `group_name`, `team_name`, `source`, `screen_name`, `season_type`, `week_number`, `is_group_admin`, `is_own_message`, `action`/`message_type`, `group_id`. `user_id` needs no registration — it's natively usable via User Explorer as soon as `setUserId` starts firing in PR-21.
+- Recommendation (not implemented): enable BigQuery Export (Admin → Project Settings → Integrations) once the 50-dimension cap becomes limiting, for raw SQL access to every param.
+- `CLAUDE.md` "Key Constraints" gains an "Analytics" subsection listing the full event inventory, so future PRs adding events don't reintroduce the same enrichment gap.
+
 ---
 
 ## Rules
 
 These rules apply to every change made in this repository. There are no exceptions unless a rule explicitly says so.
 
-1. **Never downgrade a dependency.** If a situation arises where a downgrade seems necessary, stop, explain the problem clearly, and ask for explicit permission before making the change. Prefer fixing the root cause (API incompatibility, missing migration step) over a version rollback.
+1. **Strict PR Boundaries.** Never implement changes belonging to a future PR or a different scope than currently requested, even if you are already touching the same files. Stop and wait for explicit approval before proceeding to the next PR in the roadmap. This ensures proper version control hygiene and avoids potential conflicts with other developers' assignments.
 
-2. **Sync and build before every commit.** After each code change:
+2. **Never downgrade a dependency.** If a situation arises where a downgrade seems necessary, stop, explain the problem clearly, and ask for explicit permission before making the change. Prefer fixing the root cause (API incompatibility, missing migration step) over a version rollback.
+
+3. **Sync and build before every commit.** After each code change:
    - If any Gradle file was modified (`libs.versions.toml`, any `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties`), run `./gradlew dependencies` first to sync and resolve dependencies before building.
    - Always run `./gradlew assembleDebug` (and `./gradlew test` if logic changed) before staging anything.
    - Fix all errors and warnings introduced by the change before committing. Never commit a broken build.
 
-3. **Spanish output must be neutral Mexican Spanish (tuteo) — never voseo/Rioplatense.** This applies to chat replies, in-app strings, comments, and any generated document — including casual one-liners, which is exactly where this has slipped before (e.g. "decime" instead of "dime"). Never: vos, tenés/podés/sos/decís, decime/contame/fijate/mirá/andá. Always: tú (usually omitted), tienes/puedes/eres/dices, dime/cuéntame/fíjate/mira/anda.
+4. **Mandatory Testing.** Every new feature or logic change MUST be accompanied by comprehensive unit tests. If existing tests are affected, they must be updated and verified. Never consider a task complete without confirming that all tests pass (`./gradlew test`).
 
-4. **Deploy `firestore.rules`/`storage.rules` immediately after any change to them.** Editing these files locally has no effect on the live app — Firestore/Storage keep enforcing whatever was last deployed, so a rules change that isn't deployed silently leaves the old (often more restrictive) behavior in place, breaking the exact feature the change was meant to enable. After every edit to either file, run `firebase deploy --only firestore:rules,storage` (both together, even if only one changed) before considering the change complete.
+5. **Spanish output must be neutral Mexican Spanish (tuteo) — never voseo/Rioplatense.** This applies to chat replies, in-app strings, comments, and any generated document — including casual one-liners, which is exactly where this has slipped before (e.g. "decime" instead of "dime"). Never: vos, tenés/podés/sos/decís, decime/contame/fijate/mirá/andá. Always: tú (usually omitted), tienes/puedes/eres/dices, dime/cuéntame/fíjate/mira/anda.
 
-5. **Never launch an emulator/device, install or run the app, or otherwise perform manual runtime verification (adb, screenshots, UI walkthroughs) on your own — ask for explicit authorization first, every time.** This has been requested before; doing it unprompted burns a large amount of tokens and time. `./gradlew assembleDebug` and `./gradlew test` (Rule 2) are always expected and don't need to be asked about — this rule is specifically about running the real app (emulator/device) to eyeball a change. If manual verification would materially de-risk a change, offer it and wait for a yes before running anything.
+6. **Deploy `firestore.rules`/`storage.rules` immediately after any change to them.** Editing these files locally has no effect on the live app — Firestore/Storage keep enforcing whatever was last deployed, so a rules change that isn't deployed silently leaves the old (often more restrictive) behavior in place, breaking the exact feature the change was meant to enable. After every edit to either file, run `firebase deploy --only firestore:rules,storage` (both together, even if only one changed) before considering the change complete.
+
+7. **Never launch an emulator/device, install or run the app, or otherwise perform manual runtime verification (adb, screenshots, UI walkthroughs) on your own — ask for explicit authorization first, every time.** This has been requested before; doing it unprompted burns a large amount of tokens and time. `./gradlew assembleDebug` and `./gradlew test` (Rule 3) are always expected and don't need to be asked about — this rule is specifically about running the real app (emulator/device) to eyeball a change. If manual verification would materially de-risk a change, offer it and wait for a yes before running anything.
 
 ---
 
@@ -348,6 +382,48 @@ These rules apply to every change made in this repository. There are no exceptio
 - All Firestore writes must use transactions or batched writes when updating both a pick and a standing simultaneously (PR-6)
 - User preferences (favorite team, font-size preference) are stored in **Jetpack DataStore** on-device, not in Firestore.
 - `google-services.json` is never committed — add a real one from the Firebase Console to `app/` to enable Firebase at runtime. The `google-services` plugin is applied conditionally in `app/build.gradle.kts` so the project builds without it.
+
+### Analytics
+
+All Firebase Analytics logging goes through the single choke point `AppLogger.logEvent(event: AppEvent)` (`analytics/AppLogger.kt`), injected into ViewModels only — never into Composables or Repositories. Every event is a case of the sealed class `analytics/AppEvent.kt`; add new events there, not as ad-hoc `firebaseAnalytics.logEvent(...)` calls elsewhere. **Never pass `display_name`/`email`/any PII as an event param or user property** — Google's Firebase Analytics/GA4 terms prohibit it and doing so risks the Analytics property being suspended. User attribution goes through Firebase's native Analytics User-ID (`AppLogger.setUserId(uid)`, set once per session, not per event) instead. `group.name` and team nicknames are not PII and are safe to log directly. A new event param is not filterable in the GA4 console until it is separately registered as a Custom Dimension (Admin → Custom definitions); the free tier caps these at 50 event-scoped / 25 user-scoped, so register new params deliberately rather than by default.
+
+#### Event Inventory (Current)
+
+| # | Event | Params | Source |
+|---|---|---|---|
+| 1 | `sign_in` | `method` | Auth |
+| 2 | `sign_up` | `method` | Auth |
+| 3 | `sign_out` | — (triggers `setUserId(null)`) | Auth |
+| 4 | `account_deleted` | — (triggers `setUserId(null)`) | Auth |
+| 5 | `group_created` | `group_id`, `group_name` | Groups |
+| 6 | `group_joined` | `group_id`, `group_name` | Groups |
+| 7 | `group_opened` | `group_id`, `group_name?`, `source` | Groups |
+| 8 | `scoring_completed` | `group_id`, `scored_count`, `source` | Groups/Picks |
+| 9 | `pick_submitted` | `group_id`, `week_id`, `game_id`, `team_abbr`, `team_name?`, `season_type`, `week_number` | Picks |
+| 10 | `leaderboard_viewed` | `group_id`, `group_name?` | Leaderboard |
+| 11 | `pick_history_viewed` | `group_id`, `group_name?` | History |
+| 12 | `favorite_team_set` | `team_abbr`, `team_name?` | Settings |
+| 13 | `language_changed` | `language_tag` | Settings |
+| 14 | `board_message_sent` | `group_id`, `message_type`, `action`, `is_group_admin`, `group_name?` | Board |
+| 15 | `board_message_deleted` | `group_id`, `is_group_admin`, `is_own_message`, `group_name?` | Board |
+| 16 | `board_announcement_toggled` | `group_id`, `is_announcement`, `group_name?` | Board |
+| 17 | `screen_viewed` | `screen_name` | Navigation |
+| 18 | `week_tab_selected` | `group_id`, `season_type`, `week_number` | Picks |
+| 19 | `pick_refresh` | `group_id`, `trigger="manual"` | Picks |
+| 20 | `pick_auto_refresh_failed` | `group_id` | Picks |
+| 21 | `leaderboard_tab_selected` | `group_id`, `season_type` | Leaderboard |
+| 22 | `history_week_toggled` | `group_id`, `week_id`, `expanded` | History |
+| 23 | `font_scale_changed` | `scale` | Settings |
+| 24 | `icon_scale_changed` | `scale` | Settings |
+| 25 | `group_photo_uploaded` | `group_id` | Groups |
+| 26 | `group_icon_set` | `group_id`, `icon_id` | Groups |
+| 27 | `user_role_changed` | `target_user_id`, `new_role` | User Mgmt |
+| 28 | `profile_saved` | — | Account |
+| 29 | `profile_photo_uploaded` | — | Account |
+| 30 | `account_email_link_sent` | — | Account |
+| 31 | `phone_link_verified` | — | Account |
+| 32 | `password_changed` | — | Account |
+| 33 | `global_group_auto_joined` | — | Auth |
 
 ## Release Checklist
 

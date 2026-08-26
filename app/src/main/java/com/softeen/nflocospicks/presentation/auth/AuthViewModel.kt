@@ -72,7 +72,12 @@ class AuthViewModel @Inject constructor(
                     _uiState.value = AuthUiState.Authenticated(result.user)
                     watchRole(result.user.uid)
                     logger.logEvent(AppEvent.SignIn("google"))
-                    if (result.isNewUser) logger.logEvent(AppEvent.SignUp("google"))
+                    if (result.isNewUser) {
+                        logger.logEvent(AppEvent.SignUp("google"))
+                        // Señal inferida/optimista: coincide con el auto-join real, pero
+                        // no confirma el éxito de ensureGlobalGroupMembership (falla en silencio).
+                        logger.logEvent(AppEvent.GlobalGroupAutoJoined)
+                    }
                 }
                 .onFailure { e ->
                     // User dismissed the CredentialManager picker — silently return to Idle,
@@ -109,6 +114,9 @@ class AuthViewModel @Inject constructor(
                     _uiState.value = AuthUiState.Authenticated(result.user)
                     watchRole(result.user.uid)
                     logger.logEvent(AppEvent.SignUp("email"))
+                    // Señal inferida/optimista: coincide con el auto-join real, pero
+                    // no confirma el éxito de ensureGlobalGroupMembership (falla en silencio).
+                    logger.logEvent(AppEvent.GlobalGroupAutoJoined)
                 }
                 .onFailure { e ->
                     _uiState.value = AuthUiState.Error(e.toAuthError(AuthError.REGISTRATION_FAILED))
@@ -153,7 +161,12 @@ class AuthViewModel @Inject constructor(
                         _uiState.value = AuthUiState.Authenticated(event.result.user)
                         watchRole(event.result.user.uid)
                         logger.logEvent(AppEvent.SignIn("phone"))
-                        if (event.result.isNewUser) logger.logEvent(AppEvent.SignUp("phone"))
+                        if (event.result.isNewUser) {
+                            logger.logEvent(AppEvent.SignUp("phone"))
+                            // Señal inferida/optimista: coincide con el auto-join real, pero
+                            // no confirma el éxito de ensureGlobalGroupMembership (falla en silencio).
+                            logger.logEvent(AppEvent.GlobalGroupAutoJoined)
+                        }
                     }
                     is PhoneVerificationEvent.Failed -> {
                         _uiState.value = AuthUiState.Error(event.error)
@@ -176,7 +189,12 @@ class AuthViewModel @Inject constructor(
                     _uiState.value = AuthUiState.Authenticated(result.user)
                     watchRole(result.user.uid)
                     logger.logEvent(AppEvent.SignIn("phone"))
-                    if (result.isNewUser) logger.logEvent(AppEvent.SignUp("phone"))
+                    if (result.isNewUser) {
+                        logger.logEvent(AppEvent.SignUp("phone"))
+                        // Señal inferida/optimista: coincide con el auto-join real, pero
+                        // no confirma el éxito de ensureGlobalGroupMembership (falla en silencio).
+                        logger.logEvent(AppEvent.GlobalGroupAutoJoined)
+                    }
                 }
                 .onFailure { e ->
                     _uiState.value = AuthUiState.Error(e.toAuthError(AuthError.INVALID_VERIFICATION_CODE))
@@ -196,6 +214,7 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             userRepository.signOut()
             logger.logEvent(AppEvent.SignOut)
+            logger.setUserId(null)
             _uiState.value = AuthUiState.Idle
         }
     }
@@ -207,6 +226,7 @@ class AuthViewModel @Inject constructor(
                     roleWatcherJob?.cancel()
                     roleWatcherJob = null
                     logger.logEvent(AppEvent.AccountDeleted)
+                    logger.setUserId(null)
                     _uiState.value = AuthUiState.Idle
                 }
                 .onFailure { e ->
@@ -220,6 +240,7 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun watchRole(uid: String) {
+        logger.setUserId(uid)
         roleWatcherJob?.cancel()
         roleWatcherJob = viewModelScope.launch {
             userRepository.watchCurrentUser(uid).collect { freshUser ->

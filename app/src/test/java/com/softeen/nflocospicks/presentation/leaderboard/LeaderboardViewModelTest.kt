@@ -9,16 +9,15 @@ import com.softeen.nflocospicks.domain.model.MockSessionState
 import com.softeen.nflocospicks.domain.model.SeasonType
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
+import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.repository.GroupRepository
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.GetCurrentWeekGamesUseCase
 import com.softeen.nflocospicks.domain.usecase.GetLeaderboardUseCase
 import com.softeen.nflocospicks.util.MainCoroutineRule
-import io.mockk.coEvery
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.verify
+import io.mockk.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
@@ -38,6 +37,7 @@ class LeaderboardViewModelTest {
     private val getLeaderboardUseCase = mockk<GetLeaderboardUseCase>()
     private val getGamesUseCase       = mockk<GetCurrentWeekGamesUseCase>()
     private val userRepo              = mockk<UserRepository>()
+    private val groupRepo             = mockk<GroupRepository>()
     private val prefsRepo             = mockk<UserPreferencesRepository>()
     private val mockSessionRepo       = mockk<MockSessionRepository>()
     private val logger                = mockk<AppLogger>(relaxed = true)
@@ -73,6 +73,13 @@ class LeaderboardViewModelTest {
         every { userRepo.getCurrentUser() }   returns testUser
         every { prefsRepo.preferencesFlow }   returns flowOf(UserPreferences())
         every { mockSessionRepo.sessionFlow } returns flowOf(MockSessionState())
+        coEvery { groupRepo.getGroupById(any()) } returns Group(
+            id = "real-group-1",
+            name = "Test Group",
+            inviteCode = "INVITE",
+            createdBy = "user1",
+            memberIds = listOf("user1")
+        )
     }
 
     private fun viewModel(groupId: String = "real-group-1") = LeaderboardViewModel(
@@ -80,6 +87,7 @@ class LeaderboardViewModelTest {
         getLeaderboardUseCase   = getLeaderboardUseCase,
         getCurrentWeekGamesUseCase = getGamesUseCase,
         userRepository          = userRepo,
+        groupRepository         = groupRepo,
         preferencesRepository   = prefsRepo,
         mockSessionRepository   = mockSessionRepo,
         logger                  = logger
@@ -97,6 +105,12 @@ class LeaderboardViewModelTest {
         val state = vm.uiState.value as LeaderboardUiState.Success
         assertEquals(SeasonType.PRESEASON, state.selectedSeasonType)
         assertEquals(9, state.entries.single().preseasonPoints)
+
+        verify { logger.logEvent(match {
+            it.name == "leaderboard_viewed" &&
+            it.params["group_id"] == "real-group-1" &&
+            it.params["group_name"] == "Test Group"
+        }) }
     }
 
     @Test
@@ -128,5 +142,6 @@ class LeaderboardViewModelTest {
         assertEquals(SeasonType.PRESEASON, state.selectedSeasonType)
         assertEquals("user1", state.entries.first().userId)
         verify(exactly = 1) { getLeaderboardUseCase("real-group-1") }
+        verify { logger.logEvent(match { it.name == "leaderboard_tab_selected" && it.params["season_type"] == "PRESEASON" }) }
     }
 }

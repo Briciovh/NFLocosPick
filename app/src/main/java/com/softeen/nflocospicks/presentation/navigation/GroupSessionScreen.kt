@@ -62,6 +62,7 @@ fun GroupSessionScreen(
     onDismissPhotoPicker: () -> Unit
 ) {
     val navController = rememberNavController()
+    TrackScreenView(navController)
     val appColors = LocalAppColors.current
     var showImagePicker by remember { mutableStateOf(false) }
 

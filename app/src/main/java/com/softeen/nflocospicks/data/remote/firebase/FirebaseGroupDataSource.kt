@@ -24,7 +24,7 @@ class FirebaseGroupDataSource @Inject constructor(
     }
 
     suspend fun createGroup(name: String, creatorUserId: String): Group {
-        val code = generateInviteCode()
+        val code = generateUniqueInviteCode()
         val doc = mapOf(
             "name"      to name,
             "inviteCode" to code,
@@ -39,6 +39,26 @@ class FirebaseGroupDataSource @Inject constructor(
             createdBy  = creatorUserId,
             memberIds  = listOf(creatorUserId)
         )
+    }
+
+    /**
+     * Check-and-retry, not a transaction — a genuinely simultaneous createGroup
+     * collision is a negligible risk at this app's scale (a few dozen users,
+     * group creation is a deliberate infrequent action). This closes the
+     * overwhelmingly common case: two sequential creates never end up sharing
+     * a code.
+     */
+    private suspend fun generateUniqueInviteCode(maxAttempts: Int = 5): String {
+        repeat(maxAttempts) {
+            val candidate = generateInviteCode()
+            val collision = firestore.collection(COLLECTION)
+                .whereEqualTo("inviteCode", candidate)
+                .limit(1)
+                .get()
+                .await()
+            if (collision.isEmpty) return candidate
+        }
+        throw IllegalStateException("No se pudo generar un código de invitación único tras $maxAttempts intentos")
     }
 
     suspend fun joinGroup(inviteCode: String, userId: String): Group {

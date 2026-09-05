@@ -33,3 +33,9 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Claude Code local state (machine-specific permission grants, worktrees) — never shared
+.claude/
+
+# Firebase CLI local deploy cache (regenerated on every `firebase deploy`, no runtime role)
+.firebase/

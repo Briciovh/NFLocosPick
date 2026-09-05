@@ -4,7 +4,10 @@ sealed class Screen(val route: String) {
     data object Login       : Screen("login")
     data object Groups      : Screen("groups")
     data object CreateGroup : Screen("create_group")
-    data object JoinGroup   : Screen("join_group")
+    data object JoinGroup   : Screen("join_group?code={code}") {
+        fun createRoute(code: String? = null): String =
+            if (code != null) "join_group?code=${java.net.URLEncoder.encode(code, "UTF-8")}" else "join_group"
+    }
     data object Picks       : Screen("picks/{groupId}")
     data object Leaderboard : Screen("leaderboard/{groupId}")
     data object History     : Screen("history/{groupId}")

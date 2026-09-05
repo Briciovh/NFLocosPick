@@ -10,6 +10,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.softeen.nflocospicks.domain.model.isProfileComplete
@@ -38,7 +39,10 @@ import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 import com.softeen.nflocospicks.presentation.theme.NFLocosPickTheme
 
 @Composable
-fun NavGraph() {
+fun NavGraph(
+    pendingInviteCode: String? = null,
+    onPendingInviteConsumed: () -> Unit = {}
+) {
     val navController = rememberNavController()
 
     // ViewModels a nivel NavGraph — sobreviven cambios de destino.
@@ -70,7 +74,7 @@ fun NavGraph() {
                             navController.navigate(Screen.CreateGroup.route)
                         },
                         onNavigateToJoinGroup = {
-                            navController.navigate(Screen.JoinGroup.route)
+                            navController.navigate(Screen.JoinGroup.createRoute())
                         },
                         onNavigateToGroup = { groupId ->
                             navController.navigate(Screen.GroupSession.createRoute(groupId))
@@ -147,12 +151,21 @@ fun NavGraph() {
                     )
                 }
 
-                composable(Screen.JoinGroup.route) { navBackStackEntry ->
+                composable(
+                    route     = Screen.JoinGroup.route,
+                    arguments = listOf(navArgument("code") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    })
+                ) { navBackStackEntry ->
                     val groupsEntry = remember(navBackStackEntry) {
                         navController.getBackStackEntry(Screen.Groups.route)
                     }
                     val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
+                    val prefilledCode = navBackStackEntry.arguments?.getString("code")
                     JoinGroupScreen(
+                        prefilledCode  = prefilledCode,
                         onNavigateBack = { navController.popBackStack() },
                         viewModel      = groupViewModel
                     )
@@ -243,31 +256,74 @@ fun NavGraph() {
         }
     }
 
-    // Único punto de redirección tras autenticarse (login recién hecho o sesión restaurada)
-    // y al cerrar sesión. Un usuario con perfil incompleto (sin username, o sin ningún medio
-    // de contacto) es forzado a Account antes de poder entrar a Groups — ver Screen.Account
-    // más arriba. Una vez que isProfileComplete es true para una cuenta, nunca debe volver
-    // a mandarse a Account.
-    LaunchedEffect(authState) {
-        val state = authState
-        when {
-            state is AuthUiState.Authenticated && state.isProfileSynced &&
-                navController.currentDestination?.route == Screen.Login.route -> {
-                val destination = if (state.user.isProfileComplete) {
-                    Screen.Groups.route
-                } else {
-                    Screen.Account.route
+    // Único punto de redirección tras autenticarse (login recién hecho o sesión restaurada),
+    // al cerrar sesión, y al consumir un código de invitación pendiente (PR-25). Un usuario
+    // con perfil incompleto (sin username, o sin ningún medio de contacto) es forzado a
+    // Account antes de poder entrar a Groups — ver Screen.Account más arriba. Una vez que
+    // isProfileComplete es true para una cuenta, nunca debe volver a mandarse a Account.
+    //
+    // Keyeamos también en currentBackStackEntry (no solo authState/pendingInviteCode) porque
+    // AccountScreen.onSetupComplete navega Account → Groups directamente, sin pasar por este
+    // efecto ni cambiar authState — sin esta key, un código pendiente para un usuario nuevo
+    // que recién completa su perfil se quedaría atorado sin consumirse. Ver docs/plans/
+    // join-via-link.md Paso 4 (5c) para el detalle completo.
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    LaunchedEffect(authState, pendingInviteCode, currentBackStackEntry) {
+        when (val action = decidePostAuthNavigation(
+            authState, navController.currentDestination?.route, pendingInviteCode
+        )) {
+            is PostAuthNavAction.Navigate -> {
+                navController.navigate(action.route) {
+                    if (action.popUpToRoute != null) {
+                        popUpTo(action.popUpToRoute) { inclusive = action.popUpToInclusive }
+                    } else if (action.popUpToInclusive) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
-                navController.navigate(destination) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
-                }
+                if (action.route.startsWith("join_group")) onPendingInviteConsumed()
             }
-            state is AuthUiState.Idle &&
-                navController.currentDestination?.route != Screen.Login.route -> {
-                navController.navigate(Screen.Login.route) {
-                    popUpTo(0) { inclusive = true }
-                }
-            }
+            PostAuthNavAction.None -> Unit
         }
     }
+}
+
+sealed class PostAuthNavAction {
+    data class Navigate(
+        val route: String,
+        val popUpToRoute: String? = null,
+        val popUpToInclusive: Boolean = false
+    ) : PostAuthNavAction()
+    object None : PostAuthNavAction()
+}
+
+/**
+ * Dada la sesión actual, la ruta actual del back stack, y si hay un código de invitación
+ * pendiente (llegado por un join link, PR-25), decide la única acción de navegación (si la
+ * hay) que el efecto de auth-gating de NavGraph debe tomar. Pura — sin NavController — por
+ * lo tanto directamente testeable con JUnit.
+ */
+fun decidePostAuthNavigation(
+    authState: AuthUiState,
+    currentRoute: String?,
+    pendingInviteCode: String?
+): PostAuthNavAction = when {
+    authState is AuthUiState.Idle && currentRoute != Screen.Login.route ->
+        PostAuthNavAction.Navigate(Screen.Login.route, popUpToRoute = null, popUpToInclusive = true) // popUpTo(0)
+
+    authState is AuthUiState.Authenticated && authState.isProfileSynced && currentRoute == Screen.Login.route -> {
+        val destination = if (authState.user.isProfileComplete) Screen.Groups.route else Screen.Account.route
+        PostAuthNavAction.Navigate(destination, popUpToRoute = Screen.Login.route, popUpToInclusive = true)
+    }
+
+    // Se dispara desde cualquier pantalla, no solo Groups: una vez autenticado con perfil
+    // completo, Groups siempre está en el back stack (es la raíz de la app tras el login),
+    // así que Screen.JoinGroup's getBackStackEntry(Groups) nunca lanza excepción sin
+    // importar qué pantalla esté al frente. Restringido a "no Login/Account" para no
+    // interrumpir el flujo de onboarding a medio terminar.
+    authState is AuthUiState.Authenticated && authState.isProfileSynced && authState.user.isProfileComplete &&
+        pendingInviteCode != null &&
+        currentRoute != null && currentRoute != Screen.Login.route && currentRoute != Screen.Account.route ->
+        PostAuthNavAction.Navigate(Screen.JoinGroup.createRoute(pendingInviteCode))
+
+    else -> PostAuthNavAction.None
 }

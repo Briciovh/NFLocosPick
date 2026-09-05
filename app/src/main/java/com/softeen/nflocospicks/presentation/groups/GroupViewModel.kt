@@ -126,14 +126,14 @@ class GroupViewModel @Inject constructor(
         }
     }
 
-    fun joinGroup(inviteCode: String) {
+    fun joinGroup(inviteCode: String, source: String = "manual_code") {
         val userId = userRepository.getCurrentUser()?.uid ?: return
         viewModelScope.launch {
             _actionState.value = GroupActionUiState.Loading
             try {
                 val group = joinGroupUseCase(inviteCode, userId)
                 _actionState.value = GroupActionUiState.Success(group)
-                logger.logEvent(AppEvent.GroupJoined(group.id, group.name))
+                logger.logEvent(AppEvent.GroupJoined(group.id, group.name, source))
             } catch (e: NoSuchElementException) {
                 _actionState.value = GroupActionUiState.Error("Código de invitación inválido")
             } catch (e: Exception) {

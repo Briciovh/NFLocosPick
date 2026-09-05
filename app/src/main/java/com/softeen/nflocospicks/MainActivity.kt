@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.runtime.mutableStateOf
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
@@ -15,6 +16,7 @@ import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.presentation.auth.messageRes
 import com.softeen.nflocospicks.presentation.navigation.NavGraph
+import com.softeen.nflocospicks.presentation.navigation.extractInviteCodeFromJoinLink
 import com.softeen.nflocospicks.presentation.theme.NFLocosPickTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
@@ -24,10 +26,15 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
+    private companion object {
+        const val KEY_PENDING_INVITE_CODE = "pending_invite_code"
+    }
+
     @Inject lateinit var prefsRepo: UserPreferencesRepository
     @Inject lateinit var userRepository: UserRepository
 
     private var localeLoaded = false
+    private val pendingInviteCode = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // installSplashScreen() debe llamarse antes de super.onCreate().
@@ -44,19 +51,44 @@ class MainActivity : AppCompatActivity() {
             localeLoaded = true
         }
 
+        pendingInviteCode.value = savedInstanceState?.getString(KEY_PENDING_INVITE_CODE)
         handleEmailLinkIntent(intent)
+        if (savedInstanceState == null) {
+            // Solo procesamos el Intent de lanzamiento en un arranque genuinamente nuevo —
+            // NO en una recreación (rotación, cambio de tema). launchMode="singleTask" retiene
+            // el Intent original entre recreaciones, así que sin este guard,
+            // handleJoinLinkIntent volvería a extraer el mismo código en cada rotación,
+            // incluso después de haberlo consumido. Ver PR-25 docs/plans/join-via-link.md
+            // (Paso 3) para el bug que esto corrige.
+            handleJoinLinkIntent(intent)
+        }
 
         setContent {
             NFLocosPickTheme {
-                NavGraph()
+                NavGraph(
+                    pendingInviteCode = pendingInviteCode.value,
+                    onPendingInviteConsumed = { pendingInviteCode.value = null }
+                )
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingInviteCode.value?.let { outState.putString(KEY_PENDING_INVITE_CODE, it) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleEmailLinkIntent(intent)
+        handleJoinLinkIntent(intent)
+    }
+
+    private fun handleJoinLinkIntent(intent: Intent?) {
+        val link = intent?.data?.toString() ?: return
+        val code = extractInviteCodeFromJoinLink(link) ?: return
+        pendingInviteCode.value = code
     }
 
     private fun handleEmailLinkIntent(intent: Intent?) {

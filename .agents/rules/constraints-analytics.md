@@ -23,7 +23,7 @@ All Firebase Analytics logging goes through the single choke point `AppLogger.lo
 | 3 | `sign_out` | — (triggers `setUserId(null)`) | Auth |
 | 4 | `account_deleted` | — (triggers `setUserId(null)`) | Auth |
 | 5 | `group_created` | `group_id`, `group_name` | Groups |
-| 6 | `group_joined` | `group_id`, `group_name` | Groups |
+| 6 | `group_joined` | `group_id`, `group_name`, `source` | Groups |
 | 7 | `group_opened` | `group_id`, `group_name?`, `source` | Groups |
 | 8 | `scoring_completed` | `group_id`, `scored_count`, `source` | Groups/Picks |
 | 9 | `pick_submitted` | `group_id`, `week_id`, `game_id`, `team_abbr`, `team_name?`, `season_type`, `week_number` | Picks |

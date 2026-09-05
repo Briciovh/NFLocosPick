@@ -13,8 +13,8 @@ sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap(
     data class GroupCreated(val groupId: String, val groupName: String) :
         AppEvent("group_created", mapOf("group_id" to groupId, "group_name" to groupName))
 
-    data class GroupJoined(val groupId: String, val groupName: String) :
-        AppEvent("group_joined", mapOf("group_id" to groupId, "group_name" to groupName))
+    data class GroupJoined(val groupId: String, val groupName: String, val source: String) :
+        AppEvent("group_joined", mapOf("group_id" to groupId, "group_name" to groupName, "source" to source))
 
     data class GroupOpened(val groupId: String, val groupName: String?, val source: String) :
         AppEvent("group_opened", buildMap {

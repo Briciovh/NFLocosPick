@@ -104,7 +104,21 @@ class GroupViewModelTest {
 
         val state = vm.actionState.value as GroupActionUiState.Success
         assertEquals(stubGroup, state.group)
-        verify { logger.logEvent(match { it.name == "group_joined" && it.params["group_name"] == "Los Locos" }) }
+        verify {
+            logger.logEvent(match {
+                it.name == "group_joined" && it.params["group_name"] == "Los Locos" && it.params["source"] == "manual_code"
+            })
+        }
+    }
+
+    @Test
+    fun `joinGroup logs the given source instead of the manual_code default`() = runTest(coroutineRule.dispatcher) {
+        coEvery { joinGroupUseCase(any(), any()) } returns stubGroup
+
+        val vm = viewModel()
+        vm.joinGroup("ABC123", source = "invite_link")
+
+        verify { logger.logEvent(match { it.name == "group_joined" && it.params["source"] == "invite_link" }) }
     }
 
     @Test

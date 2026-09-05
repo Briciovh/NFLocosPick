@@ -1,0 +1,14 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.softeen.nflocospicks",
+      "sha256_cert_fingerprints": [
+        "C5:E6:C9:74:0D:DE:09:92:F8:A9:67:8D:3A:DC:D2:D8:A1:F8:ED:9D:F4:EA:72:CC:FF:7F:03:9A:4F:25:9B:FC",
+        "25:C2:E2:9B:51:17:88:8C:2F:2A:36:B8:69:21:4E:A5:08:9F:F3:71:DB:CC:28:4A:47:85:AA:2D:07:19:91:64",
+        "0D:86:61:3E:FA:89:92:4D:C5:9B:D6:B5:23:7C:E8:F1:0D:E4:24:04:3F:36:F8:25:D4:BB:30:9A:F9:82:CF:0E"
+      ]
+    }
+  }
+]

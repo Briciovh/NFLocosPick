@@ -75,8 +75,12 @@ fun GroupHeaderBar(
             fontWeight = FontWeight.Bold,
             modifier   = Modifier.padding(start = 12.dp).weight(1f)
         )
-        if (group != null) {
-            val shareMessage = stringResource(R.string.group_invite_share_text, group.inviteCode)
+        if (group != null && group.id != GlobalGroupConstants.GROUP_ID) {
+            val shareMessage = stringResource(
+                R.string.group_invite_share_text,
+                group.inviteCode,
+                buildGroupInviteLink(group.inviteCode)
+            )
             Box(
                 modifier          = Modifier
                     .size(24.dp)

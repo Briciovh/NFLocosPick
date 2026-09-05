@@ -80,6 +80,24 @@
                     android:host="nflocospicks.firebaseapp.com"
                     android:pathPrefix="/__/auth/links" />
             </intent-filter>
+
+            <!-- Android App Link for joining a group via shareable invite link (PR-25).
+                 Host is Firebase Hosting's canonical domain (nflocospicks.web.app), kept
+                 deliberately distinct from the email-link intent-filter's
+                 nflocospicks.firebaseapp.com above — that host is flagged pending
+                 verification against Firebase Auth's Authorized domains list, an
+                 unrelated concern to Hosting/App Links.
+                 Requires public/.well-known/assetlinks.json to be deployed with the
+                 correct SHA256 cert fingerprint(s) for autoVerify to actually pass. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="nflocospicks.web.app"
+                    android:pathPrefix="/join" />
+            </intent-filter>
         </activity>
     </application>
 

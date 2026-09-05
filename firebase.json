@@ -23,5 +23,13 @@
       "bucket": "nflocospicks.firebasestorage.app",
       "rules": "storage.rules"
     }
-  ]
+  ],
+  "hosting": {
+    "public": "public",
+    "ignore": ["firebase.json", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/join", "destination": "/join/index.html" },
+      { "source": "/join/**", "destination": "/join/index.html" }
+    ]
+  }
 }

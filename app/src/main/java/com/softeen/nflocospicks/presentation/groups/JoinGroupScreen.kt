@@ -36,6 +36,7 @@ import com.softeen.nflocospicks.presentation.theme.LocalAppColors
 
 @Composable
 fun JoinGroupScreen(
+    prefilledCode: String? = null,
     onNavigateBack: () -> Unit,
     viewModel: GroupViewModel
 ) {
@@ -51,18 +52,28 @@ fun JoinGroupScreen(
 
     JoinGroupScreenContent(
         actionState    = actionState,
+        initialCode    = prefilledCode.orEmpty(),
         onNavigateBack = onNavigateBack,
-        onJoinGroup    = { viewModel.joinGroup(it) }
+        onJoinGroup    = { code ->
+            // Atribuimos el source al momento de enviar, no al componer la pantalla: si el
+            // usuario llegó por un link pero editó el código a mano, ya no coincide con
+            // prefilledCode y cae correctamente a "manual_code".
+            val source = if (code == prefilledCode) "invite_link" else "manual_code"
+            viewModel.joinGroup(code, source)
+        }
     )
 }
 
 @Composable
 internal fun JoinGroupScreenContent(
     actionState: GroupActionUiState,
+    initialCode: String = "",
     onNavigateBack: () -> Unit,
     onJoinGroup: (String) -> Unit
 ) {
-    var inviteCode by remember { mutableStateOf("") }
+    var inviteCode by remember(initialCode) {
+        mutableStateOf(initialCode.uppercase().filter { it.isLetterOrDigit() }.take(6))
+    }
     val appColors   = LocalAppColors.current
 
     Column(
@@ -82,9 +93,18 @@ internal fun JoinGroupScreenContent(
 
         Spacer(Modifier.height(24.dp))
 
+        if (initialCode.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.join_group_prefilled_notice),
+                color = appColors.secondary,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
         OutlinedTextField(
             value = inviteCode,
-            onValueChange = { inviteCode = it.uppercase().take(6) },
+            onValueChange = { inviteCode = it.uppercase().filter { char -> char.isLetterOrDigit() }.take(6) },
             label = { Text(stringResource(R.string.join_group_code_hint), color = appColors.secondary) },
             placeholder = { Text("XXXXXX", color = appColors.secondary) },
             singleLine = true,

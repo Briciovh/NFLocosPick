@@ -64,7 +64,7 @@
     <string name="group_code_copied">Código copiado</string>
     <string name="cd_copy_group_code">Copiar código de grupo</string>
     <string name="cd_share_group_code">Compartir código de grupo</string>
-    <string name="group_invite_share_text">Únete a mi grupo con el código %1$s en NFLocos Picks</string>
+    <string name="group_invite_share_text">Únete a mi grupo con el código %1$s en NFLocos Picks: %2$s</string>
     <string name="global_group_feed_title">NFLocos de Corazón</string>
     <string name="global_group_feed_empty">Sin mensajes todavía</string>
     <string name="scoring_none">No hay picks nuevos que puntuar</string>
@@ -91,6 +91,7 @@
     <string name="join_group_heading">Unirse a Grupo</string>
     <string name="join_group_code_hint">Código de invitación</string>
     <string name="join_group_btn">Unirme</string>
+    <string name="join_group_prefilled_notice">Código de invitación detectado</string>
 
     <!-- Picks -->
     <string name="picks_no_games">No hay partidos esta semana.</string>

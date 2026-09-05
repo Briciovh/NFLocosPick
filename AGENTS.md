@@ -12,7 +12,8 @@ This file provides guidance to any AGENTS.md-compatible coding agent (Antigravit
 - [`.agents/rules/architecture.md`](.agents/rules/architecture.md) — project overview, stack, build & test commands, Clean Architecture layers, package structure, team-theming system, Firestore data model, ESPN API.
 - [`.agents/rules/roadmap-shipped.md`](.agents/rules/roadmap-shipped.md) — PR Roadmap, PR-1 through PR-13 (already merged; historical context for *why* the code looks the way it does).
 - [`.agents/rules/roadmap-active-1.md`](.agents/rules/roadmap-active-1.md) — PR Roadmap, PR-14 through PR-17.
-- [`.agents/rules/roadmap-active-2.md`](.agents/rules/roadmap-active-2.md) — PR Roadmap, PR-18 through PR-23 (most recent / in-progress work).
+- [`.agents/rules/roadmap-active-2.md`](.agents/rules/roadmap-active-2.md) — PR Roadmap, PR-18 through PR-23.
+- [`.agents/rules/roadmap-active-3.md`](.agents/rules/roadmap-active-3.md) — PR Roadmap, PR-24 (most recent — not yet implemented, documented pending future work).
 - [`.agents/rules/constraints-analytics.md`](.agents/rules/constraints-analytics.md) — key constraints (minSdk, disabled dynamic color, DataStore vs Firestore, etc.) and the full Analytics event inventory.
 - [`.agents/rules/release-and-compat.md`](.agents/rules/release-and-compat.md) — Play App Signing / release checklist and AGP 9 dependency compatibility notes.
 

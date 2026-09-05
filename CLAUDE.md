@@ -350,6 +350,19 @@ Third and final PR of the series — mostly a console/ops step plus documentatio
 - Recommendation (not implemented): enable BigQuery Export (Admin → Project Settings → Integrations) once the 50-dimension cap becomes limiting, for raw SQL access to every param.
 - `CLAUDE.md` "Key Constraints" gains an "Analytics" subsection listing the full event inventory, so future PRs adding events don't reintroduce the same enrichment gap.
 
+### PR-24 — Group Membership Subcollection Migration
+**Branch:** `feature/24-membership-subcollection`
+
+Originates from hallazgo #6 of the Global Group security review (Codex + Antigravity + Claude, sept 2026 — see `docs/plans/global-default-group.md`): storing every app user's UID in a single `memberIds[]` array field on one document (`groups/global_nflocos_de_corazon`) collides with Firestore's ~1 MiB per-document cap (~25-30k UIDs) and its recommended ~1 write/sec-per-document contention limit as the user base grows. Not urgent at today's scale (a private-group app), but `memberIds` is load-bearing across the **entire** app, not just the global group — this PR was scoped out of the immediate security fix precisely because of that blast radius, documented here instead of implemented ad hoc. Full inventory of what this touches (confirmed by grep across the codebase, sept 2026): 15 separate `get(...).data.memberIds` checks in `firestore.rules`, the `whereArrayContains("memberIds", ...)` query that powers "which groups am I in" (`FirebaseGroupDataSource`), 3 Cloud Functions (`scoring.ts`, `inactivity.ts`, `accountDeletion.ts`) that iterate or query `memberIds` directly, 2 one-time backfill scripts, and 6 Kotlin test suites that construct `Group` objects with `memberIds` directly.
+
+- New shape: `groups/{groupId}/members/{uid}` subcollection, each doc `{ uid, joinedAt }` — replaces the `memberIds: List<String>` array field on the group doc itself.
+- "Which groups am I in" query becomes a `collectionGroup("members").whereEqualTo("uid", ...)` query (Firestore collection-group queries support real-time listeners, so `GroupViewModel.observeGroups` keeps working, but resolving parent `Group` docs from the returned member docs — `doc.ref.parent.parent`/a batch-get — is a real behavior change from today's single `whereArrayContains` snapshot listener, not a drop-in swap).
+- New denormalized `memberCount: Int` field directly on the group doc (updated transactionally alongside creating/deleting a `members/{uid}` doc) so `GroupsScreen`'s member-count display doesn't need to fetch the full member subcollection just to show a number.
+- `firestore.rules` — all 15 `get(...).data.memberIds` membership checks become `exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid))` (cheaper than the current `get()` of the whole group doc); new `allow read/create/delete` rules on `groups/{groupId}/members/{memberId}` itself (self-join/self-leave, creator can add/remove others).
+- `scoring.ts`/`accountDeletion.ts`/`inactivity.ts` — rewritten to query the `members` subcollection (or a `collectionGroup` query keyed on `uid`) instead of reading/filtering the `memberIds` array.
+- One-time Admin SDK migration script backfills a `members/{uid}` doc for every entry in every existing group's `memberIds` array — this is the highest-risk step (irreversible in practice once the old array-based code path is retired) and should run against a backup/staging copy first.
+- Given the project currently has **zero repository-layer or Cloud Functions unit tests** (a pre-existing gap, not introduced by this PR — see `docs/plans/global-default-group.md`), this PR should budget time to add at least minimal test coverage for the new membership read/write paths before/alongside the migration, rather than migrating the app's core membership model with no automated safety net at all.
+
 ---
 
 ## Rules

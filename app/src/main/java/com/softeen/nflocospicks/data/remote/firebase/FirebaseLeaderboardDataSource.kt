@@ -30,18 +30,24 @@ class FirebaseLeaderboardDataSource @Inject constructor(
                     return@addSnapshotListener
                 }
 
-                val standings = snapshot.documents.mapNotNull { doc ->
-                    @Suppress("UNCHECKED_CAST")
-                    val rawBreakdown = doc.get("weeklyBreakdown") as? Map<String, Any> ?: emptyMap()
-                    val weeklyBreakdown = rawBreakdown.mapValues { (_, v) ->
-                        when (v) {
-                            is Long -> v.toInt()
-                            is Int  -> v
-                            else    -> 0
+                // Filtra standings archivados por desactivación por inactividad (PR-20 +
+                // fix hallazgo #5, sept 2026) — se filtra en el cliente, no con una query
+                // de Firestore, porque un "hidden != true" excluiría también los docs
+                // normales que nunca tuvieron el campo "hidden" seteado.
+                val standings = snapshot.documents
+                    .filterNot { it.getBoolean("hidden") == true }
+                    .mapNotNull { doc ->
+                        @Suppress("UNCHECKED_CAST")
+                        val rawBreakdown = doc.get("weeklyBreakdown") as? Map<String, Any> ?: emptyMap()
+                        val weeklyBreakdown = rawBreakdown.mapValues { (_, v) ->
+                            when (v) {
+                                is Long -> v.toInt()
+                                is Int  -> v
+                                else    -> 0
+                            }
                         }
+                        Pair(doc.id, weeklyBreakdown)
                     }
-                    Pair(doc.id, weeklyBreakdown)
-                }
 
                 scope.launch {
                     val uncached = standings.map { it.first }.filterNot { it in userCache }

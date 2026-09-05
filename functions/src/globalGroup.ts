@@ -15,15 +15,29 @@ export const GLOBAL_GROUP_ID = "global_nflocos_de_corazon";
  * "ensureGlobalStanding" justo después de auto-unirse al grupo global en su
  * primer sign-in (ver UserRepositoryImpl.ensureGlobalGroupMembership).
  * Idempotente: no toca el doc si ya existe, para no pisar puntos ya ganados.
+ *
+ * El check-then-set corre dentro de una transacción (antes era un get()+set()
+ * suelto): si scoreGroupForWeek puntúa un pick de este uid justo entre el
+ * chequeo y la escritura, la transacción de Firestore reintenta esta función
+ * al detectar que el doc cambió, en vez de pisar los puntos recién anotados
+ * con { totalPoints: 0 } (hallazgo Antigravity, sept 2026, ver
+ * docs/plans/global-default-group.md — el lado de scoreGroupForWeek de esta
+ * misma carrera queda fuera de alcance de este fix, ver esa nota en el plan).
  */
 export async function seedGlobalStanding(uid: string): Promise<void> {
-  const ref = getFirestore()
+  const db = getFirestore();
+  const ref = db
     .collection("standings").doc(GLOBAL_GROUP_ID)
     .collection("members").doc(uid);
 
-  const snap = await ref.get();
-  if (snap.exists) return;
+  const seeded = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) return false;
+    tx.set(ref, { totalPoints: 0, weeklyBreakdown: {} });
+    return true;
+  });
 
-  await ref.set({ totalPoints: 0, weeklyBreakdown: {} });
-  logger.info(`seedGlobalStanding: standing sembrado para uid=${uid}`);
+  if (seeded) {
+    logger.info(`seedGlobalStanding: standing sembrado para uid=${uid}`);
+  }
 }

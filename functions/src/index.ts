@@ -7,7 +7,7 @@ import { fetchCurrentWeekGames, computeWinners } from "./espn";
 import { scoreGroupForWeek } from "./scoring";
 import { deleteUserAccount } from "./accountDeletion";
 import { seedGlobalStanding } from "./globalGroup";
-import { deactivateInactiveUsers } from "./inactivity";
+import { deactivateInactiveUsers, reactivateUser } from "./inactivity";
 
 initializeApp();
 
@@ -118,9 +118,9 @@ export const ensureGlobalStanding = onCall(async (request) => {
 });
 
 /**
- * Deshabilita cuentas inactivas por más de un año y las retira de standings
- * (PR-20). Corre una vez al día — a diferencia de scheduledScoring, la
- * inactividad no tiene "días de partido", así que no se restringe por día
+ * Deshabilita cuentas inactivas por más de un año y oculta (no borra) sus
+ * standings (PR-20). Corre una vez al día — a diferencia de scheduledScoring,
+ * la inactividad no tiene "días de partido", así que no se restringe por día
  * de la semana.
  */
 export const scheduledInactivityCheck = onSchedule(
@@ -130,3 +130,23 @@ export const scheduledInactivityCheck = onSchedule(
     logger.info(`scheduledInactivityCheck: ${count} cuentas deshabilitadas`);
   }
 );
+
+/**
+ * Reactiva la cuenta del usuario autenticado si fue deshabilitada por
+ * inactividad: pone isActive=true y restaura (des-oculta) sus standings
+ * archivados en todos sus grupos, con su historial intacto (fix hallazgo #5,
+ * sept 2026 — ver docs/plans/global-default-group.md). isActive/disabledAt
+ * están bloqueados para escritura de cliente en firestore.rules, así que solo
+ * esta función (Admin SDK) puede revertirlos. El cliente la llama en cada
+ * login mientras isActive siga false (ver UserRepositoryImpl.kt) — no-op si
+ * la cuenta ya está activa.
+ */
+export const reactivateAccount = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+
+  await reactivateUser(uid);
+  return { success: true };
+});

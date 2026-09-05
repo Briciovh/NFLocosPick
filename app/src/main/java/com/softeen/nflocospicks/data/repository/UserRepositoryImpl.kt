@@ -423,11 +423,39 @@ class UserRepositoryImpl @Inject constructor(
         if (isNewUser) {
             ref.update("role", UserRole.REGULAR.name).await()
             role = UserRole.REGULAR
-            ensureGlobalGroupMembership(fbUser.uid)
         } else {
             role = snap.getString("role")
                 ?.let { runCatching { UserRole.valueOf(it) }.getOrDefault(UserRole.REGULAR) }
                 ?: UserRole.REGULAR
+        }
+
+        // Reintenta la afiliación al grupo global en CADA login mientras no se haya
+        // confirmado exitosa, en vez de intentarla una sola vez atada a isNewUser.
+        // Antes, un fallo de red en el primer login dejaba "role" ya guardado
+        // (arriba) y la afiliación nunca se reintentaba, porque isNewUser dependía
+        // de la existencia de "role" — el usuario quedaba fuera del grupo global
+        // para siempre, en silencio (hallazgo Antigravity, sept 2026, ver
+        // docs/plans/global-default-group.md). globalGroupJoined solo se marca
+        // true cuando ensureGlobalGroupMembership de verdad tiene éxito.
+        if (snap.getBoolean("globalGroupJoined") != true) {
+            if (ensureGlobalGroupMembership(fbUser.uid)) {
+                ref.update("globalGroupJoined", true).await()
+            }
+        }
+
+        // Reactivación tras desactivación por inactividad (PR-20 + fix hallazgo #5,
+        // sept 2026, ver docs/plans/global-default-group.md): isActive/disabledAt
+        // están bloqueados para escritura de cliente en firestore.rules, así que
+        // solo la Cloud Function "reactivateAccount" (Admin SDK) puede revertirlos
+        // y des-ocultar los standings archivados. Se reintenta en cada login
+        // mientras isActive siga false; reactivateUser() del lado del servidor es
+        // no-op si ya está activa, así que reintentar es seguro.
+        if (snap.getBoolean("isActive") == false) {
+            runCatching {
+                functions.getHttpsCallable("reactivateAccount").call().await()
+            }.onFailure { e ->
+                Timber.w(e, "reactivateAccount: no se pudo reactivar uid=${fbUser.uid}")
+            }
         }
 
         return SignInResult(
@@ -449,22 +477,27 @@ class UserRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Auto-afilia al usuario recién registrado al grupo global "NFLocos de Corazón" (PR-17):
-     * se autoagrega a `memberIds` (ya permitido por la regla `update` existente — mismo
+     * Auto-afilia al usuario al grupo global "NFLocos de Corazón" (PR-17): se
+     * autoagrega a `memberIds` (ya permitido por la regla `update` existente — mismo
      * mecanismo que unirse por código) y siembra su standing en 0 puntos vía la Cloud
      * Function `ensureGlobalStanding` (standings tiene `allow write: if false` para
-     * clientes). Falla en silencio: es un efecto secundario del sign-in, no debe poder
-     * tumbar el login si el grupo global no existe todavía o si hay un error de red.
+     * clientes). Falla en silencio hacia arriba: es un efecto secundario del sign-in,
+     * no debe poder tumbar el login si el grupo global no existe todavía o si hay un
+     * error de red — pero el caller SÍ debe saber si tuvo éxito para decidir si
+     * reintentar en el próximo login (ver upsertAndResolveRole/globalGroupJoined).
+     * Ambos pasos son idempotentes (arrayUnion no duplica; ensureGlobalStanding no
+     * pisa un standing ya sembrado), así que reintentar tras un fallo parcial es seguro.
+     * Retorna true solo si ambos pasos terminaron sin excepción.
      */
-    private suspend fun ensureGlobalGroupMembership(uid: String) {
-        runCatching {
+    private suspend fun ensureGlobalGroupMembership(uid: String): Boolean {
+        return runCatching {
             firestore.collection("groups").document(GlobalGroupConstants.GROUP_ID)
                 .update("memberIds", FieldValue.arrayUnion(uid))
                 .await()
             functions.getHttpsCallable("ensureGlobalStanding").call().await()
         }.onFailure { e ->
             Timber.w(e, "ensureGlobalGroupMembership: no se pudo afiliar uid=$uid al grupo global")
-        }
+        }.isSuccess
     }
 
     /**

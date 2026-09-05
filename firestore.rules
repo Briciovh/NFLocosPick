@@ -53,17 +53,35 @@ service cloud.firestore {
       // Un miembro puede actualizar el grupo (ej: picks, settings futuros).
       // Un usuario no-miembro también puede actualizarlo SOLO para agregarse
       // a sí mismo en memberIds (flujo de unirse con inviteCode).
-      // photoUrl/iconId (imagen del grupo) son la excepción: solo el creador
+      // createdBy es inmutable vía update — transferir dueño requeriría un
+      // mecanismo dedicado que no existe hoy.
+      // photoUrl/iconId/name/inviteCode son la excepción: solo el creador
       // puede tocarlos, sin importar que el requester sea miembro.
+      // memberIds: cualquier requester puede sumar como máximo 1 uid (self-join)
+      // y nunca puede quitar a nadie de la lista existente; el creador sí puede
+      // modificarlo libremente (ej. expulsar a alguien a futuro).
+      // Cierra el hallazgo de seguridad de la revisión Codex+Antigravity de
+      // sept 2026 (docs/plans/global-default-group.md): antes cualquier
+      // miembro podía reescribir createdBy/memberIds/name a su antojo,
+      // secuestrando o vaciando un grupo — crítico para el grupo global
+      // "NFLocos de Corazón", donde TODO usuario de la app es miembro.
       allow update: if request.auth != null
                     && (
                       request.auth.uid in resource.data.memberIds
                       || request.auth.uid in request.resource.data.memberIds
                     )
+                    && request.resource.data.createdBy == resource.data.createdBy
                     && (
                       !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['photoUrl', 'iconId'])
+                        .hasAny(['photoUrl', 'iconId', 'name', 'inviteCode'])
                       || request.auth.uid == resource.data.createdBy
+                    )
+                    && (
+                      request.auth.uid == resource.data.createdBy
+                      || (
+                        request.resource.data.memberIds.hasAll(resource.data.memberIds)
+                        && request.resource.data.memberIds.size() <= resource.data.memberIds.size() + 1
+                      )
                     );
 
       // Solo el creador puede eliminar el grupo — excepto el grupo global
@@ -79,8 +97,18 @@ service cloud.firestore {
       match /weeks/{weekId} {
         allow read:  if request.auth != null
                      && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+
+        // Cachea el calendario de ESPN (ScheduleRepositoryImpl.cacheGamesToFirestore
+        // hace un set() sin merge de { games: [...] }) — write legítimo de cualquier
+        // miembro, no se puede bloquear con "if false" sin romper el cacheo de
+        // horarios para todos los grupos. Sí se restringe la forma del documento a
+        // solo la clave "games" para que no se pueda inyectar contenido arbitrario
+        // ni reemplazar el doc entero con basura (hallazgo Antigravity, sept 2026,
+        // ver docs/plans/global-default-group.md — crítico para el grupo global,
+        // donde TODO usuario de la app es "miembro").
         allow write: if request.auth != null
-                     && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+                     && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds
+                     && request.resource.data.keys().hasOnly(['games']);
 
         // El cliente solo escribe pickedTeam. isCorrect/scoredAt/winnerTeamAbbr
         // NUNCA viven acá — si vivieran acá, un usuario podría escribir

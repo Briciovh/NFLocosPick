@@ -131,9 +131,12 @@ class GroupViewModel @Inject constructor(
         viewModelScope.launch {
             _actionState.value = GroupActionUiState.Loading
             try {
-                val group = joinGroupUseCase(inviteCode, userId)
-                _actionState.value = GroupActionUiState.Success(group)
-                logger.logEvent(AppEvent.GroupJoined(group.id, group.name, source))
+                val result = joinGroupUseCase(inviteCode, userId)
+                _actionState.value = GroupActionUiState.Success(result.group, result.alreadyMember)
+                if (!result.alreadyMember) {
+                    logger.logEvent(AppEvent.GroupJoined(result.group.id, result.group.name, source))
+                }
+                effects.send(GroupUiEffect.GroupJoined(result.group.name, result.alreadyMember))
             } catch (e: NoSuchElementException) {
                 _actionState.value = GroupActionUiState.Error("Código de invitación inválido")
             } catch (e: Exception) {

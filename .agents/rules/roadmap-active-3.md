@@ -1,6 +1,6 @@
-# PR Roadmap — Active, part 3 (PR-24, PR-25)
+# PR Roadmap — Active, part 3 (PR-24, PR-25, PR-26)
 
-Mirrors CLAUDE.md's "PR Roadmap" section, PR-24 and PR-25. Source of truth is CLAUDE.md; update both together. See `roadmap-active-2.md` for PR-18 through PR-23.
+Mirrors CLAUDE.md's "PR Roadmap" section, PR-24 through PR-26. Source of truth is CLAUDE.md; update both together. See `roadmap-active-2.md` for PR-18 through PR-23.
 
 ### PR-24 — Group Membership Subcollection Migration
 **Branch:** `feature/24-membership-subcollection`
@@ -30,3 +30,14 @@ Adds joining a group via a real, tappable Android App Link (`https://nflocospick
 - `FirebaseGroupDataSource.createGroup()` gains check-and-retry invite-code uniqueness (`generateUniqueInviteCode`, 5 attempts) — a pre-existing gap unrelated to the link mechanism itself, bundled into this PR by explicit user decision since a shareable link raises the stakes of a collision; deliberately not made fully race-proof (a reservation-document transaction) since that's disproportionate at this app's scale.
 - Also decided during this PR: PR-24 (membership subcollection migration) is frozen indefinitely (see its entry above); invite links ship indefinite/non-revocable, same as the manual code today.
 - 157 total unit tests passing (`./gradlew test`) across the whole suite as of this PR; `./gradlew assembleDebug` green throughout.
+
+### PR-26 — Join Outcome Feedback & Global Card Cleanup
+**Branch:** `feature/26-join-outcome-feedback`
+
+Closes two small gaps left by PR-25: joining a group (manually or via link) gave no visual feedback either way, since Firestore's `arrayUnion` is a silent no-op for an existing member; and the global default group's invite code was still shown on `GroupsScreen`'s list-view `GroupCard`, even though PR-25 already hid the equivalent affordance on `GroupHeaderBar`. Full plan, cross-reviewed twice (plan + implementation, Codex + Antigravity) with every finding verified/resolved, at `docs/plans/join-outcome-feedback.md`.
+
+- `domain/model/JoinGroupResult.kt` (new) — wraps the resulting `Group` plus `alreadyMember: Boolean`, threaded through `GroupRepository.joinGroup` → `GroupRepositoryImpl` → `FirebaseGroupDataSource.joinGroup` → `JoinGroupUseCase`. `FirebaseGroupDataSource.joinGroup` now checks the fetched doc's `memberIds` for the joining `userId` *before* writing — an already-member join returns immediately with no `arrayUnion` write and no re-read (saves a write + a round-trip); a new join still does the existing write-then-reread. Accepted, documented limitation: the read-check-write isn't transactional (a rapid double-tap could report `alreadyMember = false` twice), disproportionate to engineer around at this app's scale, matching PR-25's identical precedent for invite-code uniqueness.
+- `GroupActionUiState.Success` gains `alreadyMember: Boolean = false`; new `GroupUiEffect.GroupJoined(groupName, alreadyMember)` sent from `GroupViewModel.joinGroup` and consumed on `GroupsScreen`'s existing effect-collecting `LaunchedEffect` — reuses the exact same `Channel`/`SnackbarHostState` mechanism already used for scoring feedback, so the snackbar shows correctly even though `JoinGroupScreen` auto-navigates back on `Success` before the user sees it. Two new strings (`group_joined_new` "Te uniste a %1$s 🎉" / `group_already_member` "Ya eras miembro de %1$s", es+en).
+- `AppEvent.GroupJoined` is only logged when `alreadyMember == false` — an already-member re-tap doesn't fire `group_joined` at all, keeping the event's meaning unambiguous and avoiding a new Analytics Custom Dimension for a param that would otherwise be needed to distinguish the two cases.
+- `GroupsScreen.kt`'s `GroupCard` — the invite-code row (code text + copy button) is now wrapped in `if (group.id != GlobalGroupConstants.GROUP_ID)`, mirroring the same check already used for `GroupHeaderBar` in PR-25; the global group's card now shows name → member count directly, no inert code.
+- 164 total unit tests passing (`./gradlew test`) across the whole suite as of this PR, including 3 new `FirebaseGroupDataSourceTest.kt` cases covering `joinGroup`'s new-join / already-member / no-group-found paths (previously zero coverage on this method); `./gradlew assembleDebug` green throughout.

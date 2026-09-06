@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.domain.repository
 
 import android.net.Uri
 import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.model.JoinGroupResult
 import kotlinx.coroutines.flow.Flow
 
 interface GroupRepository {
@@ -13,10 +14,11 @@ interface GroupRepository {
     suspend fun createGroup(name: String, creatorUserId: String): Group
 
     /**
-     * Busca un grupo por [inviteCode], agrega [userId] a memberIds y retorna el [Group]
-     * actualizado. Lanza [NoSuchElementException] si no existe ningún grupo con ese código.
+     * Busca un grupo por [inviteCode] y retorna un [JoinGroupResult] indicando si [userId]
+     * ya era miembro antes de esta llamada. Si no lo era, lo agrega a memberIds. Lanza
+     * [NoSuchElementException] si no existe ningún grupo con ese código.
      */
-    suspend fun joinGroup(inviteCode: String, userId: String): Group
+    suspend fun joinGroup(inviteCode: String, userId: String): JoinGroupResult
 
     /**
      * Emite la lista actual de grupos del usuario y re-emite en cada actualización de

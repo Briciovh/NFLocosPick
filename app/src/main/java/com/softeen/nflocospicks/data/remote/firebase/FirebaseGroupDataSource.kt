@@ -5,6 +5,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.model.JoinGroupResult
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -61,7 +62,7 @@ class FirebaseGroupDataSource @Inject constructor(
         throw IllegalStateException("No se pudo generar un código de invitación único tras $maxAttempts intentos")
     }
 
-    suspend fun joinGroup(inviteCode: String, userId: String): Group {
+    suspend fun joinGroup(inviteCode: String, userId: String): JoinGroupResult {
         val snapshot = firestore.collection(COLLECTION)
             .whereEqualTo("inviteCode", inviteCode)
             .get()
@@ -70,13 +71,18 @@ class FirebaseGroupDataSource @Inject constructor(
         val doc = snapshot.documents.firstOrNull()
             ?: throw NoSuchElementException("No group found for invite code: $inviteCode")
 
+        val alreadyMember = (doc.get("memberIds") as? List<*>)?.contains(userId) == true
+        if (alreadyMember) {
+            return JoinGroupResult(doc.toGroup(), alreadyMember = true)
+        }
+
         firestore.collection(COLLECTION).document(doc.id)
             .update("memberIds", FieldValue.arrayUnion(userId))
             .await()
 
         // Re-leemos el documento tras el update para retornar el estado fresco.
         val updated = firestore.collection(COLLECTION).document(doc.id).get().await()
-        return updated.toGroup()
+        return JoinGroupResult(updated.toGroup(), alreadyMember = false)
     }
 
     suspend fun getGroupById(groupId: String): Group =

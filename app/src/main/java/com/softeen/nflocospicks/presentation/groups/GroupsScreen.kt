@@ -87,8 +87,10 @@ fun GroupsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scoringNoneMsg = stringResource(R.string.scoring_none)
     val scoringResultPattern = stringResource(R.string.scoring_result)
+    val joinedNewPattern = stringResource(R.string.group_joined_new)
+    val alreadyMemberPattern = stringResource(R.string.group_already_member)
 
-    // Consume efectos de un solo disparo (navegación + feedback de puntuación)
+    // Consume efectos de un solo disparo (navegación + feedback de puntuación/unión)
     LaunchedEffect(Unit) {
         for (effect in viewModel.effects) {
             when (effect) {
@@ -102,6 +104,13 @@ fun GroupsScreen(
                     snackbarHostState.showSnackbar(msg)
                 }
                 is GroupUiEffect.ScoringError       -> snackbarHostState.showSnackbar(effect.message)
+                is GroupUiEffect.GroupJoined        -> {
+                    val msg = if (effect.alreadyMember)
+                        String.format(alreadyMemberPattern, effect.groupName)
+                    else
+                        String.format(joinedNewPattern, effect.groupName)
+                    snackbarHostState.showSnackbar(msg)
+                }
             }
         }
     }
@@ -349,35 +358,37 @@ private fun GroupCard(
                     style = MaterialTheme.typography.titleLarge
                 )
                 Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(R.string.group_code_label, group.inviteCode),
-                        color = appColors.secondary,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Box(
-                        modifier          = Modifier
-                            .size(20.dp)
-                            .clip(CircleShape)
-                            .clickable {
-                                coroutineScope.launch {
-                                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("invite_code", group.inviteCode)))
-                                }
-                                Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
-                            }
-                            .testTag(TestTags.GROUPS_COPY_CODE_BUTTON),
-                        contentAlignment  = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector        = Icons.Filled.ContentCopy,
-                            contentDescription = stringResource(R.string.cd_copy_group_code),
-                            tint               = appColors.secondary,
-                            modifier           = Modifier.size(14.dp)
+                if (group.id != GlobalGroupConstants.GROUP_ID) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.group_code_label, group.inviteCode),
+                            color = appColors.secondary,
+                            style = MaterialTheme.typography.bodyMedium
                         )
+                        Spacer(Modifier.width(4.dp))
+                        Box(
+                            modifier          = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    coroutineScope.launch {
+                                        clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("invite_code", group.inviteCode)))
+                                    }
+                                    Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
+                                }
+                                .testTag(TestTags.GROUPS_COPY_CODE_BUTTON),
+                            contentAlignment  = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector        = Icons.Filled.ContentCopy,
+                                contentDescription = stringResource(R.string.cd_copy_group_code),
+                                tint               = appColors.secondary,
+                                modifier           = Modifier.size(14.dp)
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(4.dp))
                 }
-                Spacer(Modifier.height(4.dp))
                 Text(
                     text = stringResource(R.string.group_member_count, group.memberIds.size),
                     color = appColors.secondary,

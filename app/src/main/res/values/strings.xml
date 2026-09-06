@@ -69,6 +69,8 @@
     <string name="global_group_feed_empty">Sin mensajes todavía</string>
     <string name="scoring_none">No hay picks nuevos que puntuar</string>
     <string name="scoring_result">%1$d pick(s) puntuados 🏆</string>
+    <string name="group_joined_new">Te uniste a %1$s 🎉</string>
+    <string name="group_already_member">Ya eras miembro de %1$s</string>
 
     <!-- Create Group -->
     <string name="create_group_heading">Crear Grupo</string>

@@ -66,6 +66,8 @@
     <string name="global_group_feed_empty">No messages yet</string>
     <string name="scoring_none">No new picks to score</string>
     <string name="scoring_result">%1$d pick(s) scored 🏆</string>
+    <string name="group_joined_new">You joined %1$s 🎉</string>
+    <string name="group_already_member">You were already a member of %1$s</string>
 
     <!-- Create Group -->
     <string name="create_group_heading">Create Group</string>

@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.integration
 
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.model.JoinGroupResult
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.domain.repository.GroupRepository
@@ -102,13 +103,13 @@ class GroupViewModelIntegrationTest {
     fun `joinGroup passes trimmed and uppercased code to repository through the real use case`() = runTest(coroutineRule.dispatcher) {
         val groupRepo = mockk<GroupRepository>()
         every  { groupRepo.getGroupsForUser(any()) }    returns flowOf(emptyList())
-        coEvery { groupRepo.joinGroup(any(), any()) }   returns stubGroup
+        coEvery { groupRepo.joinGroup(any(), any()) }   returns JoinGroupResult(stubGroup, alreadyMember = false)
 
         val vm = viewModel(groupRepo)
         vm.joinGroup(" abc123 ")        // minúsculas y espacios que el use case debe normalizar
 
         // El repositorio debe haber recibido el código normalizado
         coVerify { groupRepo.joinGroup("ABC123", testUser.uid) }
-        assertEquals(GroupActionUiState.Success(stubGroup), vm.actionState.value)
+        assertEquals(GroupActionUiState.Success(stubGroup, alreadyMember = false), vm.actionState.value)
     }
 }

@@ -15,7 +15,7 @@ sealed class GroupListUiState {
 sealed class GroupActionUiState {
     data object Idle : GroupActionUiState()
     data object Loading : GroupActionUiState()
-    data class Success(val group: Group) : GroupActionUiState()
+    data class Success(val group: Group, val alreadyMember: Boolean = false) : GroupActionUiState()
     data class Error(val message: String) : GroupActionUiState()
 }
 
@@ -26,6 +26,7 @@ sealed class GroupUiEffect {
     data object NavigateToLogin                                              : GroupUiEffect()
     data class ScoringResult(val groupId: String, val newlyScoredCount: Int) : GroupUiEffect()
     data class ScoringError(val message: String)                             : GroupUiEffect()
+    data class GroupJoined(val groupName: String, val alreadyMember: Boolean) : GroupUiEffect()
 }
 
 // ── Estado de la edición de imagen de grupo (foto o ícono) ────────────────────

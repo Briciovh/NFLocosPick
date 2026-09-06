@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.data.remote.firebase
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
@@ -28,6 +29,12 @@ class FirebaseGroupDataSourceTest {
         every { firestore.collection("groups") } returns collection
         every { collection.whereEqualTo("inviteCode", any<String>()) } returns query
         every { query.limit(1) } returns query
+    }
+
+    // joinGroup's query chain doesn't call .limit(1) — separate stub, not reusing stubInviteCodeQuery().
+    private fun stubJoinInviteCodeQuery() {
+        every { firestore.collection("groups") } returns collection
+        every { collection.whereEqualTo("inviteCode", any<String>()) } returns query
     }
 
     @Test
@@ -74,5 +81,69 @@ class FirebaseGroupDataSourceTest {
         }
         verify(exactly = 5) { query.get() }
         verify(exactly = 0) { collection.add(any()) }
+    }
+
+    @Test
+    fun `joinGroup adds the user and returns alreadyMember false when not previously a member`() = runBlocking {
+        stubJoinInviteCodeQuery()
+        val doc = mockk<DocumentSnapshot>()
+        every { doc.id } returns "g1"
+        every { doc.get("memberIds") } returns listOf("u0")
+        val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
+        every { query.get() } returns Tasks.forResult(snapshot)
+
+        val docRef = mockk<DocumentReference>()
+        every { collection.document("g1") } returns docRef
+        every { docRef.update("memberIds", any()) } returns Tasks.forResult<Void>(null)
+
+        val updatedDoc = mockk<DocumentSnapshot>()
+        every { updatedDoc.id } returns "g1"
+        every { updatedDoc.getString("name") } returns "Los Locos"
+        every { updatedDoc.getString("inviteCode") } returns "ABC123"
+        every { updatedDoc.getString("createdBy") } returns "u0"
+        every { updatedDoc.get("memberIds") } returns listOf("u0", "u1")
+        every { updatedDoc.getString("photoUrl") } returns null
+        every { updatedDoc.getString("iconId") } returns null
+        every { docRef.get() } returns Tasks.forResult(updatedDoc)
+
+        val result = dataSource.joinGroup("ABC123", "u1")
+
+        assertEquals(false, result.alreadyMember)
+        assertEquals("g1", result.group.id)
+        assertEquals(listOf("u0", "u1"), result.group.memberIds)
+        verify(exactly = 1) { docRef.update("memberIds", any()) }
+        verify(exactly = 1) { docRef.get() }
+    }
+
+    @Test
+    fun `joinGroup returns alreadyMember true without writing or re-reading when the user is already a member`() = runBlocking {
+        stubJoinInviteCodeQuery()
+        val doc = mockk<DocumentSnapshot>()
+        every { doc.id } returns "g1"
+        every { doc.getString("name") } returns "Los Locos"
+        every { doc.getString("inviteCode") } returns "ABC123"
+        every { doc.getString("createdBy") } returns "u0"
+        every { doc.get("memberIds") } returns listOf("u0", "u1")
+        every { doc.getString("photoUrl") } returns null
+        every { doc.getString("iconId") } returns null
+        val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
+        every { query.get() } returns Tasks.forResult(snapshot)
+
+        val result = dataSource.joinGroup("ABC123", "u1")
+
+        assertEquals(true, result.alreadyMember)
+        assertEquals(listOf("u0", "u1"), result.group.memberIds)
+        verify(exactly = 0) { collection.document(any()) }
+    }
+
+    @Test
+    fun `joinGroup throws NoSuchElementException when no group matches the invite code`() {
+        stubJoinInviteCodeQuery()
+        val emptySnapshot = mockk<QuerySnapshot> { every { documents } returns emptyList() }
+        every { query.get() } returns Tasks.forResult(emptySnapshot)
+
+        assertThrows(NoSuchElementException::class.java) {
+            runBlocking { dataSource.joinGroup("BAD123", "u1") }
+        }
     }
 }

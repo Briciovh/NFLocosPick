@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.data.repository
 import android.net.Uri
 import com.softeen.nflocospicks.data.remote.firebase.FirebaseGroupDataSource
 import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.model.JoinGroupResult
 import com.softeen.nflocospicks.domain.repository.GroupRepository
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -14,7 +15,7 @@ class GroupRepositoryImpl @Inject constructor(
     override suspend fun createGroup(name: String, creatorUserId: String): Group =
         dataSource.createGroup(name, creatorUserId)
 
-    override suspend fun joinGroup(inviteCode: String, userId: String): Group =
+    override suspend fun joinGroup(inviteCode: String, userId: String): JoinGroupResult =
         dataSource.joinGroup(inviteCode, userId)
 
     override fun getGroupsForUser(userId: String): Flow<List<Group>> =

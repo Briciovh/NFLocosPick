@@ -2,6 +2,7 @@ package com.softeen.nflocospicks.presentation.groups
 
 import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.model.JoinGroupResult
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
@@ -97,28 +98,45 @@ class GroupViewModelTest {
 
     @Test
     fun `joinGroup transitions actionState from Idle to Success with the joined group`() = runTest(coroutineRule.dispatcher) {
-        coEvery { joinGroupUseCase(any(), any()) } returns stubGroup
+        coEvery { joinGroupUseCase(any(), any()) } returns JoinGroupResult(stubGroup, alreadyMember = false)
 
         val vm = viewModel()
         vm.joinGroup("ABC123")
 
         val state = vm.actionState.value as GroupActionUiState.Success
         assertEquals(stubGroup, state.group)
+        assertEquals(false, state.alreadyMember)
         verify {
             logger.logEvent(match {
                 it.name == "group_joined" && it.params["group_name"] == "Los Locos" && it.params["source"] == "manual_code"
             })
         }
+        val effect = vm.effects.receive()
+        assertEquals(GroupUiEffect.GroupJoined("Los Locos", alreadyMember = false), effect)
     }
 
     @Test
     fun `joinGroup logs the given source instead of the manual_code default`() = runTest(coroutineRule.dispatcher) {
-        coEvery { joinGroupUseCase(any(), any()) } returns stubGroup
+        coEvery { joinGroupUseCase(any(), any()) } returns JoinGroupResult(stubGroup, alreadyMember = false)
 
         val vm = viewModel()
         vm.joinGroup("ABC123", source = "invite_link")
 
         verify { logger.logEvent(match { it.name == "group_joined" && it.params["source"] == "invite_link" }) }
+    }
+
+    @Test
+    fun `joinGroup for an already-member result sets alreadyMember true, sends the effect, and does not log analytics`() = runTest(coroutineRule.dispatcher) {
+        coEvery { joinGroupUseCase(any(), any()) } returns JoinGroupResult(stubGroup, alreadyMember = true)
+
+        val vm = viewModel()
+        vm.joinGroup("ABC123")
+
+        val state = vm.actionState.value as GroupActionUiState.Success
+        assertEquals(true, state.alreadyMember)
+        val effect = vm.effects.receive()
+        assertEquals(GroupUiEffect.GroupJoined("Los Locos", alreadyMember = true), effect)
+        verify(exactly = 0) { logger.logEvent(match { it.name == "group_joined" }) }
     }
 
     @Test

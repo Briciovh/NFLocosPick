@@ -79,7 +79,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/firebase/emulators
-          key: firebase-emulators-${{ runner.os }}
+          # Hashed on the lockfile so a firebase-tools bump (which pins the
+          # emulator versions) busts the cache; restore-keys still warm-starts
+          # from the previous cache, and pretest:rules fills any gap.
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('functions/package-lock.json') }}
+          restore-keys: |
+            firebase-emulators-${{ runner.os }}-
 
       - name: Install dependencies
         run: npm ci

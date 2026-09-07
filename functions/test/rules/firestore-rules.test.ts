@@ -13,7 +13,7 @@ let env: RulesTestEnvironment;
 
 beforeAll(async () => {
   env = await initEnv();
-});
+}, 60_000); // initEnv() retries until the Storage rules-runtime is ready (up to ~20s)
 afterAll(async () => {
   await env.cleanup();
 });

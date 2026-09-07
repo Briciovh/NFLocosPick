@@ -7,6 +7,7 @@
     "test": "jest --selectProjects unit",
     "test:watch": "jest --selectProjects unit --watch",
     "test:integration": "firebase emulators:exec --config ../firebase.emulator.json --project demo-nflocospicks --only firestore \"jest --selectProjects integration\"",
+    "pretest:rules": "node scripts/ensure-emulators.mjs",
     "test:rules": "firebase emulators:exec --config ../firebase.emulator.json --project demo-nflocospicks --only firestore,storage \"jest --selectProjects rules\"",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",

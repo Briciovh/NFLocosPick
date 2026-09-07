@@ -452,6 +452,90 @@ Estado TC-7: harness `rules-unit-testing` + 28 tests (`firestore-rules` 18, `sto
 + 1 `it.todo` documentado + CI ampliado. `npm run test:rules` ✅ estable. Listo para PR (el
 usuario commitea/pushea).
 
+---
+
+## TC-7-FIX — CI flake en `functions-verify` / `npm run test:rules`
+
+**Síntoma (run `34166390855` job `101878149314`, 2026-09-07):** paso 9 falla.
+`firestore-rules.test.ts` pasa; `storage-rules.test.ts` da
+`⚠ Permission denied because no Storage ruleset is currently loaded` → `storage/unauthorized`
+sobre `''`.
+
+**Causa raíz:** `firebase emulators:exec --only firestore,storage` arranca `jest` ~1.5 s
+después de empezar a descargar `cloud-storage-rules-runtime-*.jar`, **sin esperar** a que ese
+runtime esté listo. `initializeTestEnvironment` empuja `storage.rules` a un runtime inexistente.
+El `Post` de `actions/cache` queda `skipped` (el job falla antes) → `~/.cache/firebase/emulators`
+**nunca se guarda** → cada corrida repite la carrera en frío. Local pasa porque el JAR ya está
+cacheado.
+
+### Parte A — ✅ IMPLEMENTADO 2026-09-07
+
+- `functions/scripts/ensure-emulators.mjs` (nuevo) — revisa el cache de emuladores
+  (`FIREBASE_EMULATORS_PATH || ~/.cache/firebase/emulators`) y corre
+  `firebase setup:emulators:{firestore,storage}` (binario local vía `node_modules/.bin` en el
+  `PATH` del `execSync`, sin `npx`) **solo** para los JARs ausentes. Idempotente: en cache
+  caliente imprime "already cached — skipping" y no re-descarga los ~190 MB (`setup:emulators:*`
+  a secas siempre re-baja).
+- `functions/package.json` — `"pretest:rules": "node scripts/ensure-emulators.mjs"` (hook `pre*`
+  de npm: corre automático antes de `test:rules`, local y en CI).
+- `.github/workflows/{pr-checks,main-checks}.yml` — key del `actions/cache` de emuladores ahora
+  hasheada sobre `functions/package-lock.json` (un bump de `firebase-tools` la invalida) +
+  `restore-keys` para warm-start.
+- Saca la descarga del camino crítico de `emulators:exec`; en cuanto una corrida pase en verde,
+  `actions/cache` por fin persiste el directorio.
+
+**Verificación:** cache caliente → "skipping", `npm ci && npm test && npm run test:integration
+&& npm run test:rules && npm run build` todo verde (unit 16, integration 27, rules 28+1 todo).
+`execSync` resuelve el `firebase` local (15.29.0, no el global). Lógica de decisión: cache
+vacío → descargaría ambos; poblado → ninguno.
+
+**Cross-review AGY del diff — 2026-09-07:** 4 hallazgos.
+| # | Hallazgo | Acción |
+|---|---|---|
+| 1 | Script hardcodeaba `~/.cache/...`; `firebase-tools` respeta `FIREBASE_EMULATORS_PATH`. | **Adoptado** — `process.env.FIREBASE_EMULATORS_PATH \|\| join(homedir(), ...)`. |
+| 2 | Match por substring (`firestore-emulator`) no detecta version skew tras un bump de `firebase-tools`. | **Adoptado (parcial)** — comentario en el script + key de `actions/cache` hasheada en el lockfile (un bump la invalida). El fallback fino es la Parte B. |
+| 3 | `npx --no-install` deprecado en npm 7+ (ignorado en npm 9+). | **Adoptado** — se llama `firebase` directo con `node_modules/.bin` prependido al `PATH` del `execSync` (fuerza el binario local sin `npx`). |
+| 4 | Portabilidad Windows/Ubuntu del script. | **"Very well-designed" — sin acción.** |
+
+Codex — pendiente (cuota, vuelve 4-oct): `codex exec review --uncommitted` sobre el diff.
+
+### Parte B — ✅ IMPLEMENTADO 2026-09-07
+
+- `functions/test/rules/harness.ts` — `initEnv()` es ahora un loop de **20 intentos**: cada
+  intento crea el env con `initializeTestEnvironment` y lo **sondea** con un `uploadBytes`
+  autenticado a `profile_photos/probe` (`{contentType:"image/png"}`) que solo succede si el
+  ruleset de Storage está cargado; si falla → `env.cleanup()` blindado en `try/catch` +
+  `sleep(1000)` + reintento. Al agotar, throw con el último error. Tras la sonda OK,
+  `env.clearStorage()` (descarta el objeto de prueba) y `return env`. `RULES` y `TINY_PNG` se
+  suben arriba del `initEnv()` para evitar TDZ.
+- `functions/test/rules/{firestore,storage}-rules.test.ts` — `beforeAll(async () => { env =
+  await initEnv(); }, 60_000)` (holgura sobre el peor caso de ~20 s de reintentos; el default
+  de jest es 5 s y mataría el loop).
+
+**Repro local de la carrera de CI (prueba definitiva):** sacar el JAR
+`cloud-storage-rules-runtime-*.jar` del cache y correr `npm run test:rules --ignore-scripts`
+(saltando la Parte A) → el log muestra `i storage: downloading ...` seguido de `Running script:
+jest` (misma carrera que CI) → **`Test Suites: 2 passed`, 28 + 1 todo, exit 0**. La Parte B
+se recupera de la carrera que sin ella tumbaba CI. JAR restaurado después.
+
+**Verificación:** `npm ci && npm test && npm run test:integration && npm run test:rules &&
+npm run build` verde (16 / 27 / 28+1todo / build); `test:rules` estable 3×; `tsc` limpio.
+
+**Cross-review AGY del diff — 2026-09-07:** *"correct, secure, and well-designed. No code
+modifications are necessary."* Verificados sin objeción: sin leaks en el loop (`cleanup()`
+blindado por intento), ruta de éxito limpia, sonda sin riesgo de falso positivo, holgura de
+timeout (60 s vs ~20-30 s peor caso), TDZ resuelto, loop acotado. Único `[!WARNING]` no
+accionable: la sonda está acoplada a la forma de la regla `profile_photos/{userId}` — se
+agregó un `NOTE` en el comentario para que un endurecimiento futuro de esa regla actualice la
+sonda. Codex — pendiente (cuota): `codex exec review --uncommitted` sobre el diff.
+
+### Estado del fix (Parte A + B)
+
+Archivos: `functions/scripts/ensure-emulators.mjs` (nuevo), `functions/package.json`
+(`pretest:rules`), `functions/test/rules/harness.ts` (loop de reintento), `functions/test/
+rules/{firestore,storage}-rules.test.ts` (`beforeAll(..., 60_000)`), `.github/workflows/
+{pr-checks,main-checks}.yml` (key de cache hasheada). Listo para PR (el usuario commitea/pushea).
+
 ## Flujo por PR (Rule 10 — revisión de implementación)
 
 1. Implementar el PR (un paso lógico; `./gradlew assembleDebug` + `./gradlew test` verdes

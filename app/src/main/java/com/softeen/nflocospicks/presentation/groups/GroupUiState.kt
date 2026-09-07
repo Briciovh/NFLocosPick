@@ -27,6 +27,7 @@ sealed class GroupUiEffect {
     data class ScoringResult(val groupId: String, val newlyScoredCount: Int) : GroupUiEffect()
     data class ScoringError(val message: String)                             : GroupUiEffect()
     data class GroupJoined(val groupName: String, val alreadyMember: Boolean) : GroupUiEffect()
+    data class GroupDeleted(val groupName: String)                           : GroupUiEffect()
 }
 
 // ── Estado de la edición de imagen de grupo (foto o ícono) ────────────────────
@@ -35,4 +36,12 @@ sealed class GroupPhotoUiState {
     data object Idle                          : GroupPhotoUiState()
     data object Uploading                     : GroupPhotoUiState()
     data class Error(val message: String)     : GroupPhotoUiState()
+}
+
+// ── Estado de las acciones de GroupSettingsScreen (renombrar / eliminar) ──────
+
+sealed class GroupSettingsUiState {
+    data object Idle                          : GroupSettingsUiState()
+    data object Working                       : GroupSettingsUiState()
+    data class Error(val message: String)     : GroupSettingsUiState()
 }

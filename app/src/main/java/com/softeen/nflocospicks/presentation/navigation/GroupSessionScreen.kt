@@ -57,6 +57,7 @@ fun GroupSessionScreen(
     photoUiState: GroupPhotoUiState,
     onNavigateBack: () -> Unit,
     onNavigateToHistory: (String) -> Unit,
+    onNavigateToGroupSettings: (String) -> Unit,
     onUploadPhoto: (Uri) -> Unit,
     onSetIcon: (String) -> Unit,
     onDismissPhotoPicker: () -> Unit
@@ -77,9 +78,10 @@ fun GroupSessionScreen(
     // de este Scaffold porque eso la dejaría por ENCIMA del TopAppBar de cada tab.
     val groupHeader: @Composable () -> Unit = {
         GroupHeaderBar(
-            group          = group,
-            currentUserId  = currentUserId,
-            onEditClick    = { showImagePicker = true }
+            group           = group,
+            currentUserId   = currentUserId,
+            onEditClick     = { showImagePicker = true },
+            onSettingsClick = { onNavigateToGroupSettings(groupId) }
         )
     }
 

@@ -24,6 +24,7 @@ import com.softeen.nflocospicks.presentation.common.nflTeamColorMap
 import com.softeen.nflocospicks.presentation.common.toAppColors
 import com.softeen.nflocospicks.presentation.groups.CreateGroupScreen
 import com.softeen.nflocospicks.presentation.groups.GroupListUiState
+import com.softeen.nflocospicks.presentation.groups.GroupSettingsScreen
 import com.softeen.nflocospicks.presentation.groups.GroupViewModel
 import com.softeen.nflocospicks.presentation.groups.GroupsScreen
 import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
@@ -81,6 +82,9 @@ fun NavGraph(
                         },
                         onNavigateToSettings = {
                             navController.navigate(Screen.Settings.route)
+                        },
+                        onNavigateToGroupSettings = { groupId ->
+                            navController.navigate(Screen.GroupSettings.createRoute(groupId))
                         },
                         onSignedOut = {
                             navController.navigate(Screen.Login.route) {
@@ -206,6 +210,18 @@ fun NavGraph(
                     val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
                     val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
 
+                    // Si el grupo se borra mientras el usuario está viendo su historial, salir
+                    // a Groups en vez de dejar una pantalla "fantasma" (mismo guard que
+                    // Screen.GroupSession). Gate en Success para no reaccionar durante Loading.
+                    LaunchedEffect(groupListState, group) {
+                        if (groupListState is GroupListUiState.Success && group == null) {
+                            navController.navigate(Screen.Groups.route) {
+                                popUpTo(Screen.Groups.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+
                     HistoryScreen(
                         group          = group,
                         onNavigateBack = { navController.popBackStack() }
@@ -230,6 +246,20 @@ fun NavGraph(
                     val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
                     val currentUserId = groupViewModel.currentUserId
 
+                    // Si el grupo se borra (por este usuario desde GroupSettings, o por otro
+                    // admin/dispositivo), el listener en vivo deja de devolverlo y `group`
+                    // pasa a null mientras el miembro sigue en la sesión. Salimos solos a
+                    // Groups para no dejar un GroupSessionScreen "fantasma". Gate en Success
+                    // para no reaccionar durante Loading, donde `group` siempre es null.
+                    LaunchedEffect(groupListState, group) {
+                        if (groupListState is GroupListUiState.Success && group == null) {
+                            navController.navigate(Screen.Groups.route) {
+                                popUpTo(Screen.Groups.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    }
+
                     GroupSessionScreen(
                         groupId             = groupId,
                         group               = group,
@@ -237,9 +267,52 @@ fun NavGraph(
                         photoUiState        = photoUiState,
                         onNavigateBack      = { navController.popBackStack() },
                         onNavigateToHistory = { gId -> navController.navigate("history/$gId") },
+                        onNavigateToGroupSettings = { gId -> navController.navigate(Screen.GroupSettings.createRoute(gId)) },
                         onUploadPhoto       = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
                         onSetIcon           = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
                         onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() }
+                    )
+                }
+
+                composable(
+                    route     = Screen.GroupSettings.route,
+                    arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+                ) { backStackEntry ->
+                    val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+
+                    // Mismo patrón que Screen.GroupSession/History: compartimos el GroupViewModel
+                    // de GroupsScreen para leer el Group actual del listener en vivo.
+                    val groupsEntry = remember(backStackEntry) {
+                        navController.getBackStackEntry(Screen.Groups.route)
+                    }
+                    val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
+                    val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
+                    val photoUiState by groupViewModel.photoUiState.collectAsStateWithLifecycle()
+                    val settingsState by groupViewModel.groupSettingsState.collectAsStateWithLifecycle()
+                    val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
+                    val currentUserId = groupViewModel.currentUserId
+
+                    // Limpia cualquier Error de una visita previa a esta pantalla.
+                    LaunchedEffect(Unit) { groupViewModel.resetGroupSettingsState() }
+
+                    GroupSettingsScreen(
+                        groupListState       = groupListState,
+                        group                = group,
+                        currentUserId        = currentUserId,
+                        photoUiState         = photoUiState,
+                        settingsState        = settingsState,
+                        onRename             = { name -> group?.let { g -> currentUserId?.let { groupViewModel.renameGroup(g, it, name) } } },
+                        onUploadPhoto        = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
+                        onSetIcon            = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
+                        onDeleteGroup        = { group?.let { g -> currentUserId?.let { groupViewModel.deleteGroup(g, it) } } },
+                        onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() },
+                        onNavigateBack       = { navController.popBackStack() },
+                        onExitToGroups       = {
+                            navController.navigate(Screen.Groups.route) {
+                                popUpTo(Screen.Groups.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
                     )
                 }
 

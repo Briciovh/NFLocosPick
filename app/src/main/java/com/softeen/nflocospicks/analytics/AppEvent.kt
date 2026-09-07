@@ -36,6 +36,12 @@ sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap(
     data class GroupIconSet(val groupId: String, val iconId: String) :
         AppEvent("group_icon_set", mapOf("group_id" to groupId, "icon_id" to iconId))
 
+    data class GroupRenamed(val groupId: String) :
+        AppEvent("group_renamed", mapOf("group_id" to groupId))
+
+    data class GroupDeleted(val groupId: String) :
+        AppEvent("group_deleted", mapOf("group_id" to groupId))
+
     // ── Picks ─────────────────────────────────────────────────────────────────
     data class PickSubmitted(
         val groupId: String,

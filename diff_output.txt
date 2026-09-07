@@ -1,0 +1,282 @@
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/common/GroupHeaderBar.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/common/GroupHeaderBar.kt
+index 6045645..d1cd90f 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/common/GroupHeaderBar.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/common/GroupHeaderBar.kt
+@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.filled.ContentCopy
+ import androidx.compose.material.icons.filled.Edit
++import androidx.compose.material.icons.filled.Settings
+ import androidx.compose.material.icons.filled.Share
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.Text
+@@ -46,7 +47,8 @@ fun GroupHeaderBar(
+     group: Group?,
+     currentUserId: String?,
+     onEditClick: () -> Unit,
+-    modifier: Modifier = Modifier
++    modifier: Modifier = Modifier,
++    onSettingsClick: (() -> Unit)? = null
+ ) {
+     val appColors = LocalAppColors.current
+     val canEdit = group != null && currentUserId != null && group.createdBy == currentUserId
+@@ -124,6 +126,25 @@ fun GroupHeaderBar(
+                 )
+             }
+         }
++        if (canEdit && onSettingsClick != null && group?.id != GlobalGroupConstants.GROUP_ID) {
++            Box(
++                modifier = Modifier
++                    .padding(start = 8.dp)
++                    .size(24.dp)
++                    .clip(CircleShape)
++                    .background(appColors.primary)
++                    .clickable(onClick = onSettingsClick)
++                    .testTag(TestTags.GROUP_SETTINGS_BUTTON),
++                contentAlignment = Alignment.Center
++            ) {
++                Icon(
++                    imageVector        = Icons.Filled.Settings,
++                    contentDescription = stringResource(R.string.cd_group_settings),
++                    tint               = appColors.onPrimary,
++                    modifier           = Modifier.size(14.dp)
++                )
++            }
++        }
+         if (canEdit) {
+             Box(
+                 modifier = Modifier
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/common/TestTags.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/common/TestTags.kt
+index e9579f1..a25b032 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/common/TestTags.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/common/TestTags.kt
+@@ -29,4 +29,5 @@ object TestTags {
+     const val GROUPS_EDIT_PHOTO_BUTTON = "groups_edit_photo_button"
+     const val GROUPS_COPY_CODE_BUTTON = "groups_copy_code_button"
+     const val GROUPS_SHARE_CODE_BUTTON = "groups_share_code_button"
++    const val GROUP_SETTINGS_BUTTON = "group_settings_button"
+ }
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
+index e76a167..dd12bb9 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
+@@ -77,6 +77,7 @@ fun GroupsScreen(
+     onNavigateToJoinGroup: () -> Unit,
+     onNavigateToGroup: (String) -> Unit,
+     onNavigateToSettings: () -> Unit,
++    onNavigateToGroupSettings: (String) -> Unit,
+     onSignedOut: () -> Unit,
+     viewModel: GroupViewModel = hiltViewModel()
+ ) {
+@@ -89,6 +90,7 @@ fun GroupsScreen(
+     val scoringResultPattern = stringResource(R.string.scoring_result)
+     val joinedNewPattern = stringResource(R.string.group_joined_new)
+     val alreadyMemberPattern = stringResource(R.string.group_already_member)
++    val groupDeletedPattern = stringResource(R.string.group_deleted_snackbar)
+ 
+     // Consume efectos de un solo disparo (navegación + feedback de puntuación/unión)
+     LaunchedEffect(Unit) {
+@@ -111,6 +113,8 @@ fun GroupsScreen(
+                         String.format(joinedNewPattern, effect.groupName)
+                     snackbarHostState.showSnackbar(msg)
+                 }
++                is GroupUiEffect.GroupDeleted       ->
++                    snackbarHostState.showSnackbar(String.format(groupDeletedPattern, effect.groupName))
+             }
+         }
+     }
+@@ -124,6 +128,7 @@ fun GroupsScreen(
+         onNavigateToCreateGroup = onNavigateToCreateGroup,
+         onNavigateToJoinGroup   = onNavigateToJoinGroup,
+         onNavigateToSettings    = onNavigateToSettings,
++        onOpenGroupSettings     = onNavigateToGroupSettings,
+         onGroupClicked          = { id, source -> viewModel.onGroupClicked(id, source) },
+         onUploadPhoto           = { group, uri -> currentUserId?.let { viewModel.uploadGroupPhoto(group, it, uri) } },
+         onSetIcon               = { group, iconId -> currentUserId?.let { viewModel.setGroupIcon(group, it, iconId) } },
+@@ -143,6 +148,7 @@ internal fun GroupsScreenContent(
+     onNavigateToJoinGroup: () -> Unit,
+     onNavigateToSettings: () -> Unit,
+     onGroupClicked: (String, String) -> Unit,
++    onOpenGroupSettings: (String) -> Unit = {},
+     onUploadPhoto: (Group, Uri) -> Unit = { _, _ -> },
+     onSetIcon: (Group, String) -> Unit = { _, _ -> },
+     onDismissPhotoPicker: () -> Unit = {}
+@@ -256,7 +262,8 @@ internal fun GroupsScreenContent(
+                                         group      = group,
+                                         canEdit    = currentUserId != null && group.createdBy == currentUserId,
+                                         onClick    = { onGroupClicked(group.id, "group_list") },
+-                                        onEditPhoto = { editingGroup = group }
++                                        onEditPhoto = { editingGroup = group },
++                                        onOpenSettings = { onOpenGroupSettings(group.id) }
+                                     )
+                                 }
+                             }
+@@ -298,10 +305,11 @@ internal fun GroupsScreenContent(
+ 
+ @Composable
+ private fun GroupCard(
+-    group       : Group,
+-    canEdit     : Boolean = false,
+-    onClick     : () -> Unit,
+-    onEditPhoto : () -> Unit = {}
++    group        : Group,
++    canEdit      : Boolean = false,
++    onClick      : () -> Unit,
++    onEditPhoto  : () -> Unit = {},
++    onOpenSettings : () -> Unit = {}
+ ) {
+     val appColors = LocalAppColors.current
+     val clipboard = LocalClipboard.current
+@@ -350,7 +358,7 @@ private fun GroupCard(
+                 }
+             }
+             Spacer(Modifier.width(16.dp))
+-            Column {
++            Column(Modifier.weight(1f)) {
+                 Text(
+                     text = group.name,
+                     color = appColors.onSurface,
+@@ -395,6 +403,18 @@ private fun GroupCard(
+                     style = MaterialTheme.typography.bodyMedium
+                 )
+             }
++            if (canEdit && group.id != GlobalGroupConstants.GROUP_ID) {
++                IconButton(
++                    onClick  = onOpenSettings,
++                    modifier = Modifier.testTag(TestTags.GROUP_SETTINGS_BUTTON)
++                ) {
++                    Icon(
++                        imageVector        = Icons.Filled.Settings,
++                        contentDescription = stringResource(R.string.cd_group_settings),
++                        tint               = appColors.secondary
++                    )
++                }
++            }
+         }
+     }
+ }
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/GroupSessionScreen.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/GroupSessionScreen.kt
+index a21afc3..eacad4f 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/GroupSessionScreen.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/GroupSessionScreen.kt
+@@ -57,6 +57,7 @@ fun GroupSessionScreen(
+     photoUiState: GroupPhotoUiState,
+     onNavigateBack: () -> Unit,
+     onNavigateToHistory: (String) -> Unit,
++    onNavigateToGroupSettings: (String) -> Unit,
+     onUploadPhoto: (Uri) -> Unit,
+     onSetIcon: (String) -> Unit,
+     onDismissPhotoPicker: () -> Unit
+@@ -77,9 +78,10 @@ fun GroupSessionScreen(
+     // de este Scaffold porque eso la dejaría por ENCIMA del TopAppBar de cada tab.
+     val groupHeader: @Composable () -> Unit = {
+         GroupHeaderBar(
+-            group          = group,
+-            currentUserId  = currentUserId,
+-            onEditClick    = { showImagePicker = true }
++            group           = group,
++            currentUserId   = currentUserId,
++            onEditClick     = { showImagePicker = true },
++            onSettingsClick = { onNavigateToGroupSettings(groupId) }
+         )
+     }
+ 
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
+index a30315e..8963b5b 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
+@@ -24,6 +24,7 @@ import com.softeen.nflocospicks.presentation.common.nflTeamColorMap
+ import com.softeen.nflocospicks.presentation.common.toAppColors
+ import com.softeen.nflocospicks.presentation.groups.CreateGroupScreen
+ import com.softeen.nflocospicks.presentation.groups.GroupListUiState
++import com.softeen.nflocospicks.presentation.groups.GroupSettingsScreen
+ import com.softeen.nflocospicks.presentation.groups.GroupViewModel
+ import com.softeen.nflocospicks.presentation.groups.GroupsScreen
+ import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
+@@ -82,6 +83,9 @@ fun NavGraph(
+                         onNavigateToSettings = {
+                             navController.navigate(Screen.Settings.route)
+                         },
++                        onNavigateToGroupSettings = { groupId ->
++                            navController.navigate(Screen.GroupSettings.createRoute(groupId))
++                        },
+                         onSignedOut = {
+                             navController.navigate(Screen.Login.route) {
+                                 popUpTo(Screen.Groups.route) { inclusive = true }
+@@ -230,6 +234,20 @@ fun NavGraph(
+                     val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
+                     val currentUserId = groupViewModel.currentUserId
+ 
++                    // Si el grupo se borra (por este usuario desde GroupSettings, o por otro
++                    // admin/dispositivo), el listener en vivo deja de devolverlo y `group`
++                    // pasa a null mientras el miembro sigue en la sesión. Salimos solos a
++                    // Groups para no dejar un GroupSessionScreen "fantasma". Gate en Success
++                    // para no reaccionar durante Loading, donde `group` siempre es null.
++                    LaunchedEffect(groupListState, group) {
++                        if (groupListState is GroupListUiState.Success && group == null) {
++                            navController.navigate(Screen.Groups.route) {
++                                popUpTo(Screen.Groups.route) { inclusive = false }
++                                launchSingleTop = true
++                            }
++                        }
++                    }
++
+                     GroupSessionScreen(
+                         groupId             = groupId,
+                         group               = group,
+@@ -237,12 +255,55 @@ fun NavGraph(
+                         photoUiState        = photoUiState,
+                         onNavigateBack      = { navController.popBackStack() },
+                         onNavigateToHistory = { gId -> navController.navigate("history/$gId") },
++                        onNavigateToGroupSettings = { gId -> navController.navigate(Screen.GroupSettings.createRoute(gId)) },
+                         onUploadPhoto       = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
+                         onSetIcon           = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
+                         onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() }
+                     )
+                 }
+ 
++                composable(
++                    route     = Screen.GroupSettings.route,
++                    arguments = listOf(navArgument("groupId") { type = NavType.StringType })
++                ) { backStackEntry ->
++                    val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
++
++                    // Mismo patrón que Screen.GroupSession/History: compartimos el GroupViewModel
++                    // de GroupsScreen para leer el Group actual del listener en vivo.
++                    val groupsEntry = remember(backStackEntry) {
++                        navController.getBackStackEntry(Screen.Groups.route)
++                    }
++                    val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
++                    val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
++                    val photoUiState by groupViewModel.photoUiState.collectAsStateWithLifecycle()
++                    val settingsState by groupViewModel.groupSettingsState.collectAsStateWithLifecycle()
++                    val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
++                    val currentUserId = groupViewModel.currentUserId
++
++                    // Limpia cualquier Error de una visita previa a esta pantalla.
++                    LaunchedEffect(Unit) { groupViewModel.resetGroupSettingsState() }
++
++                    GroupSettingsScreen(
++                        groupListState       = groupListState,
++                        group                = group,
++                        currentUserId        = currentUserId,
++                        photoUiState         = photoUiState,
++                        settingsState        = settingsState,
++                        onRename             = { name -> group?.let { g -> currentUserId?.let { groupViewModel.renameGroup(g, it, name) } } },
++                        onUploadPhoto        = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
++                        onSetIcon            = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
++                        onDeleteGroup        = { group?.let { g -> currentUserId?.let { groupViewModel.deleteGroup(g, it) } } },
++                        onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() },
++                        onNavigateBack       = { navController.popBackStack() },
++                        onExitToGroups       = {
++                            navController.navigate(Screen.Groups.route) {
++                                popUpTo(Screen.Groups.route) { inclusive = false }
++                                launchSingleTop = true
++                            }
++                        }
++                    )
++                }
++
+                 composable(Screen.UserManagement.route) {
+                     val currentUid = (authState as? AuthUiState.Authenticated)?.user?.uid
+                         ?: return@composable

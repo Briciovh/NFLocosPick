@@ -71,6 +71,16 @@
     <string name="scoring_result">%1$d pick(s) puntuados 🏆</string>
     <string name="group_joined_new">Te uniste a %1$s 🎉</string>
     <string name="group_already_member">Ya eras miembro de %1$s</string>
+    <string name="group_deleted_snackbar">Grupo %1$s eliminado</string>
+    <string name="group_settings_title">Configuración del grupo</string>
+    <string name="cd_group_settings">Configuración del grupo</string>
+    <string name="group_settings_rename_label">Nombre del grupo</string>
+    <string name="group_settings_rename_action">Guardar</string>
+    <string name="group_settings_change_image">Cambiar imagen del grupo</string>
+    <string name="group_settings_delete">Eliminar grupo</string>
+    <string name="group_settings_delete_dialog_title">¿Eliminar este grupo?</string>
+    <string name="group_settings_delete_dialog_body">Se eliminarán el grupo, sus semanas, todos los picks, los mensajes del muro y la tabla de posiciones de todos los miembros. Esta acción no se puede deshacer.</string>
+    <string name="group_settings_delete_dialog_confirm">Eliminar grupo</string>
 
     <!-- Create Group -->
     <string name="create_group_heading">Crear Grupo</string>

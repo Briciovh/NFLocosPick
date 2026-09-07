@@ -68,6 +68,16 @@
     <string name="scoring_result">%1$d pick(s) scored 🏆</string>
     <string name="group_joined_new">You joined %1$s 🎉</string>
     <string name="group_already_member">You were already a member of %1$s</string>
+    <string name="group_deleted_snackbar">Group %1$s deleted</string>
+    <string name="group_settings_title">Group settings</string>
+    <string name="cd_group_settings">Group settings</string>
+    <string name="group_settings_rename_label">Group name</string>
+    <string name="group_settings_rename_action">Save</string>
+    <string name="group_settings_change_image">Change group image</string>
+    <string name="group_settings_delete">Delete group</string>
+    <string name="group_settings_delete_dialog_title">Delete this group?</string>
+    <string name="group_settings_delete_dialog_body">The group, its weeks, all picks, board messages and the standings of every member will be deleted. This action cannot be undone.</string>
+    <string name="group_settings_delete_dialog_confirm">Delete group</string>
 
     <!-- Create Group -->
     <string name="create_group_heading">Create Group</string>

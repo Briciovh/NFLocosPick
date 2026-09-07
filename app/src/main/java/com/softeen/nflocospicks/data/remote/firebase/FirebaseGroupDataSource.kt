@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.data.remote.firebase
 import android.net.Uri
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.model.JoinGroupResult
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 class FirebaseGroupDataSource @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val storage: FirebaseStorage
+    private val storage: FirebaseStorage,
+    private val functions: FirebaseFunctions
 ) {
     companion object {
         private const val COLLECTION = "groups"
@@ -101,6 +103,24 @@ class FirebaseGroupDataSource @Inject constructor(
     suspend fun setIcon(groupId: String, iconId: String) {
         firestore.collection(COLLECTION).document(groupId)
             .update(mapOf("iconId" to iconId, "photoUrl" to FieldValue.delete()))
+            .await()
+    }
+
+    suspend fun renameGroup(groupId: String, newName: String) {
+        firestore.collection(COLLECTION).document(groupId)
+            .update("name", newName)
+            .await()
+    }
+
+    /**
+     * Invoca la Cloud Function "deleteGroup" (Admin SDK): borra el doc del grupo,
+     * sus subcolecciones, el árbol de standings y la foto de Storage. El cliente no
+     * puede hacer ese barrido — las reglas niegan el delete directo y las escrituras
+     * a standings. La función valida que el usuario autenticado sea el creador.
+     */
+    suspend fun deleteGroup(groupId: String) {
+        functions.getHttpsCallable("deleteGroup")
+            .call(mapOf("groupId" to groupId))
             .await()
     }
 

@@ -29,4 +29,5 @@ object TestTags {
     const val GROUPS_EDIT_PHOTO_BUTTON = "groups_edit_photo_button"
     const val GROUPS_COPY_CODE_BUTTON = "groups_copy_code_button"
     const val GROUPS_SHARE_CODE_BUTTON = "groups_share_code_button"
+    const val GROUP_SETTINGS_BUTTON = "group_settings_button"
 }

@@ -77,6 +77,7 @@ fun GroupsScreen(
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToGroup: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToGroupSettings: (String) -> Unit,
     onSignedOut: () -> Unit,
     viewModel: GroupViewModel = hiltViewModel()
 ) {
@@ -89,6 +90,7 @@ fun GroupsScreen(
     val scoringResultPattern = stringResource(R.string.scoring_result)
     val joinedNewPattern = stringResource(R.string.group_joined_new)
     val alreadyMemberPattern = stringResource(R.string.group_already_member)
+    val groupDeletedPattern = stringResource(R.string.group_deleted_snackbar)
 
     // Consume efectos de un solo disparo (navegación + feedback de puntuación/unión)
     LaunchedEffect(Unit) {
@@ -111,6 +113,8 @@ fun GroupsScreen(
                         String.format(joinedNewPattern, effect.groupName)
                     snackbarHostState.showSnackbar(msg)
                 }
+                is GroupUiEffect.GroupDeleted       ->
+                    snackbarHostState.showSnackbar(String.format(groupDeletedPattern, effect.groupName))
             }
         }
     }
@@ -124,6 +128,7 @@ fun GroupsScreen(
         onNavigateToCreateGroup = onNavigateToCreateGroup,
         onNavigateToJoinGroup   = onNavigateToJoinGroup,
         onNavigateToSettings    = onNavigateToSettings,
+        onOpenGroupSettings     = onNavigateToGroupSettings,
         onGroupClicked          = { id, source -> viewModel.onGroupClicked(id, source) },
         onUploadPhoto           = { group, uri -> currentUserId?.let { viewModel.uploadGroupPhoto(group, it, uri) } },
         onSetIcon               = { group, iconId -> currentUserId?.let { viewModel.setGroupIcon(group, it, iconId) } },
@@ -143,6 +148,7 @@ internal fun GroupsScreenContent(
     onNavigateToJoinGroup: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onGroupClicked: (String, String) -> Unit,
+    onOpenGroupSettings: (String) -> Unit = {},
     onUploadPhoto: (Group, Uri) -> Unit = { _, _ -> },
     onSetIcon: (Group, String) -> Unit = { _, _ -> },
     onDismissPhotoPicker: () -> Unit = {}
@@ -256,7 +262,8 @@ internal fun GroupsScreenContent(
                                         group      = group,
                                         canEdit    = currentUserId != null && group.createdBy == currentUserId,
                                         onClick    = { onGroupClicked(group.id, "group_list") },
-                                        onEditPhoto = { editingGroup = group }
+                                        onEditPhoto = { editingGroup = group },
+                                        onOpenSettings = { onOpenGroupSettings(group.id) }
                                     )
                                 }
                             }
@@ -298,10 +305,11 @@ internal fun GroupsScreenContent(
 
 @Composable
 private fun GroupCard(
-    group       : Group,
-    canEdit     : Boolean = false,
-    onClick     : () -> Unit,
-    onEditPhoto : () -> Unit = {}
+    group        : Group,
+    canEdit      : Boolean = false,
+    onClick      : () -> Unit,
+    onEditPhoto  : () -> Unit = {},
+    onOpenSettings : () -> Unit = {}
 ) {
     val appColors = LocalAppColors.current
     val clipboard = LocalClipboard.current
@@ -350,7 +358,7 @@ private fun GroupCard(
                 }
             }
             Spacer(Modifier.width(16.dp))
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text(
                     text = group.name,
                     color = appColors.onSurface,
@@ -394,6 +402,18 @@ private fun GroupCard(
                     color = appColors.secondary,
                     style = MaterialTheme.typography.bodyMedium
                 )
+            }
+            if (canEdit && group.id != GlobalGroupConstants.GROUP_ID) {
+                IconButton(
+                    onClick  = onOpenSettings,
+                    modifier = Modifier.testTag(TestTags.GROUP_SETTINGS_BUTTON)
+                ) {
+                    Icon(
+                        imageVector        = Icons.Filled.Settings,
+                        contentDescription = stringResource(R.string.cd_group_settings),
+                        tint               = appColors.secondary
+                    )
+                }
             }
         }
     }

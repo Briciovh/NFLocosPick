@@ -34,6 +34,9 @@ private class CapturingPhotoRepository : GroupRepository {
         capturedIconId = iconId
         return Result.success(Unit)
     }
+
+    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
+    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

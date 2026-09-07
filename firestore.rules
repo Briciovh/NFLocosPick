@@ -84,14 +84,14 @@ service cloud.firestore {
                       )
                     );
 
-      // Solo el creador puede eliminar el grupo — excepto el grupo global
-      // "NFLocos de Corazón" (PR-16), que nunca se puede borrar aunque el
-      // requester sea su createdBy. Este id debe coincidir exactamente con
-      // GlobalGroupConstants.GROUP_ID (cliente) y con el groupId usado en
-      // functions/src/scripts/seedGlobalGroup.ts.
-      allow delete: if request.auth != null
-                    && request.auth.uid == resource.data.createdBy
-                    && groupId != "global_nflocos_de_corazon";
+      // El borrado de grupo va EXCLUSIVAMENTE por la Cloud Function `deleteGroup`
+      // (Admin SDK — functions/src/groupDeletion.ts): además del doc, esa función
+      // limpia las subcolecciones (weeks/**, board/**) y standings/{groupId}/**,
+      // que el cliente no puede borrar (allow write: if false más abajo / en
+      // standings). Un delete directo desde el cliente dejaría todo eso huérfano,
+      // así que se bloquea aquí. La función valida que el requester sea createdBy y
+      // rechaza el grupo global "NFLocos de Corazón".
+      allow delete: if false;
 
       // ── Subcolecciones de semanas y picks (PR-5 y PR-6) ──────────────────
       match /weeks/{weekId} {

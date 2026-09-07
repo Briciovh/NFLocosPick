@@ -12,8 +12,10 @@ import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
 import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
@@ -39,6 +41,8 @@ class GroupViewModel @Inject constructor(
     private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
     private val uploadGroupPhotoUseCase : UploadGroupPhotoUseCase,
     private val setGroupIconUseCase     : SetGroupIconUseCase,
+    private val renameGroupUseCase      : RenameGroupUseCase,
+    private val deleteGroupUseCase      : DeleteGroupUseCase,
     private val watchBoardMessagesUseCase : WatchBoardMessagesUseCase,
     private val userRepository          : UserRepository,
     private val preferencesRepository   : UserPreferencesRepository,
@@ -57,6 +61,9 @@ class GroupViewModel @Inject constructor(
 
     private val _photoUiState = MutableStateFlow<GroupPhotoUiState>(GroupPhotoUiState.Idle)
     val photoUiState: StateFlow<GroupPhotoUiState> = _photoUiState.asStateFlow()
+
+    private val _groupSettingsState = MutableStateFlow<GroupSettingsUiState>(GroupSettingsUiState.Idle)
+    val groupSettingsState: StateFlow<GroupSettingsUiState> = _groupSettingsState.asStateFlow()
 
     /** Read once per composition — used to gate the group-photo edit badge to the creator. */
     val currentUserId: String? get() = userRepository.getCurrentUser()?.uid
@@ -212,6 +219,64 @@ class GroupViewModel @Inject constructor(
     fun resetPhotoUiState() {
         _photoUiState.value = GroupPhotoUiState.Idle
     }
+
+    /**
+     * Renombra [group] a [newName]. Rechaza en silencio (deja el estado en Idle, sin
+     * tocar el backend) si [requesterUserId] no puede administrar el grupo — defensa en
+     * profundidad junto a las reglas de Firestore, que son la fuente de verdad. El nombre
+     * nuevo llega a la UI por el listener en vivo; [RenameGroupUseCase] recorta espacios.
+     */
+    fun renameGroup(group: Group, requesterUserId: String, newName: String) {
+        if (!canManageGroup(group, requesterUserId)) return
+        viewModelScope.launch {
+            _groupSettingsState.value = GroupSettingsUiState.Working
+            try {
+                renameGroupUseCase(group.id, newName)
+                _groupSettingsState.value = GroupSettingsUiState.Idle
+                logger.logEvent(AppEvent.GroupRenamed(group.id))
+            } catch (e: Exception) {
+                _groupSettingsState.value =
+                    GroupSettingsUiState.Error(e.message ?: "Error al renombrar el grupo")
+            }
+        }
+    }
+
+    /**
+     * Elimina [group] por completo vía la Cloud Function `deleteGroup`. Mismos guards que
+     * [renameGroup]. Al terminar emite [GroupUiEffect.GroupDeleted] para que GroupsScreen
+     * muestre el snackbar; la navegación de salida la maneja NavGraph al ver el grupo
+     * desaparecer del listener en vivo.
+     */
+    fun deleteGroup(group: Group, requesterUserId: String) {
+        if (!canManageGroup(group, requesterUserId)) return
+        viewModelScope.launch {
+            _groupSettingsState.value = GroupSettingsUiState.Working
+            try {
+                deleteGroupUseCase(group.id)
+                _groupSettingsState.value = GroupSettingsUiState.Idle
+                logger.logEvent(AppEvent.GroupDeleted(group.id))
+                effects.send(GroupUiEffect.GroupDeleted(group.name))
+            } catch (e: Exception) {
+                _groupSettingsState.value =
+                    GroupSettingsUiState.Error(e.message ?: "Error al eliminar el grupo")
+            }
+        }
+    }
+
+    /** Restablece groupSettingsState a Idle. Llamar al entrar/salir de GroupSettingsScreen. */
+    fun resetGroupSettingsState() {
+        _groupSettingsState.value = GroupSettingsUiState.Idle
+    }
+
+    /**
+     * Solo el creador puede renombrar o eliminar un grupo, y nunca el grupo global ni el
+     * grupo mock de datos de prueba (su id no existe en Firestore). Mismo espíritu que el
+     * guard de [uploadGroupPhoto]/[setGroupIcon].
+     */
+    private fun canManageGroup(group: Group, requesterUserId: String): Boolean =
+        group.createdBy == requesterUserId &&
+            group.id != GlobalGroupConstants.GROUP_ID &&
+            group.id != MockDataProvider.MOCK_GROUP_ID
 
     fun onSignOut() {
         viewModelScope.launch {

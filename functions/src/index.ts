@@ -6,6 +6,7 @@ import { logger } from "firebase-functions";
 import { fetchCurrentWeekGames, computeWinners } from "./espn";
 import { scoreGroupForWeek } from "./scoring";
 import { deleteUserAccount } from "./accountDeletion";
+import { deleteGroupCompletely } from "./groupDeletion";
 import { seedGlobalStanding } from "./globalGroup";
 import { deactivateInactiveUsers, reactivateUser } from "./inactivity";
 
@@ -84,6 +85,27 @@ export const scoreGroupWeek = onCall<{ groupId?: string }>(async (request) => {
 
   const scoredCount = await scoreGroupForWeek(groupId, weekId, memberIds, winners);
   return { scoredCount };
+});
+
+/**
+ * Elimina por completo un grupo (doc + subcolecciones + standings + foto de Storage).
+ * Solo el creador del grupo puede hacerlo; el grupo global nunca se puede eliminar.
+ * Toda la limpieza corre con Admin SDK porque el cliente no tiene permiso para borrar
+ * subcolecciones ni standings (ver firestore.rules). `deleteGroupCompletely` lanza el
+ * HttpsError apropiado (unauthenticated/not-found/permission-denied) según el caso.
+ */
+export const deleteGroup = onCall<{ groupId?: string }>(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+  const groupId = request.data.groupId;
+  if (!groupId) {
+    throw new HttpsError("invalid-argument", "Falta groupId.");
+  }
+
+  await deleteGroupCompletely(groupId, uid);
+  return { success: true };
 });
 
 /**

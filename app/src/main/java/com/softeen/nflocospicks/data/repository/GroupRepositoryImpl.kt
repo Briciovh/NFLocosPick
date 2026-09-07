@@ -29,4 +29,10 @@ class GroupRepositoryImpl @Inject constructor(
 
     override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> =
         runCatching { dataSource.setIcon(groupId, iconId) }
+
+    override suspend fun renameGroup(groupId: String, newName: String) =
+        dataSource.renameGroup(groupId, newName)
+
+    override suspend fun deleteGroup(groupId: String) =
+        dataSource.deleteGroup(groupId)
 }

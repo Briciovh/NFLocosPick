@@ -1,6 +1,8 @@
 package com.softeen.nflocospicks.presentation.groups
 
 import com.softeen.nflocospicks.analytics.AppLogger
+import com.softeen.nflocospicks.data.mock.MockDataProvider
+import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.domain.model.JoinGroupResult
 import com.softeen.nflocospicks.domain.model.User
@@ -8,8 +10,10 @@ import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
 import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
@@ -39,6 +43,8 @@ class GroupViewModelTest {
     private val scoreUseCase        = mockk<ScoreWeekPicksUseCase>()
     private val uploadGroupPhotoUseCase = mockk<UploadGroupPhotoUseCase>()
     private val setGroupIconUseCase = mockk<SetGroupIconUseCase>()
+    private val renameGroupUseCase = mockk<RenameGroupUseCase>()
+    private val deleteGroupUseCase = mockk<DeleteGroupUseCase>()
     private val watchBoardMessagesUseCase = mockk<WatchBoardMessagesUseCase>()
     private val userRepo            = mockk<UserRepository>()
     private val prefsRepo           = mockk<UserPreferencesRepository>()
@@ -74,6 +80,8 @@ class GroupViewModelTest {
         scoreWeekPicksUseCase   = scoreUseCase,
         uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
         setGroupIconUseCase     = setGroupIconUseCase,
+        renameGroupUseCase      = renameGroupUseCase,
+        deleteGroupUseCase      = deleteGroupUseCase,
         watchBoardMessagesUseCase = watchBoardMessagesUseCase,
         userRepository          = userRepo,
         preferencesRepository   = prefsRepo,
@@ -207,5 +215,90 @@ class GroupViewModelTest {
         vm.setGroupIcon(stubGroup, requesterUserId = "user1", iconId = "icon_1")
 
         verify { logger.logEvent(match { it.name == "group_icon_set" && it.params["icon_id"] == "icon_1" }) }
+    }
+
+    // ── GroupSettings: renombrar / eliminar ──────────────────────────────────
+
+    @Test
+    fun `deleteGroup on success logs group_deleted and sends the GroupDeleted effect`() = runTest(coroutineRule.dispatcher) {
+        coEvery { deleteGroupUseCase("g1") } returns Unit
+        val vm = viewModel()
+
+        vm.deleteGroup(stubGroup, requesterUserId = "user1")
+
+        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
+        verify { logger.logEvent(match { it.name == "group_deleted" && it.params["group_id"] == "g1" }) }
+        assertEquals(GroupUiEffect.GroupDeleted("Los Locos"), vm.effects.receive())
+    }
+
+    @Test
+    fun `deleteGroup by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+
+        vm.deleteGroup(stubGroup, requesterUserId = "intruder")
+
+        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
+        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
+    }
+
+    @Test
+    fun `deleteGroup on the global group is a no-op even for its creator`() = runTest(coroutineRule.dispatcher) {
+        val globalGroup = stubGroup.copy(id = GlobalGroupConstants.GROUP_ID)
+        val vm = viewModel()
+
+        vm.deleteGroup(globalGroup, requesterUserId = "user1")
+
+        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
+    }
+
+    @Test
+    fun `deleteGroup on the mock testing group is a no-op`() = runTest(coroutineRule.dispatcher) {
+        val mockGroup = stubGroup.copy(id = MockDataProvider.MOCK_GROUP_ID)
+        val vm = viewModel()
+
+        vm.deleteGroup(mockGroup, requesterUserId = "user1")
+
+        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
+    }
+
+    @Test
+    fun `deleteGroup failure sets groupSettingsState to Error`() = runTest(coroutineRule.dispatcher) {
+        coEvery { deleteGroupUseCase("g1") } throws RuntimeException("boom")
+        val vm = viewModel()
+
+        vm.deleteGroup(stubGroup, requesterUserId = "user1")
+
+        val state = vm.groupSettingsState.value as GroupSettingsUiState.Error
+        assertEquals("boom", state.message)
+    }
+
+    @Test
+    fun `renameGroup on success logs group_renamed and returns state to Idle`() = runTest(coroutineRule.dispatcher) {
+        coEvery { renameGroupUseCase("g1", "Nuevo") } returns Unit
+        val vm = viewModel()
+
+        vm.renameGroup(stubGroup, requesterUserId = "user1", newName = "Nuevo")
+
+        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
+        verify { logger.logEvent(match { it.name == "group_renamed" && it.params["group_id"] == "g1" }) }
+    }
+
+    @Test
+    fun `renameGroup by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+
+        vm.renameGroup(stubGroup, requesterUserId = "intruder", newName = "Nuevo")
+
+        coVerify(exactly = 0) { renameGroupUseCase(any(), any()) }
+    }
+
+    @Test
+    fun `renameGroup on the global group is a no-op even for its creator`() = runTest(coroutineRule.dispatcher) {
+        val globalGroup = stubGroup.copy(id = GlobalGroupConstants.GROUP_ID)
+        val vm = viewModel()
+
+        vm.renameGroup(globalGroup, requesterUserId = "user1", newName = "Nuevo")
+
+        coVerify(exactly = 0) { renameGroupUseCase(any(), any()) }
     }
 }

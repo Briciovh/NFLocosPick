@@ -12,6 +12,7 @@ fun routeToScreenName(route: String?): String? = when (route) {
     Screen.UserManagement.route   -> "user_management"
     Screen.History.route          -> "pick_history"
     Screen.GroupSession.route     -> "group_session"
+    Screen.GroupSettings.route    -> "group_settings"
     BottomNavItem.Picks.route       -> "picks"
     BottomNavItem.Leaderboard.route -> "leaderboard"
     BottomNavItem.Board.route       -> "board"

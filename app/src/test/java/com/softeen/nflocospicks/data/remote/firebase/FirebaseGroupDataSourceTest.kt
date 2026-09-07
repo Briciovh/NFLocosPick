@@ -7,6 +7,9 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.HttpsCallableReference
+import com.google.firebase.functions.HttpsCallableResult
 import com.google.firebase.storage.FirebaseStorage
 import io.mockk.every
 import io.mockk.mockk
@@ -20,10 +23,11 @@ class FirebaseGroupDataSourceTest {
 
     private val firestore = mockk<FirebaseFirestore>()
     private val storage = mockk<FirebaseStorage>()
+    private val functions = mockk<FirebaseFunctions>()
     private val collection = mockk<CollectionReference>()
     private val query = mockk<Query>()
 
-    private val dataSource = FirebaseGroupDataSource(firestore, storage)
+    private val dataSource = FirebaseGroupDataSource(firestore, storage, functions)
 
     private fun stubInviteCodeQuery() {
         every { firestore.collection("groups") } returns collection
@@ -145,5 +149,30 @@ class FirebaseGroupDataSourceTest {
         assertThrows(NoSuchElementException::class.java) {
             runBlocking { dataSource.joinGroup("BAD123", "u1") }
         }
+    }
+
+    @Test
+    fun `renameGroup writes the new name onto the group doc`() = runBlocking {
+        every { firestore.collection("groups") } returns collection
+        val docRef = mockk<DocumentReference>()
+        every { collection.document("g1") } returns docRef
+        every { docRef.update("name", "Nuevo Nombre") } returns Tasks.forResult<Void>(null)
+
+        dataSource.renameGroup("g1", "Nuevo Nombre")
+
+        verify(exactly = 1) { docRef.update("name", "Nuevo Nombre") }
+    }
+
+    @Test
+    fun `deleteGroup invokes the deleteGroup callable with the groupId`() = runBlocking {
+        val callableRef = mockk<HttpsCallableReference>()
+        val callResult = mockk<HttpsCallableResult>()
+        every { functions.getHttpsCallable("deleteGroup") } returns callableRef
+        every { callableRef.call(any()) } returns Tasks.forResult(callResult)
+
+        dataSource.deleteGroup("g1")
+
+        verify(exactly = 1) { functions.getHttpsCallable("deleteGroup") }
+        verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1")) }
     }
 }

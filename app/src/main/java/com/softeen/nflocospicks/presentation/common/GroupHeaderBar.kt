@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -46,7 +47,8 @@ fun GroupHeaderBar(
     group: Group?,
     currentUserId: String?,
     onEditClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSettingsClick: (() -> Unit)? = null
 ) {
     val appColors = LocalAppColors.current
     val canEdit = group != null && currentUserId != null && group.createdBy == currentUserId
@@ -120,6 +122,25 @@ fun GroupHeaderBar(
                     imageVector        = Icons.Filled.Share,
                     contentDescription = stringResource(R.string.cd_share_group_code),
                     tint               = appColors.primary,
+                    modifier           = Modifier.size(14.dp)
+                )
+            }
+        }
+        if (canEdit && onSettingsClick != null && group?.id != GlobalGroupConstants.GROUP_ID) {
+            Box(
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(appColors.primary)
+                    .clickable(onClick = onSettingsClick)
+                    .testTag(TestTags.GROUP_SETTINGS_BUTTON),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector        = Icons.Filled.Settings,
+                    contentDescription = stringResource(R.string.cd_group_settings),
+                    tint               = appColors.onPrimary,
                     modifier           = Modifier.size(14.dp)
                 )
             }

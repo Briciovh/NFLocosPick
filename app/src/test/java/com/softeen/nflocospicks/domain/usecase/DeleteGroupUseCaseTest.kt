@@ -11,45 +11,63 @@ import org.junit.Test
 
 // ── Fake ─────────────────────────────────────────────────────────────────────
 
-private class CapturingGroupRepository : GroupRepository {
-    var capturedName: String? = null
+private class CapturingDeleteRenameRepository : GroupRepository {
+    var deletedGroupId: String? = null
+    var renamedGroupId: String? = null
+    var renamedName: String? = null
 
-    override suspend fun createGroup(name: String, creatorUserId: String): Group {
-        capturedName = name
-        return Group(id = "g1", name = name, inviteCode = "XYZ000",
-                     createdBy = creatorUserId, memberIds = listOf(creatorUserId))
-    }
-
+    override suspend fun createGroup(name: String, creatorUserId: String): Group = throw NotImplementedError()
     override suspend fun joinGroup(inviteCode: String, userId: String): JoinGroupResult = throw NotImplementedError()
     override fun getGroupsForUser(userId: String): Flow<List<Group>> = throw NotImplementedError()
     override suspend fun getGroupById(groupId: String): Group = throw NotImplementedError()
     override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> = throw NotImplementedError()
     override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
-    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
-    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
+
+    override suspend fun renameGroup(groupId: String, newName: String) {
+        renamedGroupId = groupId
+        renamedName = newName
+    }
+
+    override suspend fun deleteGroup(groupId: String) {
+        deletedGroupId = groupId
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-class CreateGroupUseCaseTest {
+class DeleteGroupUseCaseTest {
+
+    @Test
+    fun `invoke forwards the groupId to the repository`() = runBlocking {
+        val repo = CapturingDeleteRenameRepository()
+        val useCase = DeleteGroupUseCase(repo)
+
+        useCase("g1")
+
+        assertEquals("g1", repo.deletedGroupId)
+    }
+}
+
+class RenameGroupUseCaseTest {
 
     @Test
     fun `name with leading and trailing spaces is trimmed before reaching the repository`() = runBlocking {
-        val repo = CapturingGroupRepository()
-        val useCase = CreateGroupUseCase(repo)
+        val repo = CapturingDeleteRenameRepository()
+        val useCase = RenameGroupUseCase(repo)
 
-        useCase("  Los Locos  ", creatorUserId = "u1")
+        useCase("g1", "  Nuevo Nombre  ")
 
-        assertEquals("Los Locos", repo.capturedName)
+        assertEquals("g1", repo.renamedGroupId)
+        assertEquals("Nuevo Nombre", repo.renamedName)
     }
 
     @Test
     fun `name without extra spaces passes through unchanged`() = runBlocking {
-        val repo = CapturingGroupRepository()
-        val useCase = CreateGroupUseCase(repo)
+        val repo = CapturingDeleteRenameRepository()
+        val useCase = RenameGroupUseCase(repo)
 
-        useCase("Fantasy League", creatorUserId = "u1")
+        useCase("g1", "Los Locos")
 
-        assertEquals("Fantasy League", repo.capturedName)
+        assertEquals("Los Locos", repo.renamedName)
     }
 }

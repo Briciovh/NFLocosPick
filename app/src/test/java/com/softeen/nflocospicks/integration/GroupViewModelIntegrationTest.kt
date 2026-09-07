@@ -9,8 +9,10 @@ import com.softeen.nflocospicks.domain.repository.GroupRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
 import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
@@ -77,6 +79,8 @@ class GroupViewModelIntegrationTest {
         scoreWeekPicksUseCase   = scoreUseCase,
         uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
         setGroupIconUseCase     = setGroupIconUseCase,
+        renameGroupUseCase      = RenameGroupUseCase(groupRepo),         // ← REAL
+        deleteGroupUseCase      = DeleteGroupUseCase(groupRepo),         // ← REAL
         watchBoardMessagesUseCase = watchBoardMessagesUseCase,
         userRepository          = userRepo,
         preferencesRepository   = prefsRepo,

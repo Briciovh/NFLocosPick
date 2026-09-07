@@ -1,0 +1,718 @@
+diff --git a/.agents/rules/constraints-analytics.md b/.agents/rules/constraints-analytics.md
+index 1e5a597..524e776 100644
+--- a/.agents/rules/constraints-analytics.md
++++ b/.agents/rules/constraints-analytics.md
+@@ -51,3 +51,5 @@ All Firebase Analytics logging goes through the single choke point `AppLogger.lo
+ | 31 | `phone_link_verified` | — | Account |
+ | 32 | `password_changed` | — | Account |
+ | 33 | `global_group_auto_joined` | — | Auth |
++| 34 | `group_renamed` | `group_id` | Groups |
++| 35 | `group_deleted` | `group_id` | Groups |
+diff --git a/CLAUDE.md b/CLAUDE.md
+index b5d2da1..b63ce30 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -484,6 +484,8 @@ All Firebase Analytics logging goes through the single choke point `AppLogger.lo
+ | 31 | `phone_link_verified` | — | Account |
+ | 32 | `password_changed` | — | Account |
+ | 33 | `global_group_auto_joined` | — | Auth |
++| 34 | `group_renamed` | `group_id` | Groups |
++| 35 | `group_deleted` | `group_id` | Groups |
+ 
+ ## Release Checklist
+ 
+diff --git a/app/src/main/java/com/softeen/nflocospicks/analytics/AppEvent.kt b/app/src/main/java/com/softeen/nflocospicks/analytics/AppEvent.kt
+index 495f774..5b050d0 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/analytics/AppEvent.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/analytics/AppEvent.kt
+@@ -36,6 +36,12 @@ sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap(
+     data class GroupIconSet(val groupId: String, val iconId: String) :
+         AppEvent("group_icon_set", mapOf("group_id" to groupId, "icon_id" to iconId))
+ 
++    data class GroupRenamed(val groupId: String) :
++        AppEvent("group_renamed", mapOf("group_id" to groupId))
++
++    data class GroupDeleted(val groupId: String) :
++        AppEvent("group_deleted", mapOf("group_id" to groupId))
++
+     // ── Picks ─────────────────────────────────────────────────────────────────
+     data class PickSubmitted(
+         val groupId: String,
+diff --git a/app/src/main/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSource.kt b/app/src/main/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSource.kt
+index 7755cb9..08571ef 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSource.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSource.kt
+@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.data.remote.firebase
+ import android.net.Uri
+ import com.google.firebase.firestore.FieldValue
+ import com.google.firebase.firestore.FirebaseFirestore
++import com.google.firebase.functions.FirebaseFunctions
+ import com.google.firebase.storage.FirebaseStorage
+ import com.softeen.nflocospicks.domain.model.Group
+ import com.softeen.nflocospicks.domain.model.JoinGroupResult
+@@ -14,7 +15,8 @@ import javax.inject.Inject
+ 
+ class FirebaseGroupDataSource @Inject constructor(
+     private val firestore: FirebaseFirestore,
+-    private val storage: FirebaseStorage
++    private val storage: FirebaseStorage,
++    private val functions: FirebaseFunctions
+ ) {
+     companion object {
+         private const val COLLECTION = "groups"
+@@ -104,6 +106,24 @@ class FirebaseGroupDataSource @Inject constructor(
+             .await()
+     }
+ 
++    suspend fun renameGroup(groupId: String, newName: String) {
++        firestore.collection(COLLECTION).document(groupId)
++            .update("name", newName)
++            .await()
++    }
++
++    /**
++     * Invoca la Cloud Function "deleteGroup" (Admin SDK): borra el doc del grupo,
++     * sus subcolecciones, el árbol de standings y la foto de Storage. El cliente no
++     * puede hacer ese barrido — las reglas niegan el delete directo y las escrituras
++     * a standings. La función valida que el usuario autenticado sea el creador.
++     */
++    suspend fun deleteGroup(groupId: String) {
++        functions.getHttpsCallable("deleteGroup")
++            .call(mapOf("groupId" to groupId))
++            .await()
++    }
++
+     fun getGroupsForUser(userId: String): Flow<List<Group>> = callbackFlow {
+         val listener = firestore.collection(COLLECTION)
+             .whereArrayContains("memberIds", userId)
+diff --git a/app/src/main/java/com/softeen/nflocospicks/data/repository/GroupRepositoryImpl.kt b/app/src/main/java/com/softeen/nflocospicks/data/repository/GroupRepositoryImpl.kt
+index 8930204..0fdb953 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/data/repository/GroupRepositoryImpl.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/data/repository/GroupRepositoryImpl.kt
+@@ -29,4 +29,10 @@ class GroupRepositoryImpl @Inject constructor(
+ 
+     override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> =
+         runCatching { dataSource.setIcon(groupId, iconId) }
++
++    override suspend fun renameGroup(groupId: String, newName: String) =
++        dataSource.renameGroup(groupId, newName)
++
++    override suspend fun deleteGroup(groupId: String) =
++        dataSource.deleteGroup(groupId)
+ }
+diff --git a/app/src/main/java/com/softeen/nflocospicks/domain/repository/GroupRepository.kt b/app/src/main/java/com/softeen/nflocospicks/domain/repository/GroupRepository.kt
+index 0aeb6ec..35cdd60 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/domain/repository/GroupRepository.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/domain/repository/GroupRepository.kt
+@@ -45,4 +45,20 @@ interface GroupRepository {
+      * del grupo y limpia cualquier `photoUrl` previo.
+      */
+     suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit>
++
++    /**
++     * Renombra el grupo [groupId] a [newName]. Solo el creador puede hacerlo
++     * (lo aplican las reglas de Firestore); la actualización se propaga a la
++     * lista en vivo por el listener existente.
++     */
++    suspend fun renameGroup(groupId: String, newName: String)
++
++    /**
++     * Elimina por completo el grupo [groupId] — el documento, sus subcolecciones
++     * de semanas y del muro, el árbol de standings del grupo y la foto de Storage
++     * — vía la Cloud Function `deleteGroup` (Admin SDK). El cliente no tiene
++     * permiso para borrar nada de eso directamente (ver `firestore.rules`). La
++     * función valida que el solicitante sea el creador y rechaza el grupo global.
++     */
++    suspend fun deleteGroup(groupId: String)
+ }
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupUiState.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupUiState.kt
+index 1a4a0d2..f85d043 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupUiState.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupUiState.kt
+@@ -27,6 +27,7 @@ sealed class GroupUiEffect {
+     data class ScoringResult(val groupId: String, val newlyScoredCount: Int) : GroupUiEffect()
+     data class ScoringError(val message: String)                             : GroupUiEffect()
+     data class GroupJoined(val groupName: String, val alreadyMember: Boolean) : GroupUiEffect()
++    data class GroupDeleted(val groupName: String)                           : GroupUiEffect()
+ }
+ 
+ // ── Estado de la edición de imagen de grupo (foto o ícono) ────────────────────
+@@ -36,3 +37,11 @@ sealed class GroupPhotoUiState {
+     data object Uploading                     : GroupPhotoUiState()
+     data class Error(val message: String)     : GroupPhotoUiState()
+ }
++
++// ── Estado de las acciones de GroupSettingsScreen (renombrar / eliminar) ──────
++
++sealed class GroupSettingsUiState {
++    data object Idle                          : GroupSettingsUiState()
++    data object Working                       : GroupSettingsUiState()
++    data class Error(val message: String)     : GroupSettingsUiState()
++}
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupViewModel.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupViewModel.kt
+index 89f06a5..dbf81d2 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupViewModel.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupViewModel.kt
+@@ -12,8 +12,10 @@ import com.softeen.nflocospicks.domain.model.Group
+ import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
+ import com.softeen.nflocospicks.domain.repository.UserRepository
+ import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
+ import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
+ import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
+ import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
+@@ -39,6 +41,8 @@ class GroupViewModel @Inject constructor(
+     private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
+     private val uploadGroupPhotoUseCase : UploadGroupPhotoUseCase,
+     private val setGroupIconUseCase     : SetGroupIconUseCase,
++    private val renameGroupUseCase      : RenameGroupUseCase,
++    private val deleteGroupUseCase      : DeleteGroupUseCase,
+     private val watchBoardMessagesUseCase : WatchBoardMessagesUseCase,
+     private val userRepository          : UserRepository,
+     private val preferencesRepository   : UserPreferencesRepository,
+@@ -58,6 +62,9 @@ class GroupViewModel @Inject constructor(
+     private val _photoUiState = MutableStateFlow<GroupPhotoUiState>(GroupPhotoUiState.Idle)
+     val photoUiState: StateFlow<GroupPhotoUiState> = _photoUiState.asStateFlow()
+ 
++    private val _groupSettingsState = MutableStateFlow<GroupSettingsUiState>(GroupSettingsUiState.Idle)
++    val groupSettingsState: StateFlow<GroupSettingsUiState> = _groupSettingsState.asStateFlow()
++
+     /** Read once per composition — used to gate the group-photo edit badge to the creator. */
+     val currentUserId: String? get() = userRepository.getCurrentUser()?.uid
+ 
+@@ -213,6 +220,64 @@ class GroupViewModel @Inject constructor(
+         _photoUiState.value = GroupPhotoUiState.Idle
+     }
+ 
++    /**
++     * Renombra [group] a [newName]. Rechaza en silencio (deja el estado en Idle, sin
++     * tocar el backend) si [requesterUserId] no puede administrar el grupo — defensa en
++     * profundidad junto a las reglas de Firestore, que son la fuente de verdad. El nombre
++     * nuevo llega a la UI por el listener en vivo; [RenameGroupUseCase] recorta espacios.
++     */
++    fun renameGroup(group: Group, requesterUserId: String, newName: String) {
++        if (!canManageGroup(group, requesterUserId)) return
++        viewModelScope.launch {
++            _groupSettingsState.value = GroupSettingsUiState.Working
++            try {
++                renameGroupUseCase(group.id, newName)
++                _groupSettingsState.value = GroupSettingsUiState.Idle
++                logger.logEvent(AppEvent.GroupRenamed(group.id))
++            } catch (e: Exception) {
++                _groupSettingsState.value =
++                    GroupSettingsUiState.Error(e.message ?: "Error al renombrar el grupo")
++            }
++        }
++    }
++
++    /**
++     * Elimina [group] por completo vía la Cloud Function `deleteGroup`. Mismos guards que
++     * [renameGroup]. Al terminar emite [GroupUiEffect.GroupDeleted] para que GroupsScreen
++     * muestre el snackbar; la navegación de salida la maneja NavGraph al ver el grupo
++     * desaparecer del listener en vivo.
++     */
++    fun deleteGroup(group: Group, requesterUserId: String) {
++        if (!canManageGroup(group, requesterUserId)) return
++        viewModelScope.launch {
++            _groupSettingsState.value = GroupSettingsUiState.Working
++            try {
++                deleteGroupUseCase(group.id)
++                _groupSettingsState.value = GroupSettingsUiState.Idle
++                logger.logEvent(AppEvent.GroupDeleted(group.id))
++                effects.send(GroupUiEffect.GroupDeleted(group.name))
++            } catch (e: Exception) {
++                _groupSettingsState.value =
++                    GroupSettingsUiState.Error(e.message ?: "Error al eliminar el grupo")
++            }
++        }
++    }
++
++    /** Restablece groupSettingsState a Idle. Llamar al entrar/salir de GroupSettingsScreen. */
++    fun resetGroupSettingsState() {
++        _groupSettingsState.value = GroupSettingsUiState.Idle
++    }
++
++    /**
++     * Solo el creador puede renombrar o eliminar un grupo, y nunca el grupo global ni el
++     * grupo mock de datos de prueba (su id no existe en Firestore). Mismo espíritu que el
++     * guard de [uploadGroupPhoto]/[setGroupIcon].
++     */
++    private fun canManageGroup(group: Group, requesterUserId: String): Boolean =
++        group.createdBy == requesterUserId &&
++            group.id != GlobalGroupConstants.GROUP_ID &&
++            group.id != MockDataProvider.MOCK_GROUP_ID
++
+     fun onSignOut() {
+         viewModelScope.launch {
+             userRepository.signOut()
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
+index e76a167..21db737 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
+@@ -89,6 +89,7 @@ fun GroupsScreen(
+     val scoringResultPattern = stringResource(R.string.scoring_result)
+     val joinedNewPattern = stringResource(R.string.group_joined_new)
+     val alreadyMemberPattern = stringResource(R.string.group_already_member)
++    val groupDeletedPattern = stringResource(R.string.group_deleted_snackbar)
+ 
+     // Consume efectos de un solo disparo (navegación + feedback de puntuación/unión)
+     LaunchedEffect(Unit) {
+@@ -111,6 +112,8 @@ fun GroupsScreen(
+                         String.format(joinedNewPattern, effect.groupName)
+                     snackbarHostState.showSnackbar(msg)
+                 }
++                is GroupUiEffect.GroupDeleted       ->
++                    snackbarHostState.showSnackbar(String.format(groupDeletedPattern, effect.groupName))
+             }
+         }
+     }
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
+index a30315e..a8e7cec 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
+@@ -24,6 +24,7 @@ import com.softeen.nflocospicks.presentation.common.nflTeamColorMap
+ import com.softeen.nflocospicks.presentation.common.toAppColors
+ import com.softeen.nflocospicks.presentation.groups.CreateGroupScreen
+ import com.softeen.nflocospicks.presentation.groups.GroupListUiState
++import com.softeen.nflocospicks.presentation.groups.GroupSettingsScreen
+ import com.softeen.nflocospicks.presentation.groups.GroupViewModel
+ import com.softeen.nflocospicks.presentation.groups.GroupsScreen
+ import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
+@@ -243,6 +244,48 @@ fun NavGraph(
+                     )
+                 }
+ 
++                composable(
++                    route     = Screen.GroupSettings.route,
++                    arguments = listOf(navArgument("groupId") { type = NavType.StringType })
++                ) { backStackEntry ->
++                    val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
++
++                    // Mismo patrón que Screen.GroupSession/History: compartimos el GroupViewModel
++                    // de GroupsScreen para leer el Group actual del listener en vivo.
++                    val groupsEntry = remember(backStackEntry) {
++                        navController.getBackStackEntry(Screen.Groups.route)
++                    }
++                    val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
++                    val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
++                    val photoUiState by groupViewModel.photoUiState.collectAsStateWithLifecycle()
++                    val settingsState by groupViewModel.groupSettingsState.collectAsStateWithLifecycle()
++                    val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
++                    val currentUserId = groupViewModel.currentUserId
++
++                    // Limpia cualquier Error de una visita previa a esta pantalla.
++                    LaunchedEffect(Unit) { groupViewModel.resetGroupSettingsState() }
++
++                    GroupSettingsScreen(
++                        groupListState       = groupListState,
++                        group                = group,
++                        currentUserId        = currentUserId,
++                        photoUiState         = photoUiState,
++                        settingsState        = settingsState,
++                        onRename             = { name -> group?.let { g -> currentUserId?.let { groupViewModel.renameGroup(g, it, name) } } },
++                        onUploadPhoto        = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
++                        onSetIcon            = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
++                        onDeleteGroup        = { group?.let { g -> currentUserId?.let { groupViewModel.deleteGroup(g, it) } } },
++                        onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() },
++                        onNavigateBack       = { navController.popBackStack() },
++                        onExitToGroups       = {
++                            navController.navigate(Screen.Groups.route) {
++                                popUpTo(Screen.Groups.route) { inclusive = false }
++                                launchSingleTop = true
++                            }
++                        }
++                    )
++                }
++
+                 composable(Screen.UserManagement.route) {
+                     val currentUid = (authState as? AuthUiState.Authenticated)?.user?.uid
+                         ?: return@composable
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/Screen.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/Screen.kt
+index 0159fd4..f4c00c1 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/Screen.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/Screen.kt
+@@ -19,4 +19,7 @@ sealed class Screen(val route: String) {
+     data object GroupSession    : Screen("group_session/{groupId}") {
+         fun createRoute(groupId: String) = "group_session/$groupId"
+     }
++    data object GroupSettings   : Screen("group_settings/{groupId}") {
++        fun createRoute(groupId: String) = "group_settings/$groupId"
++    }
+ }
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/ScreenNames.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/ScreenNames.kt
+index 0fbb8d6..55a067e 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/ScreenNames.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/ScreenNames.kt
+@@ -12,6 +12,7 @@ fun routeToScreenName(route: String?): String? = when (route) {
+     Screen.UserManagement.route   -> "user_management"
+     Screen.History.route          -> "pick_history"
+     Screen.GroupSession.route     -> "group_session"
++    Screen.GroupSettings.route    -> "group_settings"
+     BottomNavItem.Picks.route       -> "picks"
+     BottomNavItem.Leaderboard.route -> "leaderboard"
+     BottomNavItem.Board.route       -> "board"
+diff --git a/app/src/main/res/values-en/strings.xml b/app/src/main/res/values-en/strings.xml
+index 68e47b0..3526507 100644
+--- a/app/src/main/res/values-en/strings.xml
++++ b/app/src/main/res/values-en/strings.xml
+@@ -68,6 +68,16 @@
+     <string name="scoring_result">%1$d pick(s) scored 🏆</string>
+     <string name="group_joined_new">You joined %1$s 🎉</string>
+     <string name="group_already_member">You were already a member of %1$s</string>
++    <string name="group_deleted_snackbar">Group %1$s deleted</string>
++    <string name="group_settings_title">Group settings</string>
++    <string name="cd_group_settings">Group settings</string>
++    <string name="group_settings_rename_label">Group name</string>
++    <string name="group_settings_rename_action">Save</string>
++    <string name="group_settings_change_image">Change group image</string>
++    <string name="group_settings_delete">Delete group</string>
++    <string name="group_settings_delete_dialog_title">Delete this group?</string>
++    <string name="group_settings_delete_dialog_body">The group, its weeks, all picks, board messages and the standings of every member will be deleted. This action cannot be undone.</string>
++    <string name="group_settings_delete_dialog_confirm">Delete group</string>
+ 
+     <!-- Create Group -->
+     <string name="create_group_heading">Create Group</string>
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+index b6e7fc4..7f5449c 100644
+--- a/app/src/main/res/values/strings.xml
++++ b/app/src/main/res/values/strings.xml
+@@ -71,6 +71,16 @@
+     <string name="scoring_result">%1$d pick(s) puntuados 🏆</string>
+     <string name="group_joined_new">Te uniste a %1$s 🎉</string>
+     <string name="group_already_member">Ya eras miembro de %1$s</string>
++    <string name="group_deleted_snackbar">Grupo %1$s eliminado</string>
++    <string name="group_settings_title">Configuración del grupo</string>
++    <string name="cd_group_settings">Configuración del grupo</string>
++    <string name="group_settings_rename_label">Nombre del grupo</string>
++    <string name="group_settings_rename_action">Guardar</string>
++    <string name="group_settings_change_image">Cambiar imagen del grupo</string>
++    <string name="group_settings_delete">Eliminar grupo</string>
++    <string name="group_settings_delete_dialog_title">¿Eliminar este grupo?</string>
++    <string name="group_settings_delete_dialog_body">Se eliminarán el grupo, sus semanas, todos los picks, los mensajes del muro y la tabla de posiciones de todos los miembros. Esta acción no se puede deshacer.</string>
++    <string name="group_settings_delete_dialog_confirm">Eliminar grupo</string>
+ 
+     <!-- Create Group -->
+     <string name="create_group_heading">Crear Grupo</string>
+diff --git a/app/src/test/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSourceTest.kt b/app/src/test/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSourceTest.kt
+index 7e2dcaf..5fbad6f 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSourceTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSourceTest.kt
+@@ -7,6 +7,9 @@ import com.google.firebase.firestore.DocumentSnapshot
+ import com.google.firebase.firestore.FirebaseFirestore
+ import com.google.firebase.firestore.Query
+ import com.google.firebase.firestore.QuerySnapshot
++import com.google.firebase.functions.FirebaseFunctions
++import com.google.firebase.functions.HttpsCallableReference
++import com.google.firebase.functions.HttpsCallableResult
+ import com.google.firebase.storage.FirebaseStorage
+ import io.mockk.every
+ import io.mockk.mockk
+@@ -20,10 +23,11 @@ class FirebaseGroupDataSourceTest {
+ 
+     private val firestore = mockk<FirebaseFirestore>()
+     private val storage = mockk<FirebaseStorage>()
++    private val functions = mockk<FirebaseFunctions>()
+     private val collection = mockk<CollectionReference>()
+     private val query = mockk<Query>()
+ 
+-    private val dataSource = FirebaseGroupDataSource(firestore, storage)
++    private val dataSource = FirebaseGroupDataSource(firestore, storage, functions)
+ 
+     private fun stubInviteCodeQuery() {
+         every { firestore.collection("groups") } returns collection
+@@ -146,4 +150,29 @@ class FirebaseGroupDataSourceTest {
+             runBlocking { dataSource.joinGroup("BAD123", "u1") }
+         }
+     }
++
++    @Test
++    fun `renameGroup writes the new name onto the group doc`() = runBlocking {
++        every { firestore.collection("groups") } returns collection
++        val docRef = mockk<DocumentReference>()
++        every { collection.document("g1") } returns docRef
++        every { docRef.update("name", "Nuevo Nombre") } returns Tasks.forResult<Void>(null)
++
++        dataSource.renameGroup("g1", "Nuevo Nombre")
++
++        verify(exactly = 1) { docRef.update("name", "Nuevo Nombre") }
++    }
++
++    @Test
++    fun `deleteGroup invokes the deleteGroup callable with the groupId`() = runBlocking {
++        val callableRef = mockk<HttpsCallableReference>()
++        val callResult = mockk<HttpsCallableResult>()
++        every { functions.getHttpsCallable("deleteGroup") } returns callableRef
++        every { callableRef.call(any()) } returns Tasks.forResult(callResult)
++
++        dataSource.deleteGroup("g1")
++
++        verify(exactly = 1) { functions.getHttpsCallable("deleteGroup") }
++        verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1")) }
++    }
+ }
+diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/CreateGroupUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/CreateGroupUseCaseTest.kt
+index 8581b66..c9fb803 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/CreateGroupUseCaseTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/CreateGroupUseCaseTest.kt
+@@ -25,6 +25,8 @@ private class CapturingGroupRepository : GroupRepository {
+     override suspend fun getGroupById(groupId: String): Group = throw NotImplementedError()
+     override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> = throw NotImplementedError()
+     override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
++    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
++    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
+ }
+ 
+ // ── Tests ─────────────────────────────────────────────────────────────────────
+diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/JoinGroupUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/JoinGroupUseCaseTest.kt
+index 88dc25a..6407152 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/JoinGroupUseCaseTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/JoinGroupUseCaseTest.kt
+@@ -24,6 +24,8 @@ private class CapturingJoinRepository : GroupRepository {
+     override suspend fun getGroupById(groupId: String): Group = throw NotImplementedError()
+     override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> = throw NotImplementedError()
+     override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
++    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
++    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
+ 
+     override suspend fun joinGroup(inviteCode: String, userId: String): JoinGroupResult {
+         capturedInviteCode = inviteCode
+diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
+index f910392..ac2ecc9 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
+@@ -34,6 +34,9 @@ private class CapturingPhotoRepository : GroupRepository {
+         capturedIconId = iconId
+         return Result.success(Unit)
+     }
++
++    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
++    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
+ }
+ 
+ // ── Tests ─────────────────────────────────────────────────────────────────────
+diff --git a/app/src/test/java/com/softeen/nflocospicks/integration/GroupViewModelIntegrationTest.kt b/app/src/test/java/com/softeen/nflocospicks/integration/GroupViewModelIntegrationTest.kt
+index 9b56cd2..52bc9e3 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/integration/GroupViewModelIntegrationTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/integration/GroupViewModelIntegrationTest.kt
+@@ -9,8 +9,10 @@ import com.softeen.nflocospicks.domain.repository.GroupRepository
+ import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
+ import com.softeen.nflocospicks.domain.repository.UserRepository
+ import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
+ import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
+ import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
+ import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
+@@ -77,6 +79,8 @@ class GroupViewModelIntegrationTest {
+         scoreWeekPicksUseCase   = scoreUseCase,
+         uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
+         setGroupIconUseCase     = setGroupIconUseCase,
++        renameGroupUseCase      = RenameGroupUseCase(groupRepo),         // ← REAL
++        deleteGroupUseCase      = DeleteGroupUseCase(groupRepo),         // ← REAL
+         watchBoardMessagesUseCase = watchBoardMessagesUseCase,
+         userRepository          = userRepo,
+         preferencesRepository   = prefsRepo,
+diff --git a/app/src/test/java/com/softeen/nflocospicks/presentation/groups/GroupViewModelTest.kt b/app/src/test/java/com/softeen/nflocospicks/presentation/groups/GroupViewModelTest.kt
+index fae3d19..76ea654 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/presentation/groups/GroupViewModelTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/presentation/groups/GroupViewModelTest.kt
+@@ -1,6 +1,8 @@
+ package com.softeen.nflocospicks.presentation.groups
+ 
+ import com.softeen.nflocospicks.analytics.AppLogger
++import com.softeen.nflocospicks.data.mock.MockDataProvider
++import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
+ import com.softeen.nflocospicks.domain.model.Group
+ import com.softeen.nflocospicks.domain.model.JoinGroupResult
+ import com.softeen.nflocospicks.domain.model.User
+@@ -8,8 +10,10 @@ import com.softeen.nflocospicks.domain.model.UserPreferences
+ import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
+ import com.softeen.nflocospicks.domain.repository.UserRepository
+ import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
+ import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
+ import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
+ import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
+@@ -39,6 +43,8 @@ class GroupViewModelTest {
+     private val scoreUseCase        = mockk<ScoreWeekPicksUseCase>()
+     private val uploadGroupPhotoUseCase = mockk<UploadGroupPhotoUseCase>()
+     private val setGroupIconUseCase = mockk<SetGroupIconUseCase>()
++    private val renameGroupUseCase = mockk<RenameGroupUseCase>()
++    private val deleteGroupUseCase = mockk<DeleteGroupUseCase>()
+     private val watchBoardMessagesUseCase = mockk<WatchBoardMessagesUseCase>()
+     private val userRepo            = mockk<UserRepository>()
+     private val prefsRepo           = mockk<UserPreferencesRepository>()
+@@ -74,6 +80,8 @@ class GroupViewModelTest {
+         scoreWeekPicksUseCase   = scoreUseCase,
+         uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
+         setGroupIconUseCase     = setGroupIconUseCase,
++        renameGroupUseCase      = renameGroupUseCase,
++        deleteGroupUseCase      = deleteGroupUseCase,
+         watchBoardMessagesUseCase = watchBoardMessagesUseCase,
+         userRepository          = userRepo,
+         preferencesRepository   = prefsRepo,
+@@ -208,4 +216,89 @@ class GroupViewModelTest {
+ 
+         verify { logger.logEvent(match { it.name == "group_icon_set" && it.params["icon_id"] == "icon_1" }) }
+     }
++
++    // ── GroupSettings: renombrar / eliminar ──────────────────────────────────
++
++    @Test
++    fun `deleteGroup on success logs group_deleted and sends the GroupDeleted effect`() = runTest(coroutineRule.dispatcher) {
++        coEvery { deleteGroupUseCase("g1") } returns Unit
++        val vm = viewModel()
++
++        vm.deleteGroup(stubGroup, requesterUserId = "user1")
++
++        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
++        verify { logger.logEvent(match { it.name == "group_deleted" && it.params["group_id"] == "g1" }) }
++        assertEquals(GroupUiEffect.GroupDeleted("Los Locos"), vm.effects.receive())
++    }
++
++    @Test
++    fun `deleteGroup by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
++        val vm = viewModel()
++
++        vm.deleteGroup(stubGroup, requesterUserId = "intruder")
++
++        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
++        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
++    }
++
++    @Test
++    fun `deleteGroup on the global group is a no-op even for its creator`() = runTest(coroutineRule.dispatcher) {
++        val globalGroup = stubGroup.copy(id = GlobalGroupConstants.GROUP_ID)
++        val vm = viewModel()
++
++        vm.deleteGroup(globalGroup, requesterUserId = "user1")
++
++        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
++    }
++
++    @Test
++    fun `deleteGroup on the mock testing group is a no-op`() = runTest(coroutineRule.dispatcher) {
++        val mockGroup = stubGroup.copy(id = MockDataProvider.MOCK_GROUP_ID)
++        val vm = viewModel()
++
++        vm.deleteGroup(mockGroup, requesterUserId = "user1")
++
++        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
++    }
++
++    @Test
++    fun `deleteGroup failure sets groupSettingsState to Error`() = runTest(coroutineRule.dispatcher) {
++        coEvery { deleteGroupUseCase("g1") } throws RuntimeException("boom")
++        val vm = viewModel()
++
++        vm.deleteGroup(stubGroup, requesterUserId = "user1")
++
++        val state = vm.groupSettingsState.value as GroupSettingsUiState.Error
++        assertEquals("boom", state.message)
++    }
++
++    @Test
++    fun `renameGroup on success logs group_renamed and returns state to Idle`() = runTest(coroutineRule.dispatcher) {
++        coEvery { renameGroupUseCase("g1", "Nuevo") } returns Unit
++        val vm = viewModel()
++
++        vm.renameGroup(stubGroup, requesterUserId = "user1", newName = "Nuevo")
++
++        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
++        verify { logger.logEvent(match { it.name == "group_renamed" && it.params["group_id"] == "g1" }) }
++    }
++
++    @Test
++    fun `renameGroup by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
++        val vm = viewModel()
++
++        vm.renameGroup(stubGroup, requesterUserId = "intruder", newName = "Nuevo")
++
++        coVerify(exactly = 0) { renameGroupUseCase(any(), any()) }
++    }
++
++    @Test
++    fun `renameGroup on the global group is a no-op even for its creator`() = runTest(coroutineRule.dispatcher) {
++        val globalGroup = stubGroup.copy(id = GlobalGroupConstants.GROUP_ID)
++        val vm = viewModel()
++
++        vm.renameGroup(globalGroup, requesterUserId = "user1", newName = "Nuevo")
++
++        coVerify(exactly = 0) { renameGroupUseCase(any(), any()) }
++    }
+ }
+diff --git a/firestore.rules b/firestore.rules
+index 5f2ae85..f84490e 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -84,14 +84,14 @@ service cloud.firestore {
+                       )
+                     );
+ 
+-      // Solo el creador puede eliminar el grupo — excepto el grupo global
+-      // "NFLocos de Corazón" (PR-16), que nunca se puede borrar aunque el
+-      // requester sea su createdBy. Este id debe coincidir exactamente con
+-      // GlobalGroupConstants.GROUP_ID (cliente) y con el groupId usado en
+-      // functions/src/scripts/seedGlobalGroup.ts.
+-      allow delete: if request.auth != null
+-                    && request.auth.uid == resource.data.createdBy
+-                    && groupId != "global_nflocos_de_corazon";
++      // El borrado de grupo va EXCLUSIVAMENTE por la Cloud Function `deleteGroup`
++      // (Admin SDK — functions/src/groupDeletion.ts): además del doc, esa función
++      // limpia las subcolecciones (weeks/**, board/**) y standings/{groupId}/**,
++      // que el cliente no puede borrar (allow write: if false más abajo / en
++      // standings). Un delete directo desde el cliente dejaría todo eso huérfano,
++      // así que se bloquea aquí. La función valida que el requester sea createdBy y
++      // rechaza el grupo global "NFLocos de Corazón".
++      allow delete: if false;
+ 
+       // ── Subcolecciones de semanas y picks (PR-5 y PR-6) ──────────────────
+       match /weeks/{weekId} {
+diff --git a/functions/src/index.ts b/functions/src/index.ts
+index cab36e2..5d18dbc 100644
+--- a/functions/src/index.ts
++++ b/functions/src/index.ts
+@@ -6,6 +6,7 @@ import { logger } from "firebase-functions";
+ import { fetchCurrentWeekGames, computeWinners } from "./espn";
+ import { scoreGroupForWeek } from "./scoring";
+ import { deleteUserAccount } from "./accountDeletion";
++import { deleteGroupCompletely } from "./groupDeletion";
+ import { seedGlobalStanding } from "./globalGroup";
+ import { deactivateInactiveUsers, reactivateUser } from "./inactivity";
+ 
+@@ -86,6 +87,27 @@ export const scoreGroupWeek = onCall<{ groupId?: string }>(async (request) => {
+   return { scoredCount };
+ });
+ 
++/**
++ * Elimina por completo un grupo (doc + subcolecciones + standings + foto de Storage).
++ * Solo el creador del grupo puede hacerlo; el grupo global nunca se puede eliminar.
++ * Toda la limpieza corre con Admin SDK porque el cliente no tiene permiso para borrar
++ * subcolecciones ni standings (ver firestore.rules). `deleteGroupCompletely` lanza el
++ * HttpsError apropiado (unauthenticated/not-found/permission-denied) según el caso.
++ */
++export const deleteGroup = onCall<{ groupId?: string }>(async (request) => {
++  const uid = request.auth?.uid;
++  if (!uid) {
++    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
++  }
++  const groupId = request.data.groupId;
++  if (!groupId) {
++    throw new HttpsError("invalid-argument", "Falta groupId.");
++  }
++
++  await deleteGroupCompletely(groupId, uid);
++  return { success: true };
++});
++
+ /**
+  * Eliminación de cuenta (requisito de Google Play). Solo opera sobre el
+  * propio usuario autenticado — nunca recibe un uid por parámetro, para que

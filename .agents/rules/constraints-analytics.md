@@ -51,3 +51,5 @@ All Firebase Analytics logging goes through the single choke point `AppLogger.lo
 | 31 | `phone_link_verified` | — | Account |
 | 32 | `password_changed` | — | Account |
 | 33 | `global_group_auto_joined` | — | Auth |
+| 34 | `group_renamed` | `group_id` | Groups |
+| 35 | `group_deleted` | `group_id` | Groups |

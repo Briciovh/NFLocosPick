@@ -24,6 +24,8 @@ private class CapturingJoinRepository : GroupRepository {
     override suspend fun getGroupById(groupId: String): Group = throw NotImplementedError()
     override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> = throw NotImplementedError()
     override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
+    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
+    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
 
     override suspend fun joinGroup(inviteCode: String, userId: String): JoinGroupResult {
         capturedInviteCode = inviteCode

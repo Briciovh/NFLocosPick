@@ -45,4 +45,20 @@ interface GroupRepository {
      * del grupo y limpia cualquier `photoUrl` previo.
      */
     suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit>
+
+    /**
+     * Renombra el grupo [groupId] a [newName]. Solo el creador puede hacerlo
+     * (lo aplican las reglas de Firestore); la actualización se propaga a la
+     * lista en vivo por el listener existente.
+     */
+    suspend fun renameGroup(groupId: String, newName: String)
+
+    /**
+     * Elimina por completo el grupo [groupId] — el documento, sus subcolecciones
+     * de semanas y del muro, el árbol de standings del grupo y la foto de Storage
+     * — vía la Cloud Function `deleteGroup` (Admin SDK). El cliente no tiene
+     * permiso para borrar nada de eso directamente (ver `firestore.rules`). La
+     * función valida que el solicitante sea el creador y rechaza el grupo global.
+     */
+    suspend fun deleteGroup(groupId: String)
 }

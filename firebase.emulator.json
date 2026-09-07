@@ -1,0 +1,10 @@
+{
+  "_comment": "Test-only Firebase config. The real firebase.json keeps its multi-bucket storage array (needed for `firebase deploy --only storage`), which the emulator can't resolve without a deploy target. This file uses object-form storage so `firebase emulators:exec --config firebase.emulator.json` can start the Storage emulator for the rules tests (functions/test/rules/**). Rules paths are the same files, resolved relative to the repo root.",
+  "firestore": { "rules": "firestore.rules" },
+  "storage": { "rules": "storage.rules" },
+  "emulators": {
+    "firestore": { "port": 8080 },
+    "storage": { "port": 9199 },
+    "ui": { "enabled": false }
+  }
+}

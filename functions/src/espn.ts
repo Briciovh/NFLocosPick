@@ -40,7 +40,7 @@ interface EspnCompetitor {
   team: { abbreviation: string };
 }
 
-function toSeasonType(type: number): SeasonType {
+export function toSeasonType(type: number): SeasonType {
   switch (type) {
     case 1:
       return "PRESEASON";
@@ -55,7 +55,7 @@ function toSeasonType(type: number): SeasonType {
 // byte-for-byte identical weekIds, since picks are written client-side and
 // scored server-side against the same id. Postseason keeps the unprefixed
 // format (same ambiguity as today) — out of scope for the preseason split.
-function buildWeekId(year: number, weekNumber: number, seasonType: SeasonType): string {
+export function buildWeekId(year: number, weekNumber: number, seasonType: SeasonType): string {
   const nn = String(weekNumber).padStart(2, "0");
   return seasonType === "PRESEASON" ? `${year}-pre-week-${nn}` : `${year}-week-${nn}`;
 }

@@ -5,7 +5,8 @@ import com.softeen.nflocospicks.domain.model.UserPreferences
 import com.softeen.nflocospicks.domain.repository.MockSessionRepository
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.util.MainCoroutineRule
-import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -52,5 +53,58 @@ class SettingsViewModelTest {
         val vm = viewModel()
         vm.setFavoriteTeam("KC")
         verify { logger.logEvent(match { it.name == "favorite_team_set" && it.params["team_name"] == "Chiefs" }) }
+    }
+
+    @Test
+    fun `setFavoriteTeam with null clears the preference and does not log`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+        vm.setFavoriteTeam(null)
+
+        coVerify(exactly = 1) { prefsRepo.setFavoriteTeam(null) }
+        verify(exactly = 0) { logger.logEvent(match { it.name == "favorite_team_set" }) }
+    }
+
+    @Test
+    fun `disabling testing data clears the mock session and simulate flag before writing the toggle`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+        vm.setUseTestingData(false)
+
+        coVerifyOrder {
+            mockSessionRepo.clearSession()
+            prefsRepo.setSimulateGamesStarted(false)
+            prefsRepo.setUseTestingData(false)
+        }
+    }
+
+    @Test
+    fun `enabling testing data does not touch the mock session`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+        vm.setUseTestingData(true)
+
+        coVerify(exactly = 1) { prefsRepo.setUseTestingData(true) }
+        coVerify(exactly = 0) { mockSessionRepo.clearSession() }
+        coVerify(exactly = 0) { prefsRepo.setSimulateGamesStarted(any()) }
+    }
+
+    @Test
+    fun `enabling simulate-games pre-generates scores before setting the flag`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+        vm.setSimulateGamesStarted(true)
+
+        coVerifyOrder {
+            mockSessionRepo.generateAndSaveScores(any())
+            prefsRepo.setSimulateGamesStarted(true)
+        }
+        coVerify(exactly = 0) { mockSessionRepo.clearSession() }
+    }
+
+    @Test
+    fun `disabling simulate-games clears the session`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+        vm.setSimulateGamesStarted(false)
+
+        coVerify(exactly = 1) { mockSessionRepo.clearSession() }
+        coVerify(exactly = 1) { prefsRepo.setSimulateGamesStarted(false) }
+        coVerify(exactly = 0) { mockSessionRepo.generateAndSaveScores(any()) }
     }
 }

@@ -1,718 +1,1783 @@
 diff --git a/.agents/rules/constraints-analytics.md b/.agents/rules/constraints-analytics.md
-index 1e5a597..524e776 100644
+index 524e776..52325a8 100644
 --- a/.agents/rules/constraints-analytics.md
 +++ b/.agents/rules/constraints-analytics.md
-@@ -51,3 +51,5 @@ All Firebase Analytics logging goes through the single choke point `AppLogger.lo
- | 31 | `phone_link_verified` | — | Account |
- | 32 | `password_changed` | — | Account |
+@@ -53,3 +53,5 @@ All Firebase Analytics logging goes through the single choke point `AppLogger.lo
  | 33 | `global_group_auto_joined` | — | Auth |
-+| 34 | `group_renamed` | `group_id` | Groups |
-+| 35 | `group_deleted` | `group_id` | Groups |
+ | 34 | `group_renamed` | `group_id` | Groups |
+ | 35 | `group_deleted` | `group_id` | Groups |
++| 36 | `group_member_removed` | `group_id`, `target_user_id`, `blocked` | Groups |
++| 37 | `group_member_unblocked` | `group_id`, `target_user_id` | Groups |
 diff --git a/CLAUDE.md b/CLAUDE.md
-index b5d2da1..b63ce30 100644
+index 73a5db0..5e05d70 100644
 --- a/CLAUDE.md
 +++ b/CLAUDE.md
 @@ -484,6 +484,8 @@ All Firebase Analytics logging goes through the single choke point `AppLogger.lo
- | 31 | `phone_link_verified` | — | Account |
- | 32 | `password_changed` | — | Account |
  | 33 | `global_group_auto_joined` | — | Auth |
-+| 34 | `group_renamed` | `group_id` | Groups |
-+| 35 | `group_deleted` | `group_id` | Groups |
+ | 34 | `group_renamed` | `group_id` | Groups |
+ | 35 | `group_deleted` | `group_id` | Groups |
++| 36 | `group_member_removed` | `group_id`, `target_user_id`, `blocked` | Groups |
++| 37 | `group_member_unblocked` | `group_id`, `target_user_id` | Groups |
  
  ## Release Checklist
  
 diff --git a/app/src/main/java/com/softeen/nflocospicks/analytics/AppEvent.kt b/app/src/main/java/com/softeen/nflocospicks/analytics/AppEvent.kt
-index 495f774..5b050d0 100644
+index 5b050d0..59f5ca1 100644
 --- a/app/src/main/java/com/softeen/nflocospicks/analytics/AppEvent.kt
 +++ b/app/src/main/java/com/softeen/nflocospicks/analytics/AppEvent.kt
-@@ -36,6 +36,12 @@ sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap(
-     data class GroupIconSet(val groupId: String, val iconId: String) :
-         AppEvent("group_icon_set", mapOf("group_id" to groupId, "icon_id" to iconId))
+@@ -42,6 +42,14 @@ sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap(
+     data class GroupDeleted(val groupId: String) :
+         AppEvent("group_deleted", mapOf("group_id" to groupId))
  
-+    data class GroupRenamed(val groupId: String) :
-+        AppEvent("group_renamed", mapOf("group_id" to groupId))
++    data class GroupMemberRemoved(val groupId: String, val targetUserId: String, val blocked: Boolean) :
++        AppEvent("group_member_removed",
++            mapOf("group_id" to groupId, "target_user_id" to targetUserId, "blocked" to blocked))
 +
-+    data class GroupDeleted(val groupId: String) :
-+        AppEvent("group_deleted", mapOf("group_id" to groupId))
++    data class GroupMemberUnblocked(val groupId: String, val targetUserId: String) :
++        AppEvent("group_member_unblocked",
++            mapOf("group_id" to groupId, "target_user_id" to targetUserId))
 +
      // ── Picks ─────────────────────────────────────────────────────────────────
      data class PickSubmitted(
          val groupId: String,
 diff --git a/app/src/main/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSource.kt b/app/src/main/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSource.kt
-index 7755cb9..08571ef 100644
+index 08571ef..76dca24 100644
 --- a/app/src/main/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSource.kt
 +++ b/app/src/main/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSource.kt
-@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.data.remote.firebase
- import android.net.Uri
- import com.google.firebase.firestore.FieldValue
- import com.google.firebase.firestore.FirebaseFirestore
-+import com.google.firebase.functions.FirebaseFunctions
- import com.google.firebase.storage.FirebaseStorage
- import com.softeen.nflocospicks.domain.model.Group
- import com.softeen.nflocospicks.domain.model.JoinGroupResult
-@@ -14,7 +15,8 @@ import javax.inject.Inject
+@@ -73,6 +73,11 @@ class FirebaseGroupDataSource @Inject constructor(
+         val doc = snapshot.documents.firstOrNull()
+             ?: throw NoSuchElementException("No group found for invite code: $inviteCode")
  
- class FirebaseGroupDataSource @Inject constructor(
-     private val firestore: FirebaseFirestore,
--    private val storage: FirebaseStorage
-+    private val storage: FirebaseStorage,
-+    private val functions: FirebaseFunctions
- ) {
-     companion object {
-         private const val COLLECTION = "groups"
-@@ -104,6 +106,24 @@ class FirebaseGroupDataSource @Inject constructor(
++        val isBlocked = (doc.get("blockedIds") as? List<*>)?.contains(userId) == true
++        if (isBlocked) {
++            throw IllegalStateException("Has sido bloqueado de este grupo.")
++        }
++
+         val alreadyMember = (doc.get("memberIds") as? List<*>)?.contains(userId) == true
+         if (alreadyMember) {
+             return JoinGroupResult(doc.toGroup(), alreadyMember = true)
+@@ -82,6 +87,14 @@ class FirebaseGroupDataSource @Inject constructor(
+             .update("memberIds", FieldValue.arrayUnion(userId))
+             .await()
+ 
++        // Si el usuario tenía standing previo oculto en este grupo, lo des-ocultamos (best-effort)
++        runCatching {
++            firestore.collection("standings").document(doc.id)
++                .collection("members").document(userId)
++                .update(mapOf("hidden" to FieldValue.delete(), "hiddenAt" to FieldValue.delete()))
++                .await()
++        }
++
+         // Re-leemos el documento tras el update para retornar el estado fresco.
+         val updated = firestore.collection(COLLECTION).document(doc.id).get().await()
+         return JoinGroupResult(updated.toGroup(), alreadyMember = false)
+@@ -124,6 +137,26 @@ class FirebaseGroupDataSource @Inject constructor(
              .await()
      }
  
-+    suspend fun renameGroup(groupId: String, newName: String) {
-+        firestore.collection(COLLECTION).document(groupId)
-+            .update("name", newName)
++    /**
++     * Quita a un miembro de un grupo y opcionalmente lo bloquea (Cloud Function Admin SDK).
++     * Oculta el standing en standings/{groupId}/members/{targetUserId}.
++     */
++    suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) {
++        functions.getHttpsCallable("removeGroupMember")
++            .call(mapOf("groupId" to groupId, "targetUid" to targetUserId, "block" to block))
 +            .await()
 +    }
 +
 +    /**
-+     * Invoca la Cloud Function "deleteGroup" (Admin SDK): borra el doc del grupo,
-+     * sus subcolecciones, el árbol de standings y la foto de Storage. El cliente no
-+     * puede hacer ese barrido — las reglas niegan el delete directo y las escrituras
-+     * a standings. La función valida que el usuario autenticado sea el creador.
++     * Desbloquea a un miembro de un grupo (Cloud Function Admin SDK).
++     * Solo retira a targetUserId de blockedIds.
 +     */
-+    suspend fun deleteGroup(groupId: String) {
-+        functions.getHttpsCallable("deleteGroup")
-+            .call(mapOf("groupId" to groupId))
++    suspend fun unblockGroupMember(groupId: String, targetUserId: String) {
++        functions.getHttpsCallable("unblockGroupMember")
++            .call(mapOf("groupId" to groupId, "targetUid" to targetUserId))
 +            .await()
 +    }
 +
      fun getGroupsForUser(userId: String): Flow<List<Group>> = callbackFlow {
          val listener = firestore.collection(COLLECTION)
              .whereArrayContains("memberIds", userId)
+@@ -150,5 +183,6 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toGroup(): Group = Gr
+     createdBy  = getString("createdBy").orEmpty(),
+     memberIds  = (get("memberIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+     photoUrl   = getString("photoUrl"),
+-    iconId     = getString("iconId")
++    iconId     = getString("iconId"),
++    blockedIds = (get("blockedIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+ )
 diff --git a/app/src/main/java/com/softeen/nflocospicks/data/repository/GroupRepositoryImpl.kt b/app/src/main/java/com/softeen/nflocospicks/data/repository/GroupRepositoryImpl.kt
-index 8930204..0fdb953 100644
+index 0fdb953..2d97ffe 100644
 --- a/app/src/main/java/com/softeen/nflocospicks/data/repository/GroupRepositoryImpl.kt
 +++ b/app/src/main/java/com/softeen/nflocospicks/data/repository/GroupRepositoryImpl.kt
-@@ -29,4 +29,10 @@ class GroupRepositoryImpl @Inject constructor(
+@@ -35,4 +35,10 @@ class GroupRepositoryImpl @Inject constructor(
  
-     override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> =
-         runCatching { dataSource.setIcon(groupId, iconId) }
+     override suspend fun deleteGroup(groupId: String) =
+         dataSource.deleteGroup(groupId)
 +
-+    override suspend fun renameGroup(groupId: String, newName: String) =
-+        dataSource.renameGroup(groupId, newName)
++    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) =
++        dataSource.removeGroupMember(groupId, targetUserId, block)
 +
-+    override suspend fun deleteGroup(groupId: String) =
-+        dataSource.deleteGroup(groupId)
++    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) =
++        dataSource.unblockGroupMember(groupId, targetUserId)
  }
+diff --git a/app/src/main/java/com/softeen/nflocospicks/domain/model/Group.kt b/app/src/main/java/com/softeen/nflocospicks/domain/model/Group.kt
+index 5b411c2..04dffd7 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/domain/model/Group.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/domain/model/Group.kt
+@@ -7,5 +7,6 @@ data class Group(
+     val createdBy: String,          // userId del creador
+     val memberIds: List<String>,
+     val photoUrl: String? = null,   // foto subida por el creador; mutuamente excluyente con iconId
+-    val iconId: String? = null      // ícono predefinido elegido por el creador
++    val iconId: String? = null,     // ícono predefinido elegido por el creador
++    val blockedIds: List<String> = emptyList()
+ )
 diff --git a/app/src/main/java/com/softeen/nflocospicks/domain/repository/GroupRepository.kt b/app/src/main/java/com/softeen/nflocospicks/domain/repository/GroupRepository.kt
-index 0aeb6ec..35cdd60 100644
+index 35cdd60..8d499d1 100644
 --- a/app/src/main/java/com/softeen/nflocospicks/domain/repository/GroupRepository.kt
 +++ b/app/src/main/java/com/softeen/nflocospicks/domain/repository/GroupRepository.kt
-@@ -45,4 +45,20 @@ interface GroupRepository {
-      * del grupo y limpia cualquier `photoUrl` previo.
+@@ -61,4 +61,21 @@ interface GroupRepository {
+      * función valida que el solicitante sea el creador y rechaza el grupo global.
       */
-     suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit>
+     suspend fun deleteGroup(groupId: String)
 +
 +    /**
-+     * Renombra el grupo [groupId] a [newName]. Solo el creador puede hacerlo
-+     * (lo aplican las reglas de Firestore); la actualización se propaga a la
-+     * lista en vivo por el listener existente.
++     * Quita a [targetUserId] del grupo [groupId] y opcionalmente lo bloquea vía la
++     * Cloud Function `removeGroupMember` (Admin SDK). Oculta su standing del
++     * leaderboard (`hidden: true`). La función valida que el solicitante sea el
++     * creador (`createdBy`), rechaza el grupo global y no permite que el admin se
++     * quite a sí mismo.
 +     */
-+    suspend fun renameGroup(groupId: String, newName: String)
++    suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean)
 +
 +    /**
-+     * Elimina por completo el grupo [groupId] — el documento, sus subcolecciones
-+     * de semanas y del muro, el árbol de standings del grupo y la foto de Storage
-+     * — vía la Cloud Function `deleteGroup` (Admin SDK). El cliente no tiene
-+     * permiso para borrar nada de eso directamente (ver `firestore.rules`). La
-+     * función valida que el solicitante sea el creador y rechaza el grupo global.
++     * Desbloquea a [targetUserId] del grupo [groupId] vía la Cloud Function
++     * `unblockGroupMember` (Admin SDK). Solo retira el ID de `blockedIds` para
++     * permitirle volver a unirse. La función valida que el solicitante sea el creador
++     * y rechaza el grupo global.
 +     */
-+    suspend fun deleteGroup(groupId: String)
++    suspend fun unblockGroupMember(groupId: String, targetUserId: String)
  }
-diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupUiState.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupUiState.kt
-index 1a4a0d2..f85d043 100644
---- a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupUiState.kt
-+++ b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupUiState.kt
-@@ -27,6 +27,7 @@ sealed class GroupUiEffect {
-     data class ScoringResult(val groupId: String, val newlyScoredCount: Int) : GroupUiEffect()
-     data class ScoringError(val message: String)                             : GroupUiEffect()
-     data class GroupJoined(val groupName: String, val alreadyMember: Boolean) : GroupUiEffect()
-+    data class GroupDeleted(val groupName: String)                           : GroupUiEffect()
- }
- 
- // ── Estado de la edición de imagen de grupo (foto o ícono) ────────────────────
-@@ -36,3 +37,11 @@ sealed class GroupPhotoUiState {
-     data object Uploading                     : GroupPhotoUiState()
-     data class Error(val message: String)     : GroupPhotoUiState()
- }
+diff --git a/app/src/main/java/com/softeen/nflocospicks/domain/usecase/RemoveGroupMemberUseCase.kt b/app/src/main/java/com/softeen/nflocospicks/domain/usecase/RemoveGroupMemberUseCase.kt
+new file mode 100644
+index 0000000..334314c
+--- /dev/null
++++ b/app/src/main/java/com/softeen/nflocospicks/domain/usecase/RemoveGroupMemberUseCase.kt
+@@ -0,0 +1,17 @@
++package com.softeen.nflocospicks.domain.usecase
 +
-+// ── Estado de las acciones de GroupSettingsScreen (renombrar / eliminar) ──────
++import com.softeen.nflocospicks.domain.repository.GroupRepository
++import javax.inject.Inject
 +
-+sealed class GroupSettingsUiState {
-+    data object Idle                          : GroupSettingsUiState()
-+    data object Working                       : GroupSettingsUiState()
-+    data class Error(val message: String)     : GroupSettingsUiState()
++class RemoveGroupMemberUseCase @Inject constructor(
++    private val groupRepository: GroupRepository
++) {
++    /**
++     * Quita a [targetUserId] del grupo [groupId] y opcionalmente lo bloquea vía la
++     * Cloud Function `removeGroupMember`. Oculta su standing del leaderboard (`hidden: true`).
++     * La validación de permisos (solo el creador, nunca el grupo global, ni el creador
++     * a sí mismo) vive en la función; el guard cliente en `GroupViewModel` es defensa en profundidad.
++     */
++    suspend operator fun invoke(groupId: String, targetUserId: String, block: Boolean) =
++        groupRepository.removeGroupMember(groupId, targetUserId, block)
 +}
+diff --git a/app/src/main/java/com/softeen/nflocospicks/domain/usecase/UnblockGroupMemberUseCase.kt b/app/src/main/java/com/softeen/nflocospicks/domain/usecase/UnblockGroupMemberUseCase.kt
+new file mode 100644
+index 0000000..3040885
+--- /dev/null
++++ b/app/src/main/java/com/softeen/nflocospicks/domain/usecase/UnblockGroupMemberUseCase.kt
+@@ -0,0 +1,15 @@
++package com.softeen.nflocospicks.domain.usecase
++
++import com.softeen.nflocospicks.domain.repository.GroupRepository
++import javax.inject.Inject
++
++class UnblockGroupMemberUseCase @Inject constructor(
++    private val groupRepository: GroupRepository
++) {
++    /**
++     * Desbloquea a [targetUserId] del grupo [groupId] vía la Cloud Function
++     * `unblockGroupMember`. Solo remueve el ID de `blockedIds`.
++     */
++    suspend operator fun invoke(groupId: String, targetUserId: String) =
++        groupRepository.unblockGroupMember(groupId, targetUserId)
++}
+diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupSettingsScreen.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupSettingsScreen.kt
+index 48f5e44..7b9efb7 100644
+--- a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupSettingsScreen.kt
++++ b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupSettingsScreen.kt
+@@ -4,13 +4,17 @@ import android.net.Uri
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material.icons.Icons
+ import androidx.compose.material.icons.automirrored.filled.ArrowBack
++import androidx.compose.material.icons.filled.MoreVert
+ import androidx.compose.material3.AlertDialog
+ import androidx.compose.material3.Button
+ import androidx.compose.material3.ButtonDefaults
+@@ -42,15 +46,18 @@ import androidx.compose.ui.unit.dp
+ import com.softeen.nflocospicks.R
+ import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
+ import com.softeen.nflocospicks.domain.model.Group
++import com.softeen.nflocospicks.domain.model.User
++import com.softeen.nflocospicks.domain.model.effectiveDisplayName
++import com.softeen.nflocospicks.presentation.common.UserAvatar
+ import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
+ import com.softeen.nflocospicks.presentation.preview.fakeGroup
++import com.softeen.nflocospicks.presentation.preview.fakeUser
+ import com.softeen.nflocospicks.presentation.theme.LocalAppColors
+ 
+ /**
+  * Pantalla de configuración de un grupo, solo para el admin (creador). Permite
+- * renombrar, cambiar la imagen (reutiliza [GroupImagePickerDialog]) y eliminar el
+- * grupo por completo. El borrado corre en una Cloud Function; al completarse, el
+- * listener en vivo deja de devolver el grupo y esta pantalla sale sola a Groups.
++ * renombrar, cambiar la imagen (reutiliza [GroupImagePickerDialog]), gestionar miembros
++ * (eliminar o bloquear/desbloquear) y eliminar el grupo por completo.
+  */
+ @OptIn(ExperimentalMaterial3Api::class)
+ @Composable
+@@ -58,12 +65,16 @@ fun GroupSettingsScreen(
+     groupListState: GroupListUiState,
+     group: Group?,
+     currentUserId: String?,
++    members: List<User>,
++    blockedMembers: List<User>,
+     photoUiState: GroupPhotoUiState,
+     settingsState: GroupSettingsUiState,
+     onRename: (String) -> Unit,
+     onUploadPhoto: (Uri) -> Unit,
+     onSetIcon: (String) -> Unit,
+     onDeleteGroup: () -> Unit,
++    onRemoveMember: (targetUserId: String, block: Boolean) -> Unit,
++    onUnblockMember: (targetUserId: String) -> Unit,
+     onDismissPhotoPicker: () -> Unit,
+     onNavigateBack: () -> Unit,
+     onExitToGroups: () -> Unit
+@@ -72,6 +83,7 @@ fun GroupSettingsScreen(
+ 
+     var showImagePicker by remember { mutableStateOf(false) }
+     var showDeleteDialog by remember { mutableStateOf(false) }
++    var selectedMember by remember { mutableStateOf<User?>(null) }
+     var nameInput by remember(group?.name) { mutableStateOf(group?.name.orEmpty()) }
+ 
+     val isAdmin = group != null && currentUserId != null && group.createdBy == currentUserId
+@@ -165,6 +177,144 @@ fun GroupSettingsScreen(
+ 
+                 HorizontalDivider()
+ 
++                // ── Miembros ──
++                Text(
++                    text = stringResource(R.string.group_settings_members),
++                    style = MaterialTheme.typography.titleMedium,
++                    fontWeight = FontWeight.Bold,
++                    color = appColors.onBackground
++                )
++
++                Column(
++                    verticalArrangement = Arrangement.spacedBy(8.dp),
++                    modifier = Modifier.fillMaxWidth()
++                ) {
++                    members.forEach { member ->
++                        val isCreator = member.uid == group.createdBy
++                        val isSelf = member.uid == currentUserId
++
++                        Row(
++                            modifier = Modifier
++                                .fillMaxWidth()
++                                .padding(vertical = 4.dp),
++                            verticalAlignment = Alignment.CenterVertically
++                        ) {
++                            UserAvatar(
++                                photoUrl = member.photoUrl,
++                                displayName = member.effectiveDisplayName.ifBlank { member.uid },
++                                favoriteTeamAbbr = null,
++                                size = 36.dp
++                            )
++                            Spacer(Modifier.width(12.dp))
++                            Column(modifier = Modifier.weight(1f)) {
++                                Row(verticalAlignment = Alignment.CenterVertically) {
++                                    Text(
++                                        text = member.effectiveDisplayName.ifBlank { member.uid },
++                                        style = MaterialTheme.typography.bodyMedium,
++                                        fontWeight = FontWeight.SemiBold,
++                                        color = appColors.onBackground
++                                    )
++                                    if (isCreator) {
++                                        Spacer(Modifier.width(6.dp))
++                                        Text(
++                                            text = stringResource(R.string.group_member_tag_admin),
++                                            style = MaterialTheme.typography.labelSmall,
++                                            color = appColors.primary
++                                        )
++                                    }
++                                    if (isSelf) {
++                                        Spacer(Modifier.width(6.dp))
++                                        Text(
++                                            text = stringResource(R.string.group_member_tag_you),
++                                            style = MaterialTheme.typography.labelSmall,
++                                            color = appColors.secondary
++                                        )
++                                    }
++                                }
++                                if (member.email.isNotBlank()) {
++                                    Text(
++                                        text = member.email,
++                                        style = MaterialTheme.typography.labelSmall,
++                                        color = appColors.secondary
++                                    )
++                                }
++                            }
++                            if (!isCreator) {
++                                IconButton(
++                                    onClick = { selectedMember = member },
++                                    enabled = !working
++                                ) {
++                                    Icon(
++                                        imageVector = Icons.Filled.MoreVert,
++                                        contentDescription = stringResource(R.string.cd_group_member_actions),
++                                        tint = appColors.onBackground
++                                    )
++                                }
++                            }
++                        }
++                    }
++                }
++
++                // ── Bloqueados ──
++                if (blockedMembers.isNotEmpty()) {
++                    HorizontalDivider()
++
++                    Text(
++                        text = stringResource(R.string.group_settings_blocked),
++                        style = MaterialTheme.typography.titleMedium,
++                        fontWeight = FontWeight.Bold,
++                        color = appColors.onBackground
++                    )
++
++                    Column(
++                        verticalArrangement = Arrangement.spacedBy(8.dp),
++                        modifier = Modifier.fillMaxWidth()
++                    ) {
++                        blockedMembers.forEach { blocked ->
++                            Row(
++                                modifier = Modifier
++                                    .fillMaxWidth()
++                                    .padding(vertical = 4.dp),
++                                verticalAlignment = Alignment.CenterVertically
++                            ) {
++                                UserAvatar(
++                                    photoUrl = blocked.photoUrl,
++                                    displayName = blocked.effectiveDisplayName.ifBlank { blocked.uid },
++                                    favoriteTeamAbbr = null,
++                                    size = 36.dp
++                                )
++                                Spacer(Modifier.width(12.dp))
++                                Column(modifier = Modifier.weight(1f)) {
++                                    Text(
++                                        text = blocked.effectiveDisplayName.ifBlank { blocked.uid },
++                                        style = MaterialTheme.typography.bodyMedium,
++                                        fontWeight = FontWeight.SemiBold,
++                                        color = appColors.onBackground
++                                    )
++                                    if (blocked.email.isNotBlank()) {
++                                        Text(
++                                            text = blocked.email,
++                                            style = MaterialTheme.typography.labelSmall,
++                                            color = appColors.secondary
++                                        )
++                                    }
++                                }
++                                TextButton(
++                                    onClick = { onUnblockMember(blocked.uid) },
++                                    enabled = !working
++                                ) {
++                                    Text(
++                                        text = stringResource(R.string.group_member_unblock),
++                                        color = appColors.primary
++                                    )
++                                }
++                            }
++                        }
++                    }
++                }
++
++                HorizontalDivider()
++
+                 // ── Zona de peligro ──
+                 Button(
+                     onClick = { showDeleteDialog = true },
+@@ -201,6 +351,58 @@ fun GroupSettingsScreen(
+         )
+     }
+ 
++    selectedMember?.let { member ->
++        AlertDialog(
++            onDismissRequest = { selectedMember = null },
++            title = {
++                Text(
++                    text = member.effectiveDisplayName.ifBlank { member.uid },
++                    color = appColors.onBackground,
++                    fontWeight = FontWeight.Bold
++                )
++            },
++            text = {
++                Text(
++                    text = stringResource(R.string.group_member_actions_body),
++                    color = appColors.onBackground
++                )
++            },
++            confirmButton = {
++                Column(
++                    modifier = Modifier.fillMaxWidth(),
++                    horizontalAlignment = Alignment.End,
++                    verticalArrangement = Arrangement.spacedBy(4.dp)
++                ) {
++                    TextButton(onClick = {
++                        val uid = member.uid
++                        selectedMember = null
++                        onRemoveMember(uid, false)
++                    }) {
++                        Text(
++                            text = stringResource(R.string.group_member_remove),
++                            color = MaterialTheme.colorScheme.error
++                        )
++                    }
++                    TextButton(onClick = {
++                        val uid = member.uid
++                        selectedMember = null
++                        onRemoveMember(uid, true)
++                    }) {
++                        Text(
++                            text = stringResource(R.string.group_member_block),
++                            color = MaterialTheme.colorScheme.error
++                        )
++                    }
++                }
++            },
++            dismissButton = {
++                TextButton(onClick = { selectedMember = null }) {
++                    Text(stringResource(R.string.btn_cancel))
++                }
++            }
++        )
++    }
++
+     if (showDeleteDialog) {
+         AlertDialog(
+             onDismissRequest = { showDeleteDialog = false },
+@@ -234,12 +436,16 @@ private fun GroupSettingsScreenPreview() {
+             groupListState = GroupListUiState.Success(listOf(fakeGroup)),
+             group = fakeGroup,
+             currentUserId = fakeGroup.createdBy,
++            members = listOf(fakeUser),
++            blockedMembers = emptyList(),
+             photoUiState = GroupPhotoUiState.Idle,
+             settingsState = GroupSettingsUiState.Idle,
+             onRename = {},
+             onUploadPhoto = {},
+             onSetIcon = {},
+             onDeleteGroup = {},
++            onRemoveMember = { _, _ -> },
++            onUnblockMember = {},
+             onDismissPhotoPicker = {},
+             onNavigateBack = {},
+             onExitToGroups = {}
 diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupViewModel.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupViewModel.kt
-index 89f06a5..dbf81d2 100644
+index dbf81d2..24811d8 100644
 --- a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupViewModel.kt
 +++ b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupViewModel.kt
-@@ -12,8 +12,10 @@ import com.softeen.nflocospicks.domain.model.Group
+@@ -9,46 +9,57 @@ import com.softeen.nflocospicks.data.mock.MockDataProvider
+ import com.softeen.nflocospicks.domain.model.BoardMessage
+ import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
+ import com.softeen.nflocospicks.domain.model.Group
++import com.softeen.nflocospicks.domain.model.User
  import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
  import com.softeen.nflocospicks.domain.repository.UserRepository
  import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
-+import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
  import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
  import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
-+import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.RemoveGroupMemberUseCase
+ import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
  import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
  import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
++import com.softeen.nflocospicks.domain.usecase.UnblockGroupMemberUseCase
  import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
-@@ -39,6 +41,8 @@ class GroupViewModel @Inject constructor(
-     private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
-     private val uploadGroupPhotoUseCase : UploadGroupPhotoUseCase,
-     private val setGroupIconUseCase     : SetGroupIconUseCase,
-+    private val renameGroupUseCase      : RenameGroupUseCase,
-+    private val deleteGroupUseCase      : DeleteGroupUseCase,
+ import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
+ import dagger.hilt.android.lifecycle.HiltViewModel
+ import kotlinx.coroutines.channels.Channel
+ import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.SharingStarted
+ import kotlinx.coroutines.flow.StateFlow
+ import kotlinx.coroutines.flow.asStateFlow
+ import kotlinx.coroutines.flow.catch
+ import kotlinx.coroutines.flow.combine
+ import kotlinx.coroutines.flow.launchIn
+ import kotlinx.coroutines.flow.onEach
++import kotlinx.coroutines.flow.stateIn
+ import kotlinx.coroutines.launch
+ import javax.inject.Inject
+ import timber.log.Timber
+ 
+ @HiltViewModel
+ class GroupViewModel @Inject constructor(
+-    private val createGroupUseCase      : CreateGroupUseCase,
+-    private val joinGroupUseCase        : JoinGroupUseCase,
+-    private val getGroupsForUserUseCase : GetGroupsForUserUseCase,
+-    private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
+-    private val uploadGroupPhotoUseCase : UploadGroupPhotoUseCase,
+-    private val setGroupIconUseCase     : SetGroupIconUseCase,
+-    private val renameGroupUseCase      : RenameGroupUseCase,
+-    private val deleteGroupUseCase      : DeleteGroupUseCase,
++    private val createGroupUseCase        : CreateGroupUseCase,
++    private val joinGroupUseCase          : JoinGroupUseCase,
++    private val getGroupsForUserUseCase   : GetGroupsForUserUseCase,
++    private val scoreWeekPicksUseCase     : ScoreWeekPicksUseCase,
++    private val uploadGroupPhotoUseCase   : UploadGroupPhotoUseCase,
++    private val setGroupIconUseCase       : SetGroupIconUseCase,
++    private val renameGroupUseCase        : RenameGroupUseCase,
++    private val deleteGroupUseCase        : DeleteGroupUseCase,
++    private val removeGroupMemberUseCase  : RemoveGroupMemberUseCase,
++    private val unblockGroupMemberUseCase : UnblockGroupMemberUseCase,
      private val watchBoardMessagesUseCase : WatchBoardMessagesUseCase,
-     private val userRepository          : UserRepository,
-     private val preferencesRepository   : UserPreferencesRepository,
-@@ -58,6 +62,9 @@ class GroupViewModel @Inject constructor(
-     private val _photoUiState = MutableStateFlow<GroupPhotoUiState>(GroupPhotoUiState.Idle)
-     val photoUiState: StateFlow<GroupPhotoUiState> = _photoUiState.asStateFlow()
+-    private val userRepository          : UserRepository,
+-    private val preferencesRepository   : UserPreferencesRepository,
+-    private val logger                  : AppLogger
++    private val userRepository            : UserRepository,
++    private val preferencesRepository     : UserPreferencesRepository,
++    private val logger                    : AppLogger
+ ) : ViewModel() {
  
-+    private val _groupSettingsState = MutableStateFlow<GroupSettingsUiState>(GroupSettingsUiState.Idle)
-+    val groupSettingsState: StateFlow<GroupSettingsUiState> = _groupSettingsState.asStateFlow()
++    /** Lista completa de usuarios para resolver nombres/avatares en GroupSettingsScreen. */
++    val allUsers: StateFlow<List<User>> = userRepository.getAllUsers()
++        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 +
-     /** Read once per composition — used to gate the group-photo edit badge to the creator. */
-     val currentUserId: String? get() = userRepository.getCurrentUser()?.uid
+     private val _groupListState = MutableStateFlow<GroupListUiState>(GroupListUiState.Loading)
+     val groupListState: StateFlow<GroupListUiState> = _groupListState.asStateFlow()
  
-@@ -213,6 +220,64 @@ class GroupViewModel @Inject constructor(
-         _photoUiState.value = GroupPhotoUiState.Idle
-     }
- 
-+    /**
-+     * Renombra [group] a [newName]. Rechaza en silencio (deja el estado en Idle, sin
-+     * tocar el backend) si [requesterUserId] no puede administrar el grupo — defensa en
-+     * profundidad junto a las reglas de Firestore, que son la fuente de verdad. El nombre
-+     * nuevo llega a la UI por el listener en vivo; [RenameGroupUseCase] recorta espacios.
-+     */
-+    fun renameGroup(group: Group, requesterUserId: String, newName: String) {
-+        if (!canManageGroup(group, requesterUserId)) return
-+        viewModelScope.launch {
-+            _groupSettingsState.value = GroupSettingsUiState.Working
-+            try {
-+                renameGroupUseCase(group.id, newName)
-+                _groupSettingsState.value = GroupSettingsUiState.Idle
-+                logger.logEvent(AppEvent.GroupRenamed(group.id))
-+            } catch (e: Exception) {
-+                _groupSettingsState.value =
-+                    GroupSettingsUiState.Error(e.message ?: "Error al renombrar el grupo")
-+            }
-+        }
-+    }
-+
-+    /**
-+     * Elimina [group] por completo vía la Cloud Function `deleteGroup`. Mismos guards que
-+     * [renameGroup]. Al terminar emite [GroupUiEffect.GroupDeleted] para que GroupsScreen
-+     * muestre el snackbar; la navegación de salida la maneja NavGraph al ver el grupo
-+     * desaparecer del listener en vivo.
-+     */
-+    fun deleteGroup(group: Group, requesterUserId: String) {
-+        if (!canManageGroup(group, requesterUserId)) return
-+        viewModelScope.launch {
-+            _groupSettingsState.value = GroupSettingsUiState.Working
-+            try {
-+                deleteGroupUseCase(group.id)
-+                _groupSettingsState.value = GroupSettingsUiState.Idle
-+                logger.logEvent(AppEvent.GroupDeleted(group.id))
-+                effects.send(GroupUiEffect.GroupDeleted(group.name))
-+            } catch (e: Exception) {
-+                _groupSettingsState.value =
-+                    GroupSettingsUiState.Error(e.message ?: "Error al eliminar el grupo")
-+            }
-+        }
-+    }
-+
-+    /** Restablece groupSettingsState a Idle. Llamar al entrar/salir de GroupSettingsScreen. */
-+    fun resetGroupSettingsState() {
-+        _groupSettingsState.value = GroupSettingsUiState.Idle
-+    }
-+
-+    /**
-+     * Solo el creador puede renombrar o eliminar un grupo, y nunca el grupo global ni el
-+     * grupo mock de datos de prueba (su id no existe en Firestore). Mismo espíritu que el
-+     * guard de [uploadGroupPhoto]/[setGroupIcon].
-+     */
-+    private fun canManageGroup(group: Group, requesterUserId: String): Boolean =
-+        group.createdBy == requesterUserId &&
-+            group.id != GlobalGroupConstants.GROUP_ID &&
-+            group.id != MockDataProvider.MOCK_GROUP_ID
-+
-     fun onSignOut() {
-         viewModelScope.launch {
-             userRepository.signOut()
-diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
-index e76a167..21db737 100644
---- a/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
-+++ b/app/src/main/java/com/softeen/nflocospicks/presentation/groups/GroupsScreen.kt
-@@ -89,6 +89,7 @@ fun GroupsScreen(
-     val scoringResultPattern = stringResource(R.string.scoring_result)
-     val joinedNewPattern = stringResource(R.string.group_joined_new)
-     val alreadyMemberPattern = stringResource(R.string.group_already_member)
-+    val groupDeletedPattern = stringResource(R.string.group_deleted_snackbar)
- 
-     // Consume efectos de un solo disparo (navegación + feedback de puntuación/unión)
-     LaunchedEffect(Unit) {
-@@ -111,6 +112,8 @@ fun GroupsScreen(
-                         String.format(joinedNewPattern, effect.groupName)
-                     snackbarHostState.showSnackbar(msg)
-                 }
-+                is GroupUiEffect.GroupDeleted       ->
-+                    snackbarHostState.showSnackbar(String.format(groupDeletedPattern, effect.groupName))
-             }
+@@ -263,6 +274,45 @@ class GroupViewModel @Inject constructor(
          }
      }
+ 
++    /**
++     * Quita a [targetUserId] del grupo y opcionalmente lo bloquea vía [removeGroupMemberUseCase].
++     * Aplica el guard de permisos [canManageGroup] y evita que el admin se quite a sí mismo.
++     */
++    fun removeGroupMember(group: Group, requesterUserId: String, targetUserId: String, block: Boolean) {
++        if (!canManageGroup(group, requesterUserId)) return
++        if (targetUserId == group.createdBy) return
++        viewModelScope.launch {
++            _groupSettingsState.value = GroupSettingsUiState.Working
++            try {
++                removeGroupMemberUseCase(group.id, targetUserId, block)
++                _groupSettingsState.value = GroupSettingsUiState.Idle
++                logger.logEvent(AppEvent.GroupMemberRemoved(group.id, targetUserId, block))
++            } catch (e: Exception) {
++                _groupSettingsState.value =
++                    GroupSettingsUiState.Error(e.message ?: "Error al quitar al miembro")
++            }
++        }
++    }
++
++    /**
++     * Desbloquea a [targetUserId] del grupo vía [unblockGroupMemberUseCase].
++     * Aplica el guard de permisos [canManageGroup].
++     */
++    fun unblockGroupMember(group: Group, requesterUserId: String, targetUserId: String) {
++        if (!canManageGroup(group, requesterUserId)) return
++        viewModelScope.launch {
++            _groupSettingsState.value = GroupSettingsUiState.Working
++            try {
++                unblockGroupMemberUseCase(group.id, targetUserId)
++                _groupSettingsState.value = GroupSettingsUiState.Idle
++                logger.logEvent(AppEvent.GroupMemberUnblocked(group.id, targetUserId))
++            } catch (e: Exception) {
++                _groupSettingsState.value =
++                    GroupSettingsUiState.Error(e.message ?: "Error al desbloquear al miembro")
++            }
++        }
++    }
++
+     /** Restablece groupSettingsState a Idle. Llamar al entrar/salir de GroupSettingsScreen. */
+     fun resetGroupSettingsState() {
+         _groupSettingsState.value = GroupSettingsUiState.Idle
 diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
-index a30315e..a8e7cec 100644
+index b5ea698..618925e 100644
 --- a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
 +++ b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/NavGraph.kt
-@@ -24,6 +24,7 @@ import com.softeen.nflocospicks.presentation.common.nflTeamColorMap
- import com.softeen.nflocospicks.presentation.common.toAppColors
- import com.softeen.nflocospicks.presentation.groups.CreateGroupScreen
- import com.softeen.nflocospicks.presentation.groups.GroupListUiState
-+import com.softeen.nflocospicks.presentation.groups.GroupSettingsScreen
- import com.softeen.nflocospicks.presentation.groups.GroupViewModel
- import com.softeen.nflocospicks.presentation.groups.GroupsScreen
- import com.softeen.nflocospicks.presentation.groups.JoinGroupScreen
-@@ -243,6 +244,48 @@ fun NavGraph(
-                     )
-                 }
+@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
+ import androidx.navigation.compose.currentBackStackEntryAsState
+ import androidx.navigation.compose.rememberNavController
+ import androidx.navigation.navArgument
++import com.softeen.nflocospicks.domain.model.User
+ import com.softeen.nflocospicks.domain.model.isProfileComplete
+ import com.softeen.nflocospicks.presentation.account.AccountScreen
+ import com.softeen.nflocospicks.presentation.account.ChangePasswordScreen
+@@ -287,11 +288,24 @@ fun NavGraph(
+                     }
+                     val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
+                     val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
++                    val allUsers by groupViewModel.allUsers.collectAsStateWithLifecycle()
+                     val photoUiState by groupViewModel.photoUiState.collectAsStateWithLifecycle()
+                     val settingsState by groupViewModel.groupSettingsState.collectAsStateWithLifecycle()
+                     val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
+                     val currentUserId = groupViewModel.currentUserId
  
-+                composable(
-+                    route     = Screen.GroupSettings.route,
-+                    arguments = listOf(navArgument("groupId") { type = NavType.StringType })
-+                ) { backStackEntry ->
-+                    val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
-+
-+                    // Mismo patrón que Screen.GroupSession/History: compartimos el GroupViewModel
-+                    // de GroupsScreen para leer el Group actual del listener en vivo.
-+                    val groupsEntry = remember(backStackEntry) {
-+                        navController.getBackStackEntry(Screen.Groups.route)
++                    val members = remember(group?.memberIds, group?.createdBy, allUsers) {
++                        group?.memberIds.orEmpty().map { uid ->
++                            allUsers.find { it.uid == uid } ?: User(uid = uid, displayName = "", email = "", photoUrl = null)
++                        }.sortedByDescending { it.uid == group?.createdBy }
 +                    }
-+                    val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
-+                    val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
-+                    val photoUiState by groupViewModel.photoUiState.collectAsStateWithLifecycle()
-+                    val settingsState by groupViewModel.groupSettingsState.collectAsStateWithLifecycle()
-+                    val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
-+                    val currentUserId = groupViewModel.currentUserId
 +
-+                    // Limpia cualquier Error de una visita previa a esta pantalla.
-+                    LaunchedEffect(Unit) { groupViewModel.resetGroupSettingsState() }
-+
-+                    GroupSettingsScreen(
-+                        groupListState       = groupListState,
-+                        group                = group,
-+                        currentUserId        = currentUserId,
-+                        photoUiState         = photoUiState,
-+                        settingsState        = settingsState,
-+                        onRename             = { name -> group?.let { g -> currentUserId?.let { groupViewModel.renameGroup(g, it, name) } } },
-+                        onUploadPhoto        = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
-+                        onSetIcon            = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
-+                        onDeleteGroup        = { group?.let { g -> currentUserId?.let { groupViewModel.deleteGroup(g, it) } } },
-+                        onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() },
-+                        onNavigateBack       = { navController.popBackStack() },
-+                        onExitToGroups       = {
-+                            navController.navigate(Screen.Groups.route) {
-+                                popUpTo(Screen.Groups.route) { inclusive = false }
-+                                launchSingleTop = true
-+                            }
++                    val blockedMembers = remember(group?.blockedIds, allUsers) {
++                        group?.blockedIds.orEmpty().map { uid ->
++                            allUsers.find { it.uid == uid } ?: User(uid = uid, displayName = "", email = "", photoUrl = null)
 +                        }
-+                    )
-+                }
++                    }
 +
-                 composable(Screen.UserManagement.route) {
-                     val currentUid = (authState as? AuthUiState.Authenticated)?.user?.uid
-                         ?: return@composable
-diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/Screen.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/Screen.kt
-index 0159fd4..f4c00c1 100644
---- a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/Screen.kt
-+++ b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/Screen.kt
-@@ -19,4 +19,7 @@ sealed class Screen(val route: String) {
-     data object GroupSession    : Screen("group_session/{groupId}") {
-         fun createRoute(groupId: String) = "group_session/$groupId"
-     }
-+    data object GroupSettings   : Screen("group_settings/{groupId}") {
-+        fun createRoute(groupId: String) = "group_settings/$groupId"
-+    }
- }
-diff --git a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/ScreenNames.kt b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/ScreenNames.kt
-index 0fbb8d6..55a067e 100644
---- a/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/ScreenNames.kt
-+++ b/app/src/main/java/com/softeen/nflocospicks/presentation/navigation/ScreenNames.kt
-@@ -12,6 +12,7 @@ fun routeToScreenName(route: String?): String? = when (route) {
-     Screen.UserManagement.route   -> "user_management"
-     Screen.History.route          -> "pick_history"
-     Screen.GroupSession.route     -> "group_session"
-+    Screen.GroupSettings.route    -> "group_settings"
-     BottomNavItem.Picks.route       -> "picks"
-     BottomNavItem.Leaderboard.route -> "leaderboard"
-     BottomNavItem.Board.route       -> "board"
+                     // Limpia cualquier Error de una visita previa a esta pantalla.
+                     LaunchedEffect(Unit) { groupViewModel.resetGroupSettingsState() }
+ 
+@@ -299,12 +313,16 @@ fun NavGraph(
+                         groupListState       = groupListState,
+                         group                = group,
+                         currentUserId        = currentUserId,
++                        members              = members,
++                        blockedMembers       = blockedMembers,
+                         photoUiState         = photoUiState,
+                         settingsState        = settingsState,
+                         onRename             = { name -> group?.let { g -> currentUserId?.let { groupViewModel.renameGroup(g, it, name) } } },
+                         onUploadPhoto        = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
+                         onSetIcon            = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
+                         onDeleteGroup        = { group?.let { g -> currentUserId?.let { groupViewModel.deleteGroup(g, it) } } },
++                        onRemoveMember       = { target, block -> group?.let { g -> currentUserId?.let { groupViewModel.removeGroupMember(g, it, target, block) } } },
++                        onUnblockMember      = { target -> group?.let { g -> currentUserId?.let { groupViewModel.unblockGroupMember(g, it, target) } } },
+                         onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() },
+                         onNavigateBack       = { navController.popBackStack() },
+                         onExitToGroups       = {
 diff --git a/app/src/main/res/values-en/strings.xml b/app/src/main/res/values-en/strings.xml
-index 68e47b0..3526507 100644
+index 3526507..e6a6db2 100644
 --- a/app/src/main/res/values-en/strings.xml
 +++ b/app/src/main/res/values-en/strings.xml
-@@ -68,6 +68,16 @@
-     <string name="scoring_result">%1$d pick(s) scored 🏆</string>
-     <string name="group_joined_new">You joined %1$s 🎉</string>
-     <string name="group_already_member">You were already a member of %1$s</string>
-+    <string name="group_deleted_snackbar">Group %1$s deleted</string>
-+    <string name="group_settings_title">Group settings</string>
-+    <string name="cd_group_settings">Group settings</string>
-+    <string name="group_settings_rename_label">Group name</string>
-+    <string name="group_settings_rename_action">Save</string>
-+    <string name="group_settings_change_image">Change group image</string>
-+    <string name="group_settings_delete">Delete group</string>
-+    <string name="group_settings_delete_dialog_title">Delete this group?</string>
-+    <string name="group_settings_delete_dialog_body">The group, its weeks, all picks, board messages and the standings of every member will be deleted. This action cannot be undone.</string>
-+    <string name="group_settings_delete_dialog_confirm">Delete group</string>
+@@ -78,6 +78,15 @@
+     <string name="group_settings_delete_dialog_title">Delete this group?</string>
+     <string name="group_settings_delete_dialog_body">The group, its weeks, all picks, board messages and the standings of every member will be deleted. This action cannot be undone.</string>
+     <string name="group_settings_delete_dialog_confirm">Delete group</string>
++    <string name="group_settings_members">Members</string>
++    <string name="group_settings_blocked">Blocked</string>
++    <string name="group_member_tag_admin">(admin)</string>
++    <string name="group_member_tag_you">(you)</string>
++    <string name="cd_group_member_actions">Member actions</string>
++    <string name="group_member_actions_body">Choose what to do with this member.</string>
++    <string name="group_member_remove">Remove from group</string>
++    <string name="group_member_block">Block — cannot rejoin</string>
++    <string name="group_member_unblock">Unblock</string>
  
      <!-- Create Group -->
      <string name="create_group_heading">Create Group</string>
 diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
-index b6e7fc4..7f5449c 100644
+index 7f5449c..4f425b1 100644
 --- a/app/src/main/res/values/strings.xml
 +++ b/app/src/main/res/values/strings.xml
-@@ -71,6 +71,16 @@
-     <string name="scoring_result">%1$d pick(s) puntuados 🏆</string>
-     <string name="group_joined_new">Te uniste a %1$s 🎉</string>
-     <string name="group_already_member">Ya eras miembro de %1$s</string>
-+    <string name="group_deleted_snackbar">Grupo %1$s eliminado</string>
-+    <string name="group_settings_title">Configuración del grupo</string>
-+    <string name="cd_group_settings">Configuración del grupo</string>
-+    <string name="group_settings_rename_label">Nombre del grupo</string>
-+    <string name="group_settings_rename_action">Guardar</string>
-+    <string name="group_settings_change_image">Cambiar imagen del grupo</string>
-+    <string name="group_settings_delete">Eliminar grupo</string>
-+    <string name="group_settings_delete_dialog_title">¿Eliminar este grupo?</string>
-+    <string name="group_settings_delete_dialog_body">Se eliminarán el grupo, sus semanas, todos los picks, los mensajes del muro y la tabla de posiciones de todos los miembros. Esta acción no se puede deshacer.</string>
-+    <string name="group_settings_delete_dialog_confirm">Eliminar grupo</string>
+@@ -81,6 +81,15 @@
+     <string name="group_settings_delete_dialog_title">¿Eliminar este grupo?</string>
+     <string name="group_settings_delete_dialog_body">Se eliminarán el grupo, sus semanas, todos los picks, los mensajes del muro y la tabla de posiciones de todos los miembros. Esta acción no se puede deshacer.</string>
+     <string name="group_settings_delete_dialog_confirm">Eliminar grupo</string>
++    <string name="group_settings_members">Miembros</string>
++    <string name="group_settings_blocked">Bloqueados</string>
++    <string name="group_member_tag_admin">(admin)</string>
++    <string name="group_member_tag_you">(tú)</string>
++    <string name="cd_group_member_actions">Acciones del miembro</string>
++    <string name="group_member_actions_body">Elige qué hacer con este miembro.</string>
++    <string name="group_member_remove">Eliminar del grupo</string>
++    <string name="group_member_block">Bloquear — no podrá volver a entrar</string>
++    <string name="group_member_unblock">Desbloquear</string>
  
      <!-- Create Group -->
      <string name="create_group_heading">Crear Grupo</string>
+diff --git a/app/src/test/java/com/softeen/nflocospicks/analytics/AppEventTest.kt b/app/src/test/java/com/softeen/nflocospicks/analytics/AppEventTest.kt
+index b76c945..8a81236 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/analytics/AppEventTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/analytics/AppEventTest.kt
+@@ -47,6 +47,24 @@ class AppEventTest {
+         assertThat(withoutName.params).doesNotContainKey("group_name")
+     }
+ 
++    @Test
++    fun `GroupMemberRemoved and GroupMemberUnblocked carry expected params`() {
++        val removed = AppEvent.GroupMemberRemoved("g1", "u2", blocked = true)
++        assertThat(removed.name).isEqualTo("group_member_removed")
++        assertThat(removed.params).containsExactly(
++            "group_id", "g1",
++            "target_user_id", "u2",
++            "blocked", true
++        )
++
++        val unblocked = AppEvent.GroupMemberUnblocked("g1", "u2")
++        assertThat(unblocked.name).isEqualTo("group_member_unblocked")
++        assertThat(unblocked.params).containsExactly(
++            "group_id", "g1",
++            "target_user_id", "u2"
++        )
++    }
++
+     @Test
+     fun `PickSubmitted includes team_name only when non-null and keeps week_number as Int`() {
+         val full = AppEvent.PickSubmitted(
+@@ -134,7 +152,7 @@ class AppEventTest {
+     }
+ 
+     private companion object {
+-        const val EXPECTED_EVENT_TYPES = 37
++        const val EXPECTED_EVENT_TYPES = 39
+ 
+         val allEventSamples: List<AppEvent> = listOf(
+             AppEvent.SignIn("x"), AppEvent.SignUp("x"), AppEvent.SignOut, AppEvent.AccountDeleted,
+@@ -142,6 +160,7 @@ class AppEventTest {
+             AppEvent.GroupJoined("g", "n", "s"), AppEvent.GroupOpened("g", null, "s"),
+             AppEvent.ScoringCompleted("g", 0, "s"), AppEvent.GroupPhotoUploaded("g"),
+             AppEvent.GroupIconSet("g", "i"), AppEvent.GroupRenamed("g"), AppEvent.GroupDeleted("g"),
++            AppEvent.GroupMemberRemoved("g", "u", true), AppEvent.GroupMemberUnblocked("g", "u"),
+             AppEvent.PickSubmitted("g", "w", "ga", "KC", null, "REGULAR", 1),
+             AppEvent.WeekTabSelected("g", "REGULAR", 1), AppEvent.PickRefresh("g"),
+             AppEvent.PickAutoRefreshFailed("g"), AppEvent.LeaderboardViewed("g", null),
 diff --git a/app/src/test/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSourceTest.kt b/app/src/test/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSourceTest.kt
-index 7e2dcaf..5fbad6f 100644
+index 5fbad6f..ef33d4b 100644
 --- a/app/src/test/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSourceTest.kt
 +++ b/app/src/test/java/com/softeen/nflocospicks/data/remote/firebase/FirebaseGroupDataSourceTest.kt
-@@ -7,6 +7,9 @@ import com.google.firebase.firestore.DocumentSnapshot
- import com.google.firebase.firestore.FirebaseFirestore
- import com.google.firebase.firestore.Query
- import com.google.firebase.firestore.QuerySnapshot
-+import com.google.firebase.functions.FirebaseFunctions
-+import com.google.firebase.functions.HttpsCallableReference
-+import com.google.firebase.functions.HttpsCallableResult
- import com.google.firebase.storage.FirebaseStorage
- import io.mockk.every
- import io.mockk.mockk
-@@ -20,10 +23,11 @@ class FirebaseGroupDataSourceTest {
+@@ -87,11 +87,30 @@ class FirebaseGroupDataSourceTest {
+         verify(exactly = 0) { collection.add(any()) }
+     }
  
-     private val firestore = mockk<FirebaseFirestore>()
-     private val storage = mockk<FirebaseStorage>()
-+    private val functions = mockk<FirebaseFunctions>()
-     private val collection = mockk<CollectionReference>()
-     private val query = mockk<Query>()
++    private fun stubStandingsUnhide(groupId: String, userId: String, succeeds: Boolean = true) {
++        val standingsColl = mockk<CollectionReference>()
++        val groupDoc = mockk<DocumentReference>()
++        val membersColl = mockk<CollectionReference>()
++        val memberDoc = mockk<DocumentReference>()
++
++        every { firestore.collection("standings") } returns standingsColl
++        every { standingsColl.document(groupId) } returns groupDoc
++        every { groupDoc.collection("members") } returns membersColl
++        every { membersColl.document(userId) } returns memberDoc
++        if (succeeds) {
++            every { memberDoc.update(any<Map<String, Any>>()) } returns Tasks.forResult<Void>(null)
++        } else {
++            every { memberDoc.update(any<Map<String, Any>>()) } returns Tasks.forException(RuntimeException("standing missing"))
++        }
++    }
++
+     @Test
+     fun `joinGroup adds the user and returns alreadyMember false when not previously a member`() = runBlocking {
+         stubJoinInviteCodeQuery()
++        stubStandingsUnhide("g1", "u1")
+         val doc = mockk<DocumentSnapshot>()
+         every { doc.id } returns "g1"
++        every { doc.get("blockedIds") } returns emptyList<String>()
+         every { doc.get("memberIds") } returns listOf("u0")
+         val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
+         every { query.get() } returns Tasks.forResult(snapshot)
+@@ -108,6 +127,7 @@ class FirebaseGroupDataSourceTest {
+         every { updatedDoc.get("memberIds") } returns listOf("u0", "u1")
+         every { updatedDoc.getString("photoUrl") } returns null
+         every { updatedDoc.getString("iconId") } returns null
++        every { updatedDoc.get("blockedIds") } returns emptyList<String>()
+         every { docRef.get() } returns Tasks.forResult(updatedDoc)
  
--    private val dataSource = FirebaseGroupDataSource(firestore, storage)
-+    private val dataSource = FirebaseGroupDataSource(firestore, storage, functions)
+         val result = dataSource.joinGroup("ABC123", "u1")
+@@ -119,6 +139,53 @@ class FirebaseGroupDataSourceTest {
+         verify(exactly = 1) { docRef.get() }
+     }
  
-     private fun stubInviteCodeQuery() {
-         every { firestore.collection("groups") } returns collection
-@@ -146,4 +150,29 @@ class FirebaseGroupDataSourceTest {
-             runBlocking { dataSource.joinGroup("BAD123", "u1") }
-         }
++    @Test
++    fun `joinGroup succeeds even if standings unhide throws an exception`() = runBlocking {
++        stubJoinInviteCodeQuery()
++        stubStandingsUnhide("g1", "u1", succeeds = false)
++        val doc = mockk<DocumentSnapshot>()
++        every { doc.id } returns "g1"
++        every { doc.get("blockedIds") } returns emptyList<String>()
++        every { doc.get("memberIds") } returns listOf("u0")
++        val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
++        every { query.get() } returns Tasks.forResult(snapshot)
++
++        val docRef = mockk<DocumentReference>()
++        every { collection.document("g1") } returns docRef
++        every { docRef.update("memberIds", any()) } returns Tasks.forResult<Void>(null)
++
++        val updatedDoc = mockk<DocumentSnapshot>()
++        every { updatedDoc.id } returns "g1"
++        every { updatedDoc.getString("name") } returns "Los Locos"
++        every { updatedDoc.getString("inviteCode") } returns "ABC123"
++        every { updatedDoc.getString("createdBy") } returns "u0"
++        every { updatedDoc.get("memberIds") } returns listOf("u0", "u1")
++        every { updatedDoc.getString("photoUrl") } returns null
++        every { updatedDoc.getString("iconId") } returns null
++        every { updatedDoc.get("blockedIds") } returns emptyList<String>()
++        every { docRef.get() } returns Tasks.forResult(updatedDoc)
++
++        val result = dataSource.joinGroup("ABC123", "u1")
++
++        assertEquals(false, result.alreadyMember)
++        assertEquals("g1", result.group.id)
++    }
++
++    @Test
++    fun `joinGroup throws IllegalStateException when the user is blocked`() {
++        stubJoinInviteCodeQuery()
++        val doc = mockk<DocumentSnapshot>()
++        every { doc.id } returns "g1"
++        every { doc.get("blockedIds") } returns listOf("u1")
++        val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
++        every { query.get() } returns Tasks.forResult(snapshot)
++
++        val ex = assertThrows(IllegalStateException::class.java) {
++            runBlocking { dataSource.joinGroup("ABC123", "u1") }
++        }
++        assertEquals("Has sido bloqueado de este grupo.", ex.message)
++    }
++
+     @Test
+     fun `joinGroup returns alreadyMember true without writing or re-reading when the user is already a member`() = runBlocking {
+         stubJoinInviteCodeQuery()
+@@ -130,6 +197,7 @@ class FirebaseGroupDataSourceTest {
+         every { doc.get("memberIds") } returns listOf("u0", "u1")
+         every { doc.getString("photoUrl") } returns null
+         every { doc.getString("iconId") } returns null
++        every { doc.get("blockedIds") } returns emptyList<String>()
+         val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
+         every { query.get() } returns Tasks.forResult(snapshot)
+ 
+@@ -175,4 +243,30 @@ class FirebaseGroupDataSourceTest {
+         verify(exactly = 1) { functions.getHttpsCallable("deleteGroup") }
+         verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1")) }
      }
 +
 +    @Test
-+    fun `renameGroup writes the new name onto the group doc`() = runBlocking {
-+        every { firestore.collection("groups") } returns collection
-+        val docRef = mockk<DocumentReference>()
-+        every { collection.document("g1") } returns docRef
-+        every { docRef.update("name", "Nuevo Nombre") } returns Tasks.forResult<Void>(null)
++    fun `removeGroupMember invokes the removeGroupMember callable with groupId, targetUid, and block`() = runBlocking {
++        val callableRef = mockk<HttpsCallableReference>()
++        val callResult = mockk<HttpsCallableResult>()
++        every { functions.getHttpsCallable("removeGroupMember") } returns callableRef
++        every { callableRef.call(any()) } returns Tasks.forResult(callResult)
 +
-+        dataSource.renameGroup("g1", "Nuevo Nombre")
++        dataSource.removeGroupMember("g1", "u2", true)
 +
-+        verify(exactly = 1) { docRef.update("name", "Nuevo Nombre") }
++        verify(exactly = 1) { functions.getHttpsCallable("removeGroupMember") }
++        verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1", "targetUid" to "u2", "block" to true)) }
 +    }
 +
 +    @Test
-+    fun `deleteGroup invokes the deleteGroup callable with the groupId`() = runBlocking {
++    fun `unblockGroupMember invokes the unblockGroupMember callable with groupId and targetUid`() = runBlocking {
 +        val callableRef = mockk<HttpsCallableReference>()
 +        val callResult = mockk<HttpsCallableResult>()
-+        every { functions.getHttpsCallable("deleteGroup") } returns callableRef
++        every { functions.getHttpsCallable("unblockGroupMember") } returns callableRef
 +        every { callableRef.call(any()) } returns Tasks.forResult(callResult)
 +
-+        dataSource.deleteGroup("g1")
++        dataSource.unblockGroupMember("g1", "u2")
 +
-+        verify(exactly = 1) { functions.getHttpsCallable("deleteGroup") }
-+        verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1")) }
++        verify(exactly = 1) { functions.getHttpsCallable("unblockGroupMember") }
++        verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1", "targetUid" to "u2")) }
 +    }
  }
+diff --git a/app/src/test/java/com/softeen/nflocospicks/data/repository/ThinRepositoryDelegationTest.kt b/app/src/test/java/com/softeen/nflocospicks/data/repository/ThinRepositoryDelegationTest.kt
+index d05dceb..c9d1e03 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/data/repository/ThinRepositoryDelegationTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/data/repository/ThinRepositoryDelegationTest.kt
+@@ -114,6 +114,8 @@ class ThinRepositoryDelegationTest {
+         assertThat(groupRepo.getGroupsForUser("u1").first()).containsExactly(group)
+         groupRepo.renameGroup("g1", "Nuevo")
+         groupRepo.deleteGroup("g1")
++        groupRepo.removeGroupMember("g1", "u2", true)
++        groupRepo.unblockGroupMember("g1", "u2")
+ 
+         coVerify(exactly = 1) { groupDs.createGroup("Los Locos", "u1") }
+         coVerify(exactly = 1) { groupDs.joinGroup("ABC123", "u2") }
+@@ -121,6 +123,8 @@ class ThinRepositoryDelegationTest {
+         verify(exactly = 1) { groupDs.getGroupsForUser("u1") }
+         coVerify(exactly = 1) { groupDs.renameGroup("g1", "Nuevo") }
+         coVerify(exactly = 1) { groupDs.deleteGroup("g1") }
++        coVerify(exactly = 1) { groupDs.removeGroupMember("g1", "u2", true) }
++        coVerify(exactly = 1) { groupDs.unblockGroupMember("g1", "u2") }
+     }
+ 
+     @Test
 diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/CreateGroupUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/CreateGroupUseCaseTest.kt
-index 8581b66..c9fb803 100644
+index c9fb803..1f0a913 100644
 --- a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/CreateGroupUseCaseTest.kt
 +++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/CreateGroupUseCaseTest.kt
-@@ -25,6 +25,8 @@ private class CapturingGroupRepository : GroupRepository {
-     override suspend fun getGroupById(groupId: String): Group = throw NotImplementedError()
-     override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> = throw NotImplementedError()
+@@ -27,6 +27,8 @@ private class CapturingGroupRepository : GroupRepository {
      override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
-+    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
-+    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
+     override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
+     override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
++    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) = throw NotImplementedError()
++    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) = throw NotImplementedError()
+ }
+ 
+ // ── Tests ─────────────────────────────────────────────────────────────────────
+diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/DeleteGroupUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/DeleteGroupUseCaseTest.kt
+index b0e2b7c..9bf04b6 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/DeleteGroupUseCaseTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/DeleteGroupUseCaseTest.kt
+@@ -31,6 +31,9 @@ private class CapturingDeleteRenameRepository : GroupRepository {
+     override suspend fun deleteGroup(groupId: String) {
+         deletedGroupId = groupId
+     }
++
++    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) = throw NotImplementedError()
++    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) = throw NotImplementedError()
  }
  
  // ── Tests ─────────────────────────────────────────────────────────────────────
 diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/JoinGroupUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/JoinGroupUseCaseTest.kt
-index 88dc25a..6407152 100644
+index 6407152..ac876e0 100644
 --- a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/JoinGroupUseCaseTest.kt
 +++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/JoinGroupUseCaseTest.kt
-@@ -24,6 +24,8 @@ private class CapturingJoinRepository : GroupRepository {
-     override suspend fun getGroupById(groupId: String): Group = throw NotImplementedError()
-     override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> = throw NotImplementedError()
+@@ -26,6 +26,8 @@ private class CapturingJoinRepository : GroupRepository {
      override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
-+    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
-+    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
+     override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
+     override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
++    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) = throw NotImplementedError()
++    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) = throw NotImplementedError()
  
      override suspend fun joinGroup(inviteCode: String, userId: String): JoinGroupResult {
          capturedInviteCode = inviteCode
-diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
-index f910392..ac2ecc9 100644
---- a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
-+++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
-@@ -34,6 +34,9 @@ private class CapturingPhotoRepository : GroupRepository {
-         capturedIconId = iconId
-         return Result.success(Unit)
-     }
+diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/RemoveGroupMemberUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/RemoveGroupMemberUseCaseTest.kt
+new file mode 100644
+index 0000000..22d4624
+--- /dev/null
++++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/RemoveGroupMemberUseCaseTest.kt
+@@ -0,0 +1,84 @@
++package com.softeen.nflocospicks.domain.usecase
 +
++import android.net.Uri
++import com.softeen.nflocospicks.domain.model.Group
++import com.softeen.nflocospicks.domain.model.JoinGroupResult
++import com.softeen.nflocospicks.domain.repository.GroupRepository
++import kotlinx.coroutines.flow.Flow
++import kotlinx.coroutines.runBlocking
++import org.junit.Assert.assertEquals
++import org.junit.Test
++
++// ── Fake ─────────────────────────────────────────────────────────────────────
++
++private class CapturingMemberManagementRepository : GroupRepository {
++    var removedGroupId: String? = null
++    var removedTargetUserId: String? = null
++    var removedBlock: Boolean? = null
++
++    var unblockedGroupId: String? = null
++    var unblockedTargetUserId: String? = null
++
++    override suspend fun createGroup(name: String, creatorUserId: String): Group = throw NotImplementedError()
++    override suspend fun joinGroup(inviteCode: String, userId: String): JoinGroupResult = throw NotImplementedError()
++    override fun getGroupsForUser(userId: String): Flow<List<Group>> = throw NotImplementedError()
++    override suspend fun getGroupById(groupId: String): Group = throw NotImplementedError()
++    override suspend fun uploadGroupPhoto(groupId: String, uri: Uri): Result<String> = throw NotImplementedError()
++    override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
 +    override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
 +    override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
++
++    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) {
++        removedGroupId = groupId
++        removedTargetUserId = targetUserId
++        removedBlock = block
++    }
++
++    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) {
++        unblockedGroupId = groupId
++        unblockedTargetUserId = targetUserId
++    }
++}
++
++// ── Tests ─────────────────────────────────────────────────────────────────────
++
++class RemoveGroupMemberUseCaseTest {
++
++    @Test
++    fun `invoke forwards groupId, targetUserId, and block=false to the repository`() = runBlocking {
++        val repo = CapturingMemberManagementRepository()
++        val useCase = RemoveGroupMemberUseCase(repo)
++
++        useCase("g1", "u2", block = false)
++
++        assertEquals("g1", repo.removedGroupId)
++        assertEquals("u2", repo.removedTargetUserId)
++        assertEquals(false, repo.removedBlock)
++    }
++
++    @Test
++    fun `invoke forwards block=true to the repository`() = runBlocking {
++        val repo = CapturingMemberManagementRepository()
++        val useCase = RemoveGroupMemberUseCase(repo)
++
++        useCase("g1", "u2", block = true)
++
++        assertEquals("g1", repo.removedGroupId)
++        assertEquals("u2", repo.removedTargetUserId)
++        assertEquals(true, repo.removedBlock)
++    }
++}
++
++class UnblockGroupMemberUseCaseTest {
++
++    @Test
++    fun `invoke forwards groupId and targetUserId to the repository`() = runBlocking {
++        val repo = CapturingMemberManagementRepository()
++        val useCase = UnblockGroupMemberUseCase(repo)
++
++        useCase("g1", "u2")
++
++        assertEquals("g1", repo.unblockedGroupId)
++        assertEquals("u2", repo.unblockedTargetUserId)
++    }
++}
+diff --git a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
+index ac2ecc9..bde0a25 100644
+--- a/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
++++ b/app/src/test/java/com/softeen/nflocospicks/domain/usecase/UploadGroupPhotoUseCaseTest.kt
+@@ -37,6 +37,8 @@ private class CapturingPhotoRepository : GroupRepository {
+ 
+     override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
+     override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
++    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) = throw NotImplementedError()
++    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) = throw NotImplementedError()
  }
  
  // ── Tests ─────────────────────────────────────────────────────────────────────
 diff --git a/app/src/test/java/com/softeen/nflocospicks/integration/GroupViewModelIntegrationTest.kt b/app/src/test/java/com/softeen/nflocospicks/integration/GroupViewModelIntegrationTest.kt
-index 9b56cd2..52bc9e3 100644
+index 52bc9e3..021c171 100644
 --- a/app/src/test/java/com/softeen/nflocospicks/integration/GroupViewModelIntegrationTest.kt
 +++ b/app/src/test/java/com/softeen/nflocospicks/integration/GroupViewModelIntegrationTest.kt
-@@ -9,8 +9,10 @@ import com.softeen.nflocospicks.domain.repository.GroupRepository
- import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
- import com.softeen.nflocospicks.domain.repository.UserRepository
- import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
-+import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
+@@ -12,9 +12,11 @@ import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
  import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
  import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
-+import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.RemoveGroupMemberUseCase
+ import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
  import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
  import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
++import com.softeen.nflocospicks.domain.usecase.UnblockGroupMemberUseCase
  import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
-@@ -77,6 +79,8 @@ class GroupViewModelIntegrationTest {
-         scoreWeekPicksUseCase   = scoreUseCase,
-         uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
-         setGroupIconUseCase     = setGroupIconUseCase,
-+        renameGroupUseCase      = RenameGroupUseCase(groupRepo),         // ← REAL
-+        deleteGroupUseCase      = DeleteGroupUseCase(groupRepo),         // ← REAL
+ import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
+ import com.softeen.nflocospicks.presentation.groups.GroupActionUiState
+@@ -66,6 +68,7 @@ class GroupViewModelIntegrationTest {
+     @Before
+     fun setUp() {
+         every { userRepo.getCurrentUser() } returns testUser
++        every { userRepo.getAllUsers() } returns flowOf(emptyList())
+         every { prefsRepo.preferencesFlow } returns flowOf(UserPreferences())
+         every { watchBoardMessagesUseCase(any()) } returns flowOf(emptyList())
+     }
+@@ -73,18 +76,20 @@ class GroupViewModelIntegrationTest {
+     // ── Factory: real use cases wired to the provided GroupRepository mock ────
+ 
+     private fun viewModel(groupRepo: GroupRepository) = GroupViewModel(
+-        createGroupUseCase      = CreateGroupUseCase(groupRepo),       // ← REAL
+-        joinGroupUseCase        = JoinGroupUseCase(groupRepo),          // ← REAL
+-        getGroupsForUserUseCase = GetGroupsForUserUseCase(groupRepo),   // ← REAL
+-        scoreWeekPicksUseCase   = scoreUseCase,
+-        uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
+-        setGroupIconUseCase     = setGroupIconUseCase,
+-        renameGroupUseCase      = RenameGroupUseCase(groupRepo),         // ← REAL
+-        deleteGroupUseCase      = DeleteGroupUseCase(groupRepo),         // ← REAL
++        createGroupUseCase        = CreateGroupUseCase(groupRepo),       // ← REAL
++        joinGroupUseCase          = JoinGroupUseCase(groupRepo),          // ← REAL
++        getGroupsForUserUseCase   = GetGroupsForUserUseCase(groupRepo),   // ← REAL
++        scoreWeekPicksUseCase     = scoreUseCase,
++        uploadGroupPhotoUseCase   = uploadGroupPhotoUseCase,
++        setGroupIconUseCase       = setGroupIconUseCase,
++        renameGroupUseCase        = RenameGroupUseCase(groupRepo),         // ← REAL
++        deleteGroupUseCase        = DeleteGroupUseCase(groupRepo),         // ← REAL
++        removeGroupMemberUseCase  = RemoveGroupMemberUseCase(groupRepo),  // ← REAL
++        unblockGroupMemberUseCase = UnblockGroupMemberUseCase(groupRepo), // ← REAL
          watchBoardMessagesUseCase = watchBoardMessagesUseCase,
-         userRepository          = userRepo,
-         preferencesRepository   = prefsRepo,
+-        userRepository          = userRepo,
+-        preferencesRepository   = prefsRepo,
+-        logger                  = logger
++        userRepository            = userRepo,
++        preferencesRepository     = prefsRepo,
++        logger                    = logger
+     )
+ 
+     // ── Tests ─────────────────────────────────────────────────────────────────
 diff --git a/app/src/test/java/com/softeen/nflocospicks/presentation/groups/GroupViewModelTest.kt b/app/src/test/java/com/softeen/nflocospicks/presentation/groups/GroupViewModelTest.kt
-index fae3d19..76ea654 100644
+index 76ea654..fecf59e 100644
 --- a/app/src/test/java/com/softeen/nflocospicks/presentation/groups/GroupViewModelTest.kt
 +++ b/app/src/test/java/com/softeen/nflocospicks/presentation/groups/GroupViewModelTest.kt
-@@ -1,6 +1,8 @@
- package com.softeen.nflocospicks.presentation.groups
- 
- import com.softeen.nflocospicks.analytics.AppLogger
-+import com.softeen.nflocospicks.data.mock.MockDataProvider
-+import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
- import com.softeen.nflocospicks.domain.model.Group
- import com.softeen.nflocospicks.domain.model.JoinGroupResult
- import com.softeen.nflocospicks.domain.model.User
-@@ -8,8 +10,10 @@ import com.softeen.nflocospicks.domain.model.UserPreferences
- import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
- import com.softeen.nflocospicks.domain.repository.UserRepository
- import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
-+import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
+@@ -13,9 +13,11 @@ import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
+ import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
  import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
  import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
-+import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
++import com.softeen.nflocospicks.domain.usecase.RemoveGroupMemberUseCase
+ import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
  import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
  import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
++import com.softeen.nflocospicks.domain.usecase.UnblockGroupMemberUseCase
  import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
-@@ -39,6 +43,8 @@ class GroupViewModelTest {
-     private val scoreUseCase        = mockk<ScoreWeekPicksUseCase>()
-     private val uploadGroupPhotoUseCase = mockk<UploadGroupPhotoUseCase>()
+ import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
+ import com.softeen.nflocospicks.util.MainCoroutineRule
+@@ -45,6 +47,8 @@ class GroupViewModelTest {
      private val setGroupIconUseCase = mockk<SetGroupIconUseCase>()
-+    private val renameGroupUseCase = mockk<RenameGroupUseCase>()
-+    private val deleteGroupUseCase = mockk<DeleteGroupUseCase>()
+     private val renameGroupUseCase = mockk<RenameGroupUseCase>()
+     private val deleteGroupUseCase = mockk<DeleteGroupUseCase>()
++    private val removeGroupMemberUseCase = mockk<RemoveGroupMemberUseCase>()
++    private val unblockGroupMemberUseCase = mockk<UnblockGroupMemberUseCase>()
      private val watchBoardMessagesUseCase = mockk<WatchBoardMessagesUseCase>()
      private val userRepo            = mockk<UserRepository>()
      private val prefsRepo           = mockk<UserPreferencesRepository>()
-@@ -74,6 +80,8 @@ class GroupViewModelTest {
-         scoreWeekPicksUseCase   = scoreUseCase,
-         uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
-         setGroupIconUseCase     = setGroupIconUseCase,
-+        renameGroupUseCase      = renameGroupUseCase,
-+        deleteGroupUseCase      = deleteGroupUseCase,
-         watchBoardMessagesUseCase = watchBoardMessagesUseCase,
-         userRepository          = userRepo,
-         preferencesRepository   = prefsRepo,
-@@ -208,4 +216,89 @@ class GroupViewModelTest {
+@@ -66,6 +70,7 @@ class GroupViewModelTest {
+     fun setUp() {
+         // Base setup shared by tests that need a logged-in user with no groups yet.
+         every { userRepo.getCurrentUser() }   returns testUser
++        every { userRepo.getAllUsers() }      returns flowOf(emptyList())
+         every { getGroupsUseCase(any()) }     returns flowOf(emptyList())
+         every { prefsRepo.preferencesFlow }   returns flowOf(UserPreferences())
+         every { watchBoardMessagesUseCase(any()) } returns flowOf(emptyList())
+@@ -74,18 +79,20 @@ class GroupViewModelTest {
+     // ── Factory ───────────────────────────────────────────────────────────────
  
-         verify { logger.logEvent(match { it.name == "group_icon_set" && it.params["icon_id"] == "icon_1" }) }
+     private fun viewModel() = GroupViewModel(
+-        createGroupUseCase      = createGroupUseCase,
+-        joinGroupUseCase        = joinGroupUseCase,
+-        getGroupsForUserUseCase = getGroupsUseCase,
+-        scoreWeekPicksUseCase   = scoreUseCase,
+-        uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
+-        setGroupIconUseCase     = setGroupIconUseCase,
+-        renameGroupUseCase      = renameGroupUseCase,
+-        deleteGroupUseCase      = deleteGroupUseCase,
++        createGroupUseCase        = createGroupUseCase,
++        joinGroupUseCase          = joinGroupUseCase,
++        getGroupsForUserUseCase   = getGroupsUseCase,
++        scoreWeekPicksUseCase     = scoreUseCase,
++        uploadGroupPhotoUseCase   = uploadGroupPhotoUseCase,
++        setGroupIconUseCase       = setGroupIconUseCase,
++        renameGroupUseCase        = renameGroupUseCase,
++        deleteGroupUseCase        = deleteGroupUseCase,
++        removeGroupMemberUseCase  = removeGroupMemberUseCase,
++        unblockGroupMemberUseCase = unblockGroupMemberUseCase,
+         watchBoardMessagesUseCase = watchBoardMessagesUseCase,
+-        userRepository          = userRepo,
+-        preferencesRepository   = prefsRepo,
+-        logger                  = logger
++        userRepository            = userRepo,
++        preferencesRepository     = prefsRepo,
++        logger                    = logger
+     )
+ 
+     // ── Tests ─────────────────────────────────────────────────────────────────
+@@ -301,4 +308,132 @@ class GroupViewModelTest {
+ 
+         coVerify(exactly = 0) { renameGroupUseCase(any(), any()) }
      }
 +
-+    // ── GroupSettings: renombrar / eliminar ──────────────────────────────────
++    // ── removeGroupMember ─────────────────────────────────────────────────────
 +
 +    @Test
-+    fun `deleteGroup on success logs group_deleted and sends the GroupDeleted effect`() = runTest(coroutineRule.dispatcher) {
-+        coEvery { deleteGroupUseCase("g1") } returns Unit
++    fun `removeGroupMember with block=false on success sets Idle and logs GroupMemberRemoved`() = runTest(coroutineRule.dispatcher) {
++        coEvery { removeGroupMemberUseCase("g1", "u2", false) } just Runs
 +        val vm = viewModel()
 +
-+        vm.deleteGroup(stubGroup, requesterUserId = "user1")
++        vm.removeGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2", block = false)
 +
 +        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
-+        verify { logger.logEvent(match { it.name == "group_deleted" && it.params["group_id"] == "g1" }) }
-+        assertEquals(GroupUiEffect.GroupDeleted("Los Locos"), vm.effects.receive())
++        verify {
++            logger.logEvent(match {
++                it.name == "group_member_removed" &&
++                    it.params["group_id"] == "g1" &&
++                    it.params["target_user_id"] == "u2" &&
++                    it.params["blocked"] == false
++            })
++        }
 +    }
 +
 +    @Test
-+    fun `deleteGroup by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
++    fun `removeGroupMember with block=true on success sets Idle and logs GroupMemberRemoved with blocked=true`() = runTest(coroutineRule.dispatcher) {
++        coEvery { removeGroupMemberUseCase("g1", "u2", true) } just Runs
 +        val vm = viewModel()
 +
-+        vm.deleteGroup(stubGroup, requesterUserId = "intruder")
++        vm.removeGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2", block = true)
 +
-+        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
 +        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
++        verify {
++            logger.logEvent(match {
++                it.name == "group_member_removed" &&
++                    it.params["group_id"] == "g1" &&
++                    it.params["target_user_id"] == "u2" &&
++                    it.params["blocked"] == true
++            })
++        }
 +    }
 +
 +    @Test
-+    fun `deleteGroup on the global group is a no-op even for its creator`() = runTest(coroutineRule.dispatcher) {
++    fun `removeGroupMember by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
++        val vm = viewModel()
++
++        vm.removeGroupMember(stubGroup, requesterUserId = "intruder", targetUserId = "u2", block = false)
++
++        coVerify(exactly = 0) { removeGroupMemberUseCase(any(), any(), any()) }
++    }
++
++    @Test
++    fun `removeGroupMember on the global group is a no-op`() = runTest(coroutineRule.dispatcher) {
 +        val globalGroup = stubGroup.copy(id = GlobalGroupConstants.GROUP_ID)
 +        val vm = viewModel()
 +
-+        vm.deleteGroup(globalGroup, requesterUserId = "user1")
++        vm.removeGroupMember(globalGroup, requesterUserId = "user1", targetUserId = "u2", block = false)
 +
-+        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
++        coVerify(exactly = 0) { removeGroupMemberUseCase(any(), any(), any()) }
 +    }
 +
 +    @Test
-+    fun `deleteGroup on the mock testing group is a no-op`() = runTest(coroutineRule.dispatcher) {
++    fun `removeGroupMember on the mock group is a no-op`() = runTest(coroutineRule.dispatcher) {
 +        val mockGroup = stubGroup.copy(id = MockDataProvider.MOCK_GROUP_ID)
 +        val vm = viewModel()
 +
-+        vm.deleteGroup(mockGroup, requesterUserId = "user1")
++        vm.removeGroupMember(mockGroup, requesterUserId = "user1", targetUserId = "u2", block = false)
 +
-+        coVerify(exactly = 0) { deleteGroupUseCase(any()) }
++        coVerify(exactly = 0) { removeGroupMemberUseCase(any(), any(), any()) }
 +    }
 +
 +    @Test
-+    fun `deleteGroup failure sets groupSettingsState to Error`() = runTest(coroutineRule.dispatcher) {
-+        coEvery { deleteGroupUseCase("g1") } throws RuntimeException("boom")
++    fun `removeGroupMember when target is creator is a no-op`() = runTest(coroutineRule.dispatcher) {
 +        val vm = viewModel()
 +
-+        vm.deleteGroup(stubGroup, requesterUserId = "user1")
++        vm.removeGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "user1", block = false)
 +
-+        val state = vm.groupSettingsState.value as GroupSettingsUiState.Error
-+        assertEquals("boom", state.message)
++        coVerify(exactly = 0) { removeGroupMemberUseCase(any(), any(), any()) }
 +    }
 +
 +    @Test
-+    fun `renameGroup on success logs group_renamed and returns state to Idle`() = runTest(coroutineRule.dispatcher) {
-+        coEvery { renameGroupUseCase("g1", "Nuevo") } returns Unit
++    fun `removeGroupMember on failure transitions groupSettingsState to Error`() = runTest(coroutineRule.dispatcher) {
++        coEvery { removeGroupMemberUseCase("g1", "u2", false) } throws RuntimeException("network down")
 +        val vm = viewModel()
 +
-+        vm.renameGroup(stubGroup, requesterUserId = "user1", newName = "Nuevo")
++        vm.removeGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2", block = false)
++
++        val state = vm.groupSettingsState.value
++        assertTrue(state is GroupSettingsUiState.Error)
++        assertEquals("network down", (state as GroupSettingsUiState.Error).message)
++    }
++
++    // ── unblockGroupMember ───────────────────────────────────────────────────
++
++    @Test
++    fun `unblockGroupMember on success sets Idle and logs GroupMemberUnblocked`() = runTest(coroutineRule.dispatcher) {
++        coEvery { unblockGroupMemberUseCase("g1", "u2") } just Runs
++        val vm = viewModel()
++
++        vm.unblockGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2")
 +
 +        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
-+        verify { logger.logEvent(match { it.name == "group_renamed" && it.params["group_id"] == "g1" }) }
++        verify {
++            logger.logEvent(match {
++                it.name == "group_member_unblocked" &&
++                    it.params["group_id"] == "g1" &&
++                    it.params["target_user_id"] == "u2"
++            })
++        }
 +    }
 +
 +    @Test
-+    fun `renameGroup by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
++    fun `unblockGroupMember by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
 +        val vm = viewModel()
 +
-+        vm.renameGroup(stubGroup, requesterUserId = "intruder", newName = "Nuevo")
++        vm.unblockGroupMember(stubGroup, requesterUserId = "intruder", targetUserId = "u2")
 +
-+        coVerify(exactly = 0) { renameGroupUseCase(any(), any()) }
++        coVerify(exactly = 0) { unblockGroupMemberUseCase(any(), any()) }
 +    }
 +
 +    @Test
-+    fun `renameGroup on the global group is a no-op even for its creator`() = runTest(coroutineRule.dispatcher) {
-+        val globalGroup = stubGroup.copy(id = GlobalGroupConstants.GROUP_ID)
++    fun `unblockGroupMember on failure transitions groupSettingsState to Error`() = runTest(coroutineRule.dispatcher) {
++        coEvery { unblockGroupMemberUseCase("g1", "u2") } throws RuntimeException("server error")
 +        val vm = viewModel()
 +
-+        vm.renameGroup(globalGroup, requesterUserId = "user1", newName = "Nuevo")
++        vm.unblockGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2")
 +
-+        coVerify(exactly = 0) { renameGroupUseCase(any(), any()) }
++        val state = vm.groupSettingsState.value
++        assertTrue(state is GroupSettingsUiState.Error)
++        assertEquals("server error", (state as GroupSettingsUiState.Error).message)
 +    }
  }
 diff --git a/firestore.rules b/firestore.rules
-index 5f2ae85..f84490e 100644
+index f84490e..24335e8 100644
 --- a/firestore.rules
 +++ b/firestore.rules
-@@ -84,14 +84,14 @@ service cloud.firestore {
+@@ -73,7 +73,7 @@ service cloud.firestore {
+                     && request.resource.data.createdBy == resource.data.createdBy
+                     && (
+                       !request.resource.data.diff(resource.data).affectedKeys()
+-                        .hasAny(['photoUrl', 'iconId', 'name', 'inviteCode'])
++                        .hasAny(['photoUrl', 'iconId', 'name', 'inviteCode', 'blockedIds'])
+                       || request.auth.uid == resource.data.createdBy
+                     )
+                     && (
+@@ -81,6 +81,7 @@ service cloud.firestore {
+                       || (
+                         request.resource.data.memberIds.hasAll(resource.data.memberIds)
+                         && request.resource.data.memberIds.size() <= resource.data.memberIds.size() + 1
++                        && !(request.auth.uid in resource.data.get('blockedIds', []))
                        )
                      );
  
--      // Solo el creador puede eliminar el grupo — excepto el grupo global
--      // "NFLocos de Corazón" (PR-16), que nunca se puede borrar aunque el
--      // requester sea su createdBy. Este id debe coincidir exactamente con
--      // GlobalGroupConstants.GROUP_ID (cliente) y con el groupId usado en
--      // functions/src/scripts/seedGlobalGroup.ts.
--      allow delete: if request.auth != null
--                    && request.auth.uid == resource.data.createdBy
--                    && groupId != "global_nflocos_de_corazon";
-+      // El borrado de grupo va EXCLUSIVAMENTE por la Cloud Function `deleteGroup`
-+      // (Admin SDK — functions/src/groupDeletion.ts): además del doc, esa función
-+      // limpia las subcolecciones (weeks/**, board/**) y standings/{groupId}/**,
-+      // que el cliente no puede borrar (allow write: if false más abajo / en
-+      // standings). Un delete directo desde el cliente dejaría todo eso huérfano,
-+      // así que se bloquea aquí. La función valida que el requester sea createdBy y
-+      // rechaza el grupo global "NFLocos de Corazón".
-+      allow delete: if false;
+@@ -117,7 +118,9 @@ service cloud.firestore {
+         match /picks/{userId} {
+           allow read:  if request.auth != null
+                        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+-          allow write: if request.auth != null && request.auth.uid == userId;
++          allow write: if request.auth != null
++                       && request.auth.uid == userId
++                       && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+         }
  
-       // ── Subcolecciones de semanas y picks (PR-5 y PR-6) ──────────────────
-       match /weeks/{weekId} {
+         // Resultado del scoring (isCorrect/scoredAt/winnerTeamAbbr por gameId).
+@@ -171,8 +174,15 @@ service cloud.firestore {
+     match /standings/{groupId}/members/{userId} {
+       allow read: if request.auth != null
+                   && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
+-      // Escritura solo desde Cloud Functions (PR-6) — no desde el cliente.
+-      allow write: if false;
++      // Escritura normal solo desde Cloud Functions (PR-6).
++      // Carve-out estrechísimo para des-ocultar el standing cuando un usuario vuelve a
++      // unirse al grupo (joinGroup): solo el propio usuario, solo si es miembro, y solo
++      // puede tocar/borrar 'hidden' y 'hiddenAt' (nunca totalPoints ni weeklyBreakdown).
++      allow update: if request.auth != null
++                    && request.auth.uid == userId
++                    && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds
++                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden', 'hiddenAt']);
++      allow create, delete: if false;
+     }
+   }
+ }
+diff --git a/functions/src/groupMembers.ts b/functions/src/groupMembers.ts
+new file mode 100644
+index 0000000..e2d0cbe
+--- /dev/null
++++ b/functions/src/groupMembers.ts
+@@ -0,0 +1,94 @@
++import { FieldValue, getFirestore } from "firebase-admin/firestore";
++import { logger } from "firebase-functions";
++import { HttpsError } from "firebase-functions/v2/https";
++import { GLOBAL_GROUP_ID } from "./globalGroup";
++
++/**
++ * Quita a un miembro de un grupo y, opcionalmente, lo bloquea para que no
++ * pueda volver a unirse con el código de invitación.
++ *
++ * Si el usuario tenía standing en el grupo, se marca `hidden: true` (reversible,
++ * mismo patrón de inactividad) para ocultar su fila del leaderboard sin destruir
++ * su historial de puntos.
++ *
++ * Solo el creador del grupo (admin) puede invocar esto; el grupo global nunca
++ * permite gestión de miembros; y el admin no puede quitarse a sí mismo.
++ */
++export async function removeGroupMember(
++  groupId: string,
++  requesterUid: string,
++  targetUid: string,
++  block: boolean
++): Promise<void> {
++  if (groupId === GLOBAL_GROUP_ID) {
++    throw new HttpsError("permission-denied", "En el grupo global no se administran miembros.");
++  }
++
++  const db = getFirestore();
++  const groupRef = db.collection("groups").doc(groupId);
++  const groupSnap = await groupRef.get();
++  if (!groupSnap.exists) {
++    throw new HttpsError("not-found", "El grupo no existe.");
++  }
++
++  const data = groupSnap.data();
++  if (data?.createdBy !== requesterUid) {
++    throw new HttpsError("permission-denied", "Solo el administrador del grupo puede hacer esto.");
++  }
++
++  if (targetUid === data?.createdBy) {
++    throw new HttpsError("invalid-argument", "El administrador no puede quitarse a sí mismo.");
++  }
++
++  // Ocultar el standing si existe (mismo patrón que inactivity.ts)
++  const standingRef = db.collection("standings").doc(groupId).collection("members").doc(targetUid);
++  const standingSnap = await standingRef.get();
++  if (standingSnap.exists) {
++    await standingRef.update({
++      hidden: true,
++      hiddenAt: FieldValue.serverTimestamp(),
++    });
++  }
++
++  await groupRef.update({
++    memberIds: FieldValue.arrayRemove(targetUid),
++    ...(block ? { blockedIds: FieldValue.arrayUnion(targetUid) } : {}),
++  });
++
++  logger.info(`removeGroupMember: ${targetUid} quitado de ${groupId} por ${requesterUid} (block=${block})`);
++}
++
++/**
++ * Desbloquea a un usuario previamente bloqueado de un grupo.
++ *
++ * Solo quita a [targetUid] de `blockedIds` para permitirle volver a unirse
++ * con el código. NO lo re-agrega a `memberIds` (el usuario se re-une por sí
++ * mismo) ni des-oculta su standing (eso ocurre al volver a entrar vía joinGroup).
++ */
++export async function unblockGroupMember(
++  groupId: string,
++  requesterUid: string,
++  targetUid: string
++): Promise<void> {
++  if (groupId === GLOBAL_GROUP_ID) {
++    throw new HttpsError("permission-denied", "En el grupo global no se administran miembros.");
++  }
++
++  const db = getFirestore();
++  const groupRef = db.collection("groups").doc(groupId);
++  const groupSnap = await groupRef.get();
++  if (!groupSnap.exists) {
++    throw new HttpsError("not-found", "El grupo no existe.");
++  }
++
++  const data = groupSnap.data();
++  if (data?.createdBy !== requesterUid) {
++    throw new HttpsError("permission-denied", "Solo el administrador del grupo puede hacer esto.");
++  }
++
++  await groupRef.update({
++    blockedIds: FieldValue.arrayRemove(targetUid),
++  });
++
++  logger.info(`unblockGroupMember: ${targetUid} desbloqueado de ${groupId} por ${requesterUid}`);
++}
 diff --git a/functions/src/index.ts b/functions/src/index.ts
-index cab36e2..5d18dbc 100644
+index 5d18dbc..b2b62bf 100644
 --- a/functions/src/index.ts
 +++ b/functions/src/index.ts
-@@ -6,6 +6,7 @@ import { logger } from "firebase-functions";
- import { fetchCurrentWeekGames, computeWinners } from "./espn";
+@@ -7,6 +7,7 @@ import { fetchCurrentWeekGames, computeWinners } from "./espn";
  import { scoreGroupForWeek } from "./scoring";
  import { deleteUserAccount } from "./accountDeletion";
-+import { deleteGroupCompletely } from "./groupDeletion";
+ import { deleteGroupCompletely } from "./groupDeletion";
++import { removeGroupMember as removeGroupMemberImpl, unblockGroupMember as unblockGroupMemberImpl } from "./groupMembers";
  import { seedGlobalStanding } from "./globalGroup";
  import { deactivateInactiveUsers, reactivateUser } from "./inactivity";
  
-@@ -86,6 +87,27 @@ export const scoreGroupWeek = onCall<{ groupId?: string }>(async (request) => {
-   return { scoredCount };
+@@ -108,6 +109,43 @@ export const deleteGroup = onCall<{ groupId?: string }>(async (request) => {
+   return { success: true };
  });
  
 +/**
-+ * Elimina por completo un grupo (doc + subcolecciones + standings + foto de Storage).
-+ * Solo el creador del grupo puede hacerlo; el grupo global nunca se puede eliminar.
-+ * Toda la limpieza corre con Admin SDK porque el cliente no tiene permiso para borrar
-+ * subcolecciones ni standings (ver firestore.rules). `deleteGroupCompletely` lanza el
-+ * HttpsError apropiado (unauthenticated/not-found/permission-denied) según el caso.
++ * Quita a un miembro de un grupo y, opcionalmente, lo bloquea.
++ * Solo el creador del grupo puede hacerlo; nunca se permite en el grupo global
++ * ni que el creador se quite a sí mismo.
 + */
-+export const deleteGroup = onCall<{ groupId?: string }>(async (request) => {
++export const removeGroupMember = onCall<{ groupId?: string; targetUid?: string; block?: boolean }>(async (request) => {
 +  const uid = request.auth?.uid;
 +  if (!uid) {
 +    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
 +  }
-+  const groupId = request.data.groupId;
-+  if (!groupId) {
-+    throw new HttpsError("invalid-argument", "Falta groupId.");
++  const { groupId, targetUid } = request.data;
++  if (!groupId || !targetUid) {
++    throw new HttpsError("invalid-argument", "Faltan datos.");
 +  }
 +
-+  await deleteGroupCompletely(groupId, uid);
++  await removeGroupMemberImpl(groupId, uid, targetUid, request.data.block === true);
++  return { success: true };
++});
++
++/**
++ * Desbloquea a un usuario previamente bloqueado de un grupo.
++ * Solo quita a targetUid de blockedIds.
++ */
++export const unblockGroupMember = onCall<{ groupId?: string; targetUid?: string }>(async (request) => {
++  const uid = request.auth?.uid;
++  if (!uid) {
++    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
++  }
++  const { groupId, targetUid } = request.data;
++  if (!groupId || !targetUid) {
++    throw new HttpsError("invalid-argument", "Faltan datos.");
++  }
++
++  await unblockGroupMemberImpl(groupId, uid, targetUid);
 +  return { success: true };
 +});
 +
  /**
   * Eliminación de cuenta (requisito de Google Play). Solo opera sobre el
   * propio usuario autenticado — nunca recibe un uid por parámetro, para que
+diff --git a/functions/test/integration/groupMembers.test.ts b/functions/test/integration/groupMembers.test.ts
+new file mode 100644
+index 0000000..3362183
+--- /dev/null
++++ b/functions/test/integration/groupMembers.test.ts
+@@ -0,0 +1,145 @@
++import { db } from "./setup";
++import { removeGroupMember, unblockGroupMember } from "../../src/groupMembers";
++import { GLOBAL_GROUP_ID } from "../../src/globalGroup";
++
++describe("groupMembers (Firestore emulator)", () => {
++  describe("removeGroupMember", () => {
++    it("refuses to remove members from the global group", async () => {
++      await expect(
++        removeGroupMember(GLOBAL_GROUP_ID, "admin", "target", false)
++      ).rejects.toHaveProperty("code", "permission-denied");
++    });
++
++    it("throws not-found when the group does not exist", async () => {
++      await expect(
++        removeGroupMember("nonexistent_group", "admin", "target", false)
++      ).rejects.toHaveProperty("code", "not-found");
++    });
++
++    it("throws permission-denied when the caller is not the creator", async () => {
++      await db.collection("groups").doc("g_test").set({
++        createdBy: "owner",
++        memberIds: ["owner", "u2", "u3"],
++      });
++
++      await expect(
++        removeGroupMember("g_test", "u2", "u3", false)
++      ).rejects.toHaveProperty("code", "permission-denied");
++
++      const groupSnap = await db.collection("groups").doc("g_test").get();
++      expect(groupSnap.data()?.memberIds).toContain("u3");
++    });
++
++    it("throws invalid-argument when the admin tries to remove themselves", async () => {
++      await db.collection("groups").doc("g_test2").set({
++        createdBy: "owner",
++        memberIds: ["owner", "u2"],
++      });
++
++      await expect(
++        removeGroupMember("g_test2", "owner", "owner", false)
++      ).rejects.toHaveProperty("code", "invalid-argument");
++    });
++
++    it("removes member, hides standing, and does not block when block=false", async () => {
++      await db.collection("groups").doc("g_test3").set({
++        createdBy: "owner",
++        memberIds: ["owner", "target_uid"],
++        blockedIds: [],
++      });
++      await db
++        .doc("standings/g_test3/members/target_uid")
++        .set({ totalPoints: 10, weeklyBreakdown: { w1: 10 } });
++
++      await removeGroupMember("g_test3", "owner", "target_uid", false);
++
++      const groupSnap = await db.collection("groups").doc("g_test3").get();
++      expect(groupSnap.data()?.memberIds).not.toContain("target_uid");
++      expect(groupSnap.data()?.blockedIds ?? []).not.toContain("target_uid");
++
++      const standingSnap = await db.doc("standings/g_test3/members/target_uid").get();
++      expect(standingSnap.exists).toBe(true);
++      expect(standingSnap.data()?.hidden).toBe(true);
++      expect(standingSnap.data()?.hiddenAt).toBeDefined();
++      expect(standingSnap.data()?.totalPoints).toBe(10);
++    });
++
++    it("removes member, adds to blockedIds, and hides standing when block=true", async () => {
++      await db.collection("groups").doc("g_test4").set({
++        createdBy: "owner",
++        memberIds: ["owner", "target_uid"],
++      });
++      await db
++        .doc("standings/g_test4/members/target_uid")
++        .set({ totalPoints: 5, weeklyBreakdown: { w1: 5 } });
++
++      await removeGroupMember("g_test4", "owner", "target_uid", true);
++
++      const groupSnap = await db.collection("groups").doc("g_test4").get();
++      expect(groupSnap.data()?.memberIds).not.toContain("target_uid");
++      expect(groupSnap.data()?.blockedIds).toContain("target_uid");
++
++      const standingSnap = await db.doc("standings/g_test4/members/target_uid").get();
++      expect(standingSnap.data()?.hidden).toBe(true);
++    });
++
++    it("succeeds when member has no standing doc", async () => {
++      await db.collection("groups").doc("g_test5").set({
++        createdBy: "owner",
++        memberIds: ["owner", "target_no_standing"],
++      });
++
++      await removeGroupMember("g_test5", "owner", "target_no_standing", true);
++
++      const groupSnap = await db.collection("groups").doc("g_test5").get();
++      expect(groupSnap.data()?.memberIds).not.toContain("target_no_standing");
++      expect(groupSnap.data()?.blockedIds).toContain("target_no_standing");
++    });
++  });
++
++  describe("unblockGroupMember", () => {
++    it("refuses on the global group", async () => {
++      await expect(
++        unblockGroupMember(GLOBAL_GROUP_ID, "admin", "target")
++      ).rejects.toHaveProperty("code", "permission-denied");
++    });
++
++    it("throws not-found when the group does not exist", async () => {
++      await expect(
++        unblockGroupMember("nonexistent_group", "admin", "target")
++      ).rejects.toHaveProperty("code", "not-found");
++    });
++
++    it("throws permission-denied when caller is not the creator", async () => {
++      await db.collection("groups").doc("g_test6").set({
++        createdBy: "owner",
++        memberIds: ["owner", "u2"],
++        blockedIds: ["blocked_user"],
++      });
++
++      await expect(
++        unblockGroupMember("g_test6", "u2", "blocked_user")
++      ).rejects.toHaveProperty("code", "permission-denied");
++    });
++
++    it("removes targetUid from blockedIds without altering memberIds or standings", async () => {
++      await db.collection("groups").doc("g_test7").set({
++        createdBy: "owner",
++        memberIds: ["owner"],
++        blockedIds: ["blocked_user"],
++      });
++      await db
++        .doc("standings/g_test7/members/blocked_user")
++        .set({ totalPoints: 10, hidden: true });
++
++      await unblockGroupMember("g_test7", "owner", "blocked_user");
++
++      const groupSnap = await db.collection("groups").doc("g_test7").get();
++      expect(groupSnap.data()?.blockedIds).not.toContain("blocked_user");
++      expect(groupSnap.data()?.memberIds).not.toContain("blocked_user");
++
++      const standingSnap = await db.doc("standings/g_test7/members/blocked_user").get();
++      expect(standingSnap.data()?.hidden).toBe(true);
++    });
++  });
++});
+diff --git a/functions/test/rules/firestore-rules.test.ts b/functions/test/rules/firestore-rules.test.ts
+index 81c7588..9b48832 100644
+--- a/functions/test/rules/firestore-rules.test.ts
++++ b/functions/test/rules/firestore-rules.test.ts
+@@ -141,6 +141,32 @@ describe("groups/{groupId}", () => {
+     await assertSucceeds(updateDoc(doc(alice(), "groups/g1"), { memberIds: ["alice"] }));
+   });
+ 
++  it("a blocked user cannot self-join; non-blocked can; non-creator cannot modify blockedIds", async () => {
++    await seed((db) =>
++      setDoc(doc(db, "groups/g1"), {
++        name: "Los Locos",
++        inviteCode: "ABC123",
++        createdBy: "alice",
++        memberIds: ["alice", "bob"],
++        blockedIds: ["carol"],
++      }),
++    );
++    const carol = env.authenticatedContext("carol").firestore();
++    const dave = env.authenticatedContext("dave").firestore();
++
++    // Blocked carol cannot self-join
++    await assertFails(updateDoc(doc(carol, "groups/g1"), { memberIds: ["alice", "bob", "carol"] }));
++
++    // Non-blocked dave can self-join
++    await assertSucceeds(updateDoc(doc(dave, "groups/g1"), { memberIds: ["alice", "bob", "dave"] }));
++
++    // Non-creator (bob) cannot touch blockedIds
++    await assertFails(updateDoc(doc(bob(), "groups/g1"), { blockedIds: [] }));
++
++    // Creator (alice) can update blockedIds
++    await assertSucceeds(updateDoc(doc(alice(), "groups/g1"), { blockedIds: ["carol", "dave"] }));
++  });
++
+   it("delete is denied for everyone, including the creator", async () => {
+     await seedGroup();
+     await assertFails(deleteDoc(doc(alice(), "groups/g1")));
+@@ -158,11 +184,17 @@ describe("groups/{g}/weeks/{w} and picks/results", () => {
+     await assertFails(setDoc(doc(bob(), "groups/g1/weeks/w1"), { games: [], hacked: true }));
+   });
+ 
+-  it("a user writes only their own pick doc; members read, non-members do not", async () => {
++  it("a user writes only their own pick doc and MUST be a member; non-members cannot write or read", async () => {
++    const carol = env.authenticatedContext("carol").firestore();
++    // Bob is a member: can write his own picks
+     await assertSucceeds(setDoc(doc(bob(), "groups/g1/weeks/w1/picks/bob"), { g1: { pickedTeam: "KC" } }));
++    // Alice cannot write Bob's picks
+     await assertFails(setDoc(doc(alice(), "groups/g1/weeks/w1/picks/bob"), { g1: { pickedTeam: "x" } }));
++    // Carol is not a member: cannot write her own picks in this group (finding AGY #1)
++    await assertFails(setDoc(doc(carol, "groups/g1/weeks/w1/picks/carol"), { g1: { pickedTeam: "KC" } }));
++    // Members read, non-members do not
+     await assertSucceeds(getDoc(doc(alice(), "groups/g1/weeks/w1/picks/bob")));
+-    await assertFails(getDoc(doc(env.authenticatedContext("carol").firestore(), "groups/g1/weeks/w1/picks/bob")));
++    await assertFails(getDoc(doc(carol, "groups/g1/weeks/w1/picks/bob")));
+   });
+ 
+   it("results are readable by members but never client-writable", async () => {
+@@ -207,10 +239,58 @@ describe("groups/{g}/board/{messageId}", () => {
+ describe("standings/{g}/members/{uid}", () => {
+   beforeEach(seedGroup);
+ 
+-  it("members read, nobody writes from the client", async () => {
++  it("members read; non-members do not; client create and delete are denied", async () => {
+     await seed((db) => setDoc(doc(db, "standings/g1/members/bob"), { totalPoints: 3, weeklyBreakdown: {} }));
+     await assertSucceeds(getDoc(doc(bob(), "standings/g1/members/bob")));
+     await assertFails(getDoc(doc(env.authenticatedContext("carol").firestore(), "standings/g1/members/bob")));
+     await assertFails(setDoc(doc(bob(), "standings/g1/members/bob"), { totalPoints: 999, weeklyBreakdown: {} }));
++    await assertFails(deleteDoc(doc(bob(), "standings/g1/members/bob")));
++  });
++
++  it("a member can only update hidden and hiddenAt on their own standing (unhide carve-out)", async () => {
++    await seed((db) =>
++      setDoc(doc(db, "standings/g1/members/bob"), {
++        totalPoints: 10,
++        weeklyBreakdown: { w1: 10 },
++        hidden: true,
++        hiddenAt: 12345,
++      }),
++    );
++
++    // Bob (member and owner) can update hidden / hiddenAt
++    await assertSucceeds(
++      updateDoc(doc(bob(), "standings/g1/members/bob"), {
++        hidden: false,
++        hiddenAt: 67890,
++      }),
++    );
++
++    // Bob cannot modify totalPoints or weeklyBreakdown
++    await assertFails(
++      updateDoc(doc(bob(), "standings/g1/members/bob"), {
++        totalPoints: 999,
++      }),
++    );
++
++    // Alice (admin/other user) cannot update Bob's standing
++    await assertFails(
++      updateDoc(doc(alice(), "standings/g1/members/bob"), {
++        hidden: false,
++      }),
++    );
++
++    // Carol (non-member) cannot update even if it's her uid
++    await seed((db) =>
++      setDoc(doc(db, "standings/g1/members/carol"), {
++        totalPoints: 0,
++        hidden: true,
++      }),
++    );
++    const carol = env.authenticatedContext("carol").firestore();
++    await assertFails(
++      updateDoc(doc(carol, "standings/g1/members/carol"), {
++        hidden: false,
++      }),
++    );
+   });
+ });

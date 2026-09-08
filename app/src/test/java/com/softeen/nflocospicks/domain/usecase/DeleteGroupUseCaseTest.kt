@@ -31,6 +31,9 @@ private class CapturingDeleteRenameRepository : GroupRepository {
     override suspend fun deleteGroup(groupId: String) {
         deletedGroupId = groupId
     }
+
+    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) = throw NotImplementedError()
+    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) = throw NotImplementedError()
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

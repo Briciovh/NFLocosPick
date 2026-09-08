@@ -120,9 +120,14 @@ internal fun JoinGroupScreenContent(
 
         Spacer(Modifier.height(8.dp))
 
-        if (actionState is GroupActionUiState.Error) {
+        val errorText = when (actionState) {
+            is GroupActionUiState.Error -> actionState.message
+            GroupActionUiState.BlockedFromGroup -> stringResource(R.string.group_join_blocked)
+            else -> null
+        }
+        if (errorText != null) {
             Text(
-                text = actionState.message,
+                text = errorText,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall
             )

@@ -42,6 +42,14 @@ sealed class AppEvent(val name: String, val params: Map<String, Any> = emptyMap(
     data class GroupDeleted(val groupId: String) :
         AppEvent("group_deleted", mapOf("group_id" to groupId))
 
+    data class GroupMemberRemoved(val groupId: String, val targetUserId: String, val blocked: Boolean) :
+        AppEvent("group_member_removed",
+            mapOf("group_id" to groupId, "target_user_id" to targetUserId, "blocked" to blocked))
+
+    data class GroupMemberUnblocked(val groupId: String, val targetUserId: String) :
+        AppEvent("group_member_unblocked",
+            mapOf("group_id" to groupId, "target_user_id" to targetUserId))
+
     // ── Picks ─────────────────────────────────────────────────────────────────
     data class PickSubmitted(
         val groupId: String,

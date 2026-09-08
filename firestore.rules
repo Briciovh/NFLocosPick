@@ -73,7 +73,7 @@ service cloud.firestore {
                     && request.resource.data.createdBy == resource.data.createdBy
                     && (
                       !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['photoUrl', 'iconId', 'name', 'inviteCode'])
+                        .hasAny(['photoUrl', 'iconId', 'name', 'inviteCode', 'blockedIds'])
                       || request.auth.uid == resource.data.createdBy
                     )
                     && (
@@ -81,6 +81,7 @@ service cloud.firestore {
                       || (
                         request.resource.data.memberIds.hasAll(resource.data.memberIds)
                         && request.resource.data.memberIds.size() <= resource.data.memberIds.size() + 1
+                        && !(request.auth.uid in resource.data.get('blockedIds', []))
                       )
                     );
 
@@ -117,7 +118,9 @@ service cloud.firestore {
         match /picks/{userId} {
           allow read:  if request.auth != null
                        && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
-          allow write: if request.auth != null && request.auth.uid == userId;
+          allow write: if request.auth != null
+                       && request.auth.uid == userId
+                       && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
         }
 
         // Resultado del scoring (isCorrect/scoredAt/winnerTeamAbbr por gameId).
@@ -171,8 +174,15 @@ service cloud.firestore {
     match /standings/{groupId}/members/{userId} {
       allow read: if request.auth != null
                   && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds;
-      // Escritura solo desde Cloud Functions (PR-6) — no desde el cliente.
-      allow write: if false;
+      // Escritura normal solo desde Cloud Functions (PR-6).
+      // Carve-out estrechísimo para des-ocultar el standing cuando un usuario vuelve a
+      // unirse al grupo (joinGroup): solo el propio usuario, solo si es miembro, y solo
+      // puede tocar/borrar 'hidden' y 'hiddenAt' (nunca totalPoints ni weeklyBreakdown).
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden', 'hiddenAt']);
+      allow create, delete: if false;
     }
   }
 }

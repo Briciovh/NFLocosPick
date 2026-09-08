@@ -444,4 +444,28 @@ la lista de usuarios para resolver nombres, y loguea los eventos.
 
 ### Review de implementación
 
-*(pendiente — se corre AGY contra el diff acumulado tras cada paso)*
+- **Antigravity (`agy.exe`, gemini-3.1-pro-high, effort high)** — 2026-09-07.
+  Revisión ejecutada contra el diff completo de la implementación frente a `docs/plans/block-remove-group-members.md`.
+  - **`firestore.rules`**: Validadas restricciones estrictas para `blockedIds`, protección de `picks/{userId}` condicionada a membresía activa en el grupo y carve-out estrecho en `standings/{groupId}/members/{userId}` restringido a `affectedKeys().hasOnly(['hidden', 'hiddenAt'])`.
+  - **`functions/src/groupMembers.ts`**: Verificada atomicidad de operaciones, protección del grupo global y comprobación de permisos para el creador.
+  - **Android Layers**: Capas data, domain y presentation (`GroupSettingsScreen`, `GroupViewModel`, `NavGraph`) implementadas de forma limpia reutilizando `UserAvatar` y manejando estados de error y de carga.
+  - **Tests & Analytics**: Cobertura completa en unit tests (Android y Cloud Functions), incluyendo eventos `GroupMemberRemoved` y `GroupMemberUnblocked` en `AppEventTest`.
+  - **Veredicto**: Aprobado sin observaciones bloqueantes.
+
+- **Revisión de Claude contra el diff — 2026-09-08.** Verificado local: `./gradlew compileDebugKotlin
+  compileDebugUnitTestKotlin testDebugUnitTest assembleDebug` verdes; `cd functions && npm run build
+  && npm test` verdes (16). Integración/reglas de functions no corridas local (puerto 8080 ocupado por
+  emulador filtrado) → verificar en CI `functions-verify`. Sin defectos de correctitud/seguridad.
+  Dos pulidos aplicados:
+  - **Paso A (R-1):** `FirebaseGroupDataSource.joinGroup` lanzaba `IllegalStateException` con string
+    español hardcodeado en la capa de datos. Reemplazado por `domain/model/GroupBlockedException`
+    (sin texto), nuevo `GroupActionUiState.BlockedFromGroup`, mapeado en `JoinGroupScreen` a
+    `R.string.group_join_blocked` (es/en) — patrón `AuthError`/`messageRes()`. Tests actualizados
+    (`FirebaseGroupDataSourceTest`, +1 en `GroupViewModelTest`).
+  - **Paso B (R-2):** el `Text` de error de `GroupSettingsUiState.Error` se movió de debajo del botón
+    "Eliminar grupo" a justo encima de la Zona de peligro, bajo la sección de miembros.
+  - Cross-review AGY del diff (2026-09-08): sin issues; confirma el patrón de excepción de dominio,
+    la seguridad de `firestore.rules` y la mejora de UX.
+
+- **Pendiente (usuario):** `firebase deploy --only firestore:rules,storage` **y**
+  `firebase deploy --only functions`; confirmar CI verde; commit/push.

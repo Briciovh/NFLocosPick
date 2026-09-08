@@ -48,6 +48,24 @@ class AppEventTest {
     }
 
     @Test
+    fun `GroupMemberRemoved and GroupMemberUnblocked carry expected params`() {
+        val removed = AppEvent.GroupMemberRemoved("g1", "u2", blocked = true)
+        assertThat(removed.name).isEqualTo("group_member_removed")
+        assertThat(removed.params).containsExactly(
+            "group_id", "g1",
+            "target_user_id", "u2",
+            "blocked", true
+        )
+
+        val unblocked = AppEvent.GroupMemberUnblocked("g1", "u2")
+        assertThat(unblocked.name).isEqualTo("group_member_unblocked")
+        assertThat(unblocked.params).containsExactly(
+            "group_id", "g1",
+            "target_user_id", "u2"
+        )
+    }
+
+    @Test
     fun `PickSubmitted includes team_name only when non-null and keeps week_number as Int`() {
         val full = AppEvent.PickSubmitted(
             groupId = "g1", weekId = "2025-week-01", gameId = "401",
@@ -134,7 +152,7 @@ class AppEventTest {
     }
 
     private companion object {
-        const val EXPECTED_EVENT_TYPES = 37
+        const val EXPECTED_EVENT_TYPES = 39
 
         val allEventSamples: List<AppEvent> = listOf(
             AppEvent.SignIn("x"), AppEvent.SignUp("x"), AppEvent.SignOut, AppEvent.AccountDeleted,
@@ -142,6 +160,7 @@ class AppEventTest {
             AppEvent.GroupJoined("g", "n", "s"), AppEvent.GroupOpened("g", null, "s"),
             AppEvent.ScoringCompleted("g", 0, "s"), AppEvent.GroupPhotoUploaded("g"),
             AppEvent.GroupIconSet("g", "i"), AppEvent.GroupRenamed("g"), AppEvent.GroupDeleted("g"),
+            AppEvent.GroupMemberRemoved("g", "u", true), AppEvent.GroupMemberUnblocked("g", "u"),
             AppEvent.PickSubmitted("g", "w", "ga", "KC", null, "REGULAR", 1),
             AppEvent.WeekTabSelected("g", "REGULAR", 1), AppEvent.PickRefresh("g"),
             AppEvent.PickAutoRefreshFailed("g"), AppEvent.LeaderboardViewed("g", null),

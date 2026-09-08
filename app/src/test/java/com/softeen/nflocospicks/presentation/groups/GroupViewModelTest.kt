@@ -4,6 +4,7 @@ import com.softeen.nflocospicks.analytics.AppLogger
 import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
 import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.model.GroupBlockedException
 import com.softeen.nflocospicks.domain.model.JoinGroupResult
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
@@ -13,9 +14,11 @@ import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
 import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.RemoveGroupMemberUseCase
 import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
+import com.softeen.nflocospicks.domain.usecase.UnblockGroupMemberUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
 import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
 import com.softeen.nflocospicks.util.MainCoroutineRule
@@ -45,6 +48,8 @@ class GroupViewModelTest {
     private val setGroupIconUseCase = mockk<SetGroupIconUseCase>()
     private val renameGroupUseCase = mockk<RenameGroupUseCase>()
     private val deleteGroupUseCase = mockk<DeleteGroupUseCase>()
+    private val removeGroupMemberUseCase = mockk<RemoveGroupMemberUseCase>()
+    private val unblockGroupMemberUseCase = mockk<UnblockGroupMemberUseCase>()
     private val watchBoardMessagesUseCase = mockk<WatchBoardMessagesUseCase>()
     private val userRepo            = mockk<UserRepository>()
     private val prefsRepo           = mockk<UserPreferencesRepository>()
@@ -66,6 +71,7 @@ class GroupViewModelTest {
     fun setUp() {
         // Base setup shared by tests that need a logged-in user with no groups yet.
         every { userRepo.getCurrentUser() }   returns testUser
+        every { userRepo.getAllUsers() }      returns flowOf(emptyList())
         every { getGroupsUseCase(any()) }     returns flowOf(emptyList())
         every { prefsRepo.preferencesFlow }   returns flowOf(UserPreferences())
         every { watchBoardMessagesUseCase(any()) } returns flowOf(emptyList())
@@ -74,18 +80,20 @@ class GroupViewModelTest {
     // ── Factory ───────────────────────────────────────────────────────────────
 
     private fun viewModel() = GroupViewModel(
-        createGroupUseCase      = createGroupUseCase,
-        joinGroupUseCase        = joinGroupUseCase,
-        getGroupsForUserUseCase = getGroupsUseCase,
-        scoreWeekPicksUseCase   = scoreUseCase,
-        uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
-        setGroupIconUseCase     = setGroupIconUseCase,
-        renameGroupUseCase      = renameGroupUseCase,
-        deleteGroupUseCase      = deleteGroupUseCase,
+        createGroupUseCase        = createGroupUseCase,
+        joinGroupUseCase          = joinGroupUseCase,
+        getGroupsForUserUseCase   = getGroupsUseCase,
+        scoreWeekPicksUseCase     = scoreUseCase,
+        uploadGroupPhotoUseCase   = uploadGroupPhotoUseCase,
+        setGroupIconUseCase       = setGroupIconUseCase,
+        renameGroupUseCase        = renameGroupUseCase,
+        deleteGroupUseCase        = deleteGroupUseCase,
+        removeGroupMemberUseCase  = removeGroupMemberUseCase,
+        unblockGroupMemberUseCase = unblockGroupMemberUseCase,
         watchBoardMessagesUseCase = watchBoardMessagesUseCase,
-        userRepository          = userRepo,
-        preferencesRepository   = prefsRepo,
-        logger                  = logger
+        userRepository            = userRepo,
+        preferencesRepository     = prefsRepo,
+        logger                    = logger
     )
 
     // ── Tests ─────────────────────────────────────────────────────────────────
@@ -156,6 +164,16 @@ class GroupViewModelTest {
 
         val state = vm.actionState.value as GroupActionUiState.Error
         assertEquals("Código de invitación inválido", state.message)
+    }
+
+    @Test
+    fun `joinGroup when the user is blocked sets the BlockedFromGroup state`() = runTest(coroutineRule.dispatcher) {
+        coEvery { joinGroupUseCase(any(), any()) } throws GroupBlockedException()
+
+        val vm = viewModel()
+        vm.joinGroup("ABC123")
+
+        assertEquals(GroupActionUiState.BlockedFromGroup, vm.actionState.value)
     }
 
     @Test
@@ -300,5 +318,133 @@ class GroupViewModelTest {
         vm.renameGroup(globalGroup, requesterUserId = "user1", newName = "Nuevo")
 
         coVerify(exactly = 0) { renameGroupUseCase(any(), any()) }
+    }
+
+    // ── removeGroupMember ─────────────────────────────────────────────────────
+
+    @Test
+    fun `removeGroupMember with block=false on success sets Idle and logs GroupMemberRemoved`() = runTest(coroutineRule.dispatcher) {
+        coEvery { removeGroupMemberUseCase("g1", "u2", false) } just Runs
+        val vm = viewModel()
+
+        vm.removeGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2", block = false)
+
+        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
+        verify {
+            logger.logEvent(match {
+                it.name == "group_member_removed" &&
+                    it.params["group_id"] == "g1" &&
+                    it.params["target_user_id"] == "u2" &&
+                    it.params["blocked"] == false
+            })
+        }
+    }
+
+    @Test
+    fun `removeGroupMember with block=true on success sets Idle and logs GroupMemberRemoved with blocked=true`() = runTest(coroutineRule.dispatcher) {
+        coEvery { removeGroupMemberUseCase("g1", "u2", true) } just Runs
+        val vm = viewModel()
+
+        vm.removeGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2", block = true)
+
+        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
+        verify {
+            logger.logEvent(match {
+                it.name == "group_member_removed" &&
+                    it.params["group_id"] == "g1" &&
+                    it.params["target_user_id"] == "u2" &&
+                    it.params["blocked"] == true
+            })
+        }
+    }
+
+    @Test
+    fun `removeGroupMember by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+
+        vm.removeGroupMember(stubGroup, requesterUserId = "intruder", targetUserId = "u2", block = false)
+
+        coVerify(exactly = 0) { removeGroupMemberUseCase(any(), any(), any()) }
+    }
+
+    @Test
+    fun `removeGroupMember on the global group is a no-op`() = runTest(coroutineRule.dispatcher) {
+        val globalGroup = stubGroup.copy(id = GlobalGroupConstants.GROUP_ID)
+        val vm = viewModel()
+
+        vm.removeGroupMember(globalGroup, requesterUserId = "user1", targetUserId = "u2", block = false)
+
+        coVerify(exactly = 0) { removeGroupMemberUseCase(any(), any(), any()) }
+    }
+
+    @Test
+    fun `removeGroupMember on the mock group is a no-op`() = runTest(coroutineRule.dispatcher) {
+        val mockGroup = stubGroup.copy(id = MockDataProvider.MOCK_GROUP_ID)
+        val vm = viewModel()
+
+        vm.removeGroupMember(mockGroup, requesterUserId = "user1", targetUserId = "u2", block = false)
+
+        coVerify(exactly = 0) { removeGroupMemberUseCase(any(), any(), any()) }
+    }
+
+    @Test
+    fun `removeGroupMember when target is creator is a no-op`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+
+        vm.removeGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "user1", block = false)
+
+        coVerify(exactly = 0) { removeGroupMemberUseCase(any(), any(), any()) }
+    }
+
+    @Test
+    fun `removeGroupMember on failure transitions groupSettingsState to Error`() = runTest(coroutineRule.dispatcher) {
+        coEvery { removeGroupMemberUseCase("g1", "u2", false) } throws RuntimeException("network down")
+        val vm = viewModel()
+
+        vm.removeGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2", block = false)
+
+        val state = vm.groupSettingsState.value
+        assertTrue(state is GroupSettingsUiState.Error)
+        assertEquals("network down", (state as GroupSettingsUiState.Error).message)
+    }
+
+    // ── unblockGroupMember ───────────────────────────────────────────────────
+
+    @Test
+    fun `unblockGroupMember on success sets Idle and logs GroupMemberUnblocked`() = runTest(coroutineRule.dispatcher) {
+        coEvery { unblockGroupMemberUseCase("g1", "u2") } just Runs
+        val vm = viewModel()
+
+        vm.unblockGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2")
+
+        assertEquals(GroupSettingsUiState.Idle, vm.groupSettingsState.value)
+        verify {
+            logger.logEvent(match {
+                it.name == "group_member_unblocked" &&
+                    it.params["group_id"] == "g1" &&
+                    it.params["target_user_id"] == "u2"
+            })
+        }
+    }
+
+    @Test
+    fun `unblockGroupMember by a non-creator is a no-op`() = runTest(coroutineRule.dispatcher) {
+        val vm = viewModel()
+
+        vm.unblockGroupMember(stubGroup, requesterUserId = "intruder", targetUserId = "u2")
+
+        coVerify(exactly = 0) { unblockGroupMemberUseCase(any(), any()) }
+    }
+
+    @Test
+    fun `unblockGroupMember on failure transitions groupSettingsState to Error`() = runTest(coroutineRule.dispatcher) {
+        coEvery { unblockGroupMemberUseCase("g1", "u2") } throws RuntimeException("server error")
+        val vm = viewModel()
+
+        vm.unblockGroupMember(stubGroup, requesterUserId = "user1", targetUserId = "u2")
+
+        val state = vm.groupSettingsState.value
+        assertTrue(state is GroupSettingsUiState.Error)
+        assertEquals("server error", (state as GroupSettingsUiState.Error).message)
     }
 }

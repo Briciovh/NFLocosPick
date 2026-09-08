@@ -141,6 +141,32 @@ describe("groups/{groupId}", () => {
     await assertSucceeds(updateDoc(doc(alice(), "groups/g1"), { memberIds: ["alice"] }));
   });
 
+  it("a blocked user cannot self-join; non-blocked can; non-creator cannot modify blockedIds", async () => {
+    await seed((db) =>
+      setDoc(doc(db, "groups/g1"), {
+        name: "Los Locos",
+        inviteCode: "ABC123",
+        createdBy: "alice",
+        memberIds: ["alice", "bob"],
+        blockedIds: ["carol"],
+      }),
+    );
+    const carol = env.authenticatedContext("carol").firestore();
+    const dave = env.authenticatedContext("dave").firestore();
+
+    // Blocked carol cannot self-join
+    await assertFails(updateDoc(doc(carol, "groups/g1"), { memberIds: ["alice", "bob", "carol"] }));
+
+    // Non-blocked dave can self-join
+    await assertSucceeds(updateDoc(doc(dave, "groups/g1"), { memberIds: ["alice", "bob", "dave"] }));
+
+    // Non-creator (bob) cannot touch blockedIds
+    await assertFails(updateDoc(doc(bob(), "groups/g1"), { blockedIds: [] }));
+
+    // Creator (alice) can update blockedIds
+    await assertSucceeds(updateDoc(doc(alice(), "groups/g1"), { blockedIds: ["carol", "dave"] }));
+  });
+
   it("delete is denied for everyone, including the creator", async () => {
     await seedGroup();
     await assertFails(deleteDoc(doc(alice(), "groups/g1")));
@@ -158,11 +184,17 @@ describe("groups/{g}/weeks/{w} and picks/results", () => {
     await assertFails(setDoc(doc(bob(), "groups/g1/weeks/w1"), { games: [], hacked: true }));
   });
 
-  it("a user writes only their own pick doc; members read, non-members do not", async () => {
+  it("a user writes only their own pick doc and MUST be a member; non-members cannot write or read", async () => {
+    const carol = env.authenticatedContext("carol").firestore();
+    // Bob is a member: can write his own picks
     await assertSucceeds(setDoc(doc(bob(), "groups/g1/weeks/w1/picks/bob"), { g1: { pickedTeam: "KC" } }));
+    // Alice cannot write Bob's picks
     await assertFails(setDoc(doc(alice(), "groups/g1/weeks/w1/picks/bob"), { g1: { pickedTeam: "x" } }));
+    // Carol is not a member: cannot write her own picks in this group (finding AGY #1)
+    await assertFails(setDoc(doc(carol, "groups/g1/weeks/w1/picks/carol"), { g1: { pickedTeam: "KC" } }));
+    // Members read, non-members do not
     await assertSucceeds(getDoc(doc(alice(), "groups/g1/weeks/w1/picks/bob")));
-    await assertFails(getDoc(doc(env.authenticatedContext("carol").firestore(), "groups/g1/weeks/w1/picks/bob")));
+    await assertFails(getDoc(doc(carol, "groups/g1/weeks/w1/picks/bob")));
   });
 
   it("results are readable by members but never client-writable", async () => {
@@ -207,10 +239,58 @@ describe("groups/{g}/board/{messageId}", () => {
 describe("standings/{g}/members/{uid}", () => {
   beforeEach(seedGroup);
 
-  it("members read, nobody writes from the client", async () => {
+  it("members read; non-members do not; client create and delete are denied", async () => {
     await seed((db) => setDoc(doc(db, "standings/g1/members/bob"), { totalPoints: 3, weeklyBreakdown: {} }));
     await assertSucceeds(getDoc(doc(bob(), "standings/g1/members/bob")));
     await assertFails(getDoc(doc(env.authenticatedContext("carol").firestore(), "standings/g1/members/bob")));
     await assertFails(setDoc(doc(bob(), "standings/g1/members/bob"), { totalPoints: 999, weeklyBreakdown: {} }));
+    await assertFails(deleteDoc(doc(bob(), "standings/g1/members/bob")));
+  });
+
+  it("a member can only update hidden and hiddenAt on their own standing (unhide carve-out)", async () => {
+    await seed((db) =>
+      setDoc(doc(db, "standings/g1/members/bob"), {
+        totalPoints: 10,
+        weeklyBreakdown: { w1: 10 },
+        hidden: true,
+        hiddenAt: 12345,
+      }),
+    );
+
+    // Bob (member and owner) can update hidden / hiddenAt
+    await assertSucceeds(
+      updateDoc(doc(bob(), "standings/g1/members/bob"), {
+        hidden: false,
+        hiddenAt: 67890,
+      }),
+    );
+
+    // Bob cannot modify totalPoints or weeklyBreakdown
+    await assertFails(
+      updateDoc(doc(bob(), "standings/g1/members/bob"), {
+        totalPoints: 999,
+      }),
+    );
+
+    // Alice (admin/other user) cannot update Bob's standing
+    await assertFails(
+      updateDoc(doc(alice(), "standings/g1/members/bob"), {
+        hidden: false,
+      }),
+    );
+
+    // Carol (non-member) cannot update even if it's her uid
+    await seed((db) =>
+      setDoc(doc(db, "standings/g1/members/carol"), {
+        totalPoints: 0,
+        hidden: true,
+      }),
+    );
+    const carol = env.authenticatedContext("carol").firestore();
+    await assertFails(
+      updateDoc(doc(carol, "standings/g1/members/carol"), {
+        hidden: false,
+      }),
+    );
   });
 });

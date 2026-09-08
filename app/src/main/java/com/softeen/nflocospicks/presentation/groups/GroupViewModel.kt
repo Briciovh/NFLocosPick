@@ -9,45 +9,57 @@ import com.softeen.nflocospicks.data.mock.MockDataProvider
 import com.softeen.nflocospicks.domain.model.BoardMessage
 import com.softeen.nflocospicks.domain.model.GlobalGroupConstants
 import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.model.GroupBlockedException
+import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.repository.UserPreferencesRepository
 import com.softeen.nflocospicks.domain.repository.UserRepository
 import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
 import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.RemoveGroupMemberUseCase
 import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
+import com.softeen.nflocospicks.domain.usecase.UnblockGroupMemberUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
 import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import timber.log.Timber
 
 @HiltViewModel
 class GroupViewModel @Inject constructor(
-    private val createGroupUseCase      : CreateGroupUseCase,
-    private val joinGroupUseCase        : JoinGroupUseCase,
-    private val getGroupsForUserUseCase : GetGroupsForUserUseCase,
-    private val scoreWeekPicksUseCase   : ScoreWeekPicksUseCase,
-    private val uploadGroupPhotoUseCase : UploadGroupPhotoUseCase,
-    private val setGroupIconUseCase     : SetGroupIconUseCase,
-    private val renameGroupUseCase      : RenameGroupUseCase,
-    private val deleteGroupUseCase      : DeleteGroupUseCase,
+    private val createGroupUseCase        : CreateGroupUseCase,
+    private val joinGroupUseCase          : JoinGroupUseCase,
+    private val getGroupsForUserUseCase   : GetGroupsForUserUseCase,
+    private val scoreWeekPicksUseCase     : ScoreWeekPicksUseCase,
+    private val uploadGroupPhotoUseCase   : UploadGroupPhotoUseCase,
+    private val setGroupIconUseCase       : SetGroupIconUseCase,
+    private val renameGroupUseCase        : RenameGroupUseCase,
+    private val deleteGroupUseCase        : DeleteGroupUseCase,
+    private val removeGroupMemberUseCase  : RemoveGroupMemberUseCase,
+    private val unblockGroupMemberUseCase : UnblockGroupMemberUseCase,
     private val watchBoardMessagesUseCase : WatchBoardMessagesUseCase,
-    private val userRepository          : UserRepository,
-    private val preferencesRepository   : UserPreferencesRepository,
-    private val logger                  : AppLogger
+    private val userRepository            : UserRepository,
+    private val preferencesRepository     : UserPreferencesRepository,
+    private val logger                    : AppLogger
 ) : ViewModel() {
+
+    /** Lista completa de usuarios para resolver nombres/avatares en GroupSettingsScreen. */
+    val allUsers: StateFlow<List<User>> = userRepository.getAllUsers()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _groupListState = MutableStateFlow<GroupListUiState>(GroupListUiState.Loading)
     val groupListState: StateFlow<GroupListUiState> = _groupListState.asStateFlow()
@@ -146,6 +158,8 @@ class GroupViewModel @Inject constructor(
                 effects.send(GroupUiEffect.GroupJoined(result.group.name, result.alreadyMember))
             } catch (e: NoSuchElementException) {
                 _actionState.value = GroupActionUiState.Error("Código de invitación inválido")
+            } catch (e: GroupBlockedException) {
+                _actionState.value = GroupActionUiState.BlockedFromGroup
             } catch (e: Exception) {
                 _actionState.value = GroupActionUiState.Error(e.message ?: "Error al unirse al grupo")
             }
@@ -259,6 +273,45 @@ class GroupViewModel @Inject constructor(
             } catch (e: Exception) {
                 _groupSettingsState.value =
                     GroupSettingsUiState.Error(e.message ?: "Error al eliminar el grupo")
+            }
+        }
+    }
+
+    /**
+     * Quita a [targetUserId] del grupo y opcionalmente lo bloquea vía [removeGroupMemberUseCase].
+     * Aplica el guard de permisos [canManageGroup] y evita que el admin se quite a sí mismo.
+     */
+    fun removeGroupMember(group: Group, requesterUserId: String, targetUserId: String, block: Boolean) {
+        if (!canManageGroup(group, requesterUserId)) return
+        if (targetUserId == group.createdBy) return
+        viewModelScope.launch {
+            _groupSettingsState.value = GroupSettingsUiState.Working
+            try {
+                removeGroupMemberUseCase(group.id, targetUserId, block)
+                _groupSettingsState.value = GroupSettingsUiState.Idle
+                logger.logEvent(AppEvent.GroupMemberRemoved(group.id, targetUserId, block))
+            } catch (e: Exception) {
+                _groupSettingsState.value =
+                    GroupSettingsUiState.Error(e.message ?: "Error al quitar al miembro")
+            }
+        }
+    }
+
+    /**
+     * Desbloquea a [targetUserId] del grupo vía [unblockGroupMemberUseCase].
+     * Aplica el guard de permisos [canManageGroup].
+     */
+    fun unblockGroupMember(group: Group, requesterUserId: String, targetUserId: String) {
+        if (!canManageGroup(group, requesterUserId)) return
+        viewModelScope.launch {
+            _groupSettingsState.value = GroupSettingsUiState.Working
+            try {
+                unblockGroupMemberUseCase(group.id, targetUserId)
+                _groupSettingsState.value = GroupSettingsUiState.Idle
+                logger.logEvent(AppEvent.GroupMemberUnblocked(group.id, targetUserId))
+            } catch (e: Exception) {
+                _groupSettingsState.value =
+                    GroupSettingsUiState.Error(e.message ?: "Error al desbloquear al miembro")
             }
         }
     }

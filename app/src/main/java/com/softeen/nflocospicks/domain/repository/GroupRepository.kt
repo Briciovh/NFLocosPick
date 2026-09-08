@@ -61,4 +61,21 @@ interface GroupRepository {
      * función valida que el solicitante sea el creador y rechaza el grupo global.
      */
     suspend fun deleteGroup(groupId: String)
+
+    /**
+     * Quita a [targetUserId] del grupo [groupId] y opcionalmente lo bloquea vía la
+     * Cloud Function `removeGroupMember` (Admin SDK). Oculta su standing del
+     * leaderboard (`hidden: true`). La función valida que el solicitante sea el
+     * creador (`createdBy`), rechaza el grupo global y no permite que el admin se
+     * quite a sí mismo.
+     */
+    suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean)
+
+    /**
+     * Desbloquea a [targetUserId] del grupo [groupId] vía la Cloud Function
+     * `unblockGroupMember` (Admin SDK). Solo retira el ID de `blockedIds` para
+     * permitirle volver a unirse. La función valida que el solicitante sea el creador
+     * y rechaza el grupo global.
+     */
+    suspend fun unblockGroupMember(groupId: String, targetUserId: String)
 }

@@ -7,6 +7,7 @@ import { fetchCurrentWeekGames, computeWinners } from "./espn";
 import { scoreGroupForWeek } from "./scoring";
 import { deleteUserAccount } from "./accountDeletion";
 import { deleteGroupCompletely } from "./groupDeletion";
+import { removeGroupMember as removeGroupMemberImpl, unblockGroupMember as unblockGroupMemberImpl } from "./groupMembers";
 import { seedGlobalStanding } from "./globalGroup";
 import { deactivateInactiveUsers, reactivateUser } from "./inactivity";
 
@@ -105,6 +106,43 @@ export const deleteGroup = onCall<{ groupId?: string }>(async (request) => {
   }
 
   await deleteGroupCompletely(groupId, uid);
+  return { success: true };
+});
+
+/**
+ * Quita a un miembro de un grupo y, opcionalmente, lo bloquea.
+ * Solo el creador del grupo puede hacerlo; nunca se permite en el grupo global
+ * ni que el creador se quite a sí mismo.
+ */
+export const removeGroupMember = onCall<{ groupId?: string; targetUid?: string; block?: boolean }>(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+  const { groupId, targetUid } = request.data;
+  if (!groupId || !targetUid) {
+    throw new HttpsError("invalid-argument", "Faltan datos.");
+  }
+
+  await removeGroupMemberImpl(groupId, uid, targetUid, request.data.block === true);
+  return { success: true };
+});
+
+/**
+ * Desbloquea a un usuario previamente bloqueado de un grupo.
+ * Solo quita a targetUid de blockedIds.
+ */
+export const unblockGroupMember = onCall<{ groupId?: string; targetUid?: string }>(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  }
+  const { groupId, targetUid } = request.data;
+  if (!groupId || !targetUid) {
+    throw new HttpsError("invalid-argument", "Faltan datos.");
+  }
+
+  await unblockGroupMemberImpl(groupId, uid, targetUid);
   return { success: true };
 });
 

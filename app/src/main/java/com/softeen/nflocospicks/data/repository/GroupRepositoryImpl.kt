@@ -35,4 +35,10 @@ class GroupRepositoryImpl @Inject constructor(
 
     override suspend fun deleteGroup(groupId: String) =
         dataSource.deleteGroup(groupId)
+
+    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) =
+        dataSource.removeGroupMember(groupId, targetUserId, block)
+
+    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) =
+        dataSource.unblockGroupMember(groupId, targetUserId)
 }

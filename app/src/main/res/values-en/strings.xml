@@ -78,6 +78,15 @@
     <string name="group_settings_delete_dialog_title">Delete this group?</string>
     <string name="group_settings_delete_dialog_body">The group, its weeks, all picks, board messages and the standings of every member will be deleted. This action cannot be undone.</string>
     <string name="group_settings_delete_dialog_confirm">Delete group</string>
+    <string name="group_settings_members">Members</string>
+    <string name="group_settings_blocked">Blocked</string>
+    <string name="group_member_tag_admin">(admin)</string>
+    <string name="group_member_tag_you">(you)</string>
+    <string name="cd_group_member_actions">Member actions</string>
+    <string name="group_member_actions_body">Choose what to do with this member.</string>
+    <string name="group_member_remove">Remove from group</string>
+    <string name="group_member_block">Block — cannot rejoin</string>
+    <string name="group_member_unblock">Unblock</string>
 
     <!-- Create Group -->
     <string name="create_group_heading">Create Group</string>
@@ -101,6 +110,7 @@
     <string name="join_group_code_hint">Invite code</string>
     <string name="join_group_btn">Join</string>
     <string name="join_group_prefilled_notice">Invite code detected</string>
+    <string name="group_join_blocked">You\'ve been blocked from this group.</string>
 
     <!-- Picks -->
     <string name="picks_no_games">No games this week.</string>

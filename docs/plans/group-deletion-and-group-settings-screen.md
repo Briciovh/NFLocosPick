@@ -26,10 +26,9 @@ ya se usa en `GroupHeaderBar.kt:52`, `GroupViewModel.kt:185/199`, `BoardViewMode
 **Grupo global** (`GlobalGroupConstants.GROUP_ID = "global_nflocos_de_corazon"`): nunca borrable,
 y el engrane/acción de settings se ocultan para él (como ya se ocultan copiar/compartir código).
 
-> **Nota Rule 10 / Codex:** el CLI de Codex está sin cuota hasta ~4 oct 2026. Por decisión del
-> usuario (2026-09-05) **se omite Codex en todos los pasos** (plan e implementación) por ahora; el
-> cross-review corre solo con Antigravity (`agy.exe`) hasta esa fecha. El review de plan con AGY ya
-> está hecho — ver "Cross-Review Log".
+> **Nota Rule 10:** Codex quedó deshabilitado por completo del flujo de cross-review (decisión
+> del usuario, 2026-09-07). El cross-review corre solo con Antigravity (`agy.exe`). El review de
+> plan con AGY ya está hecho — ver "Cross-Review Log".
 
 ---
 
@@ -227,10 +226,9 @@ solo admin.
 - **Cobertura de tests** (solo unit / `./gradlew test`; los instrumentados corren en CI):
   `DeleteGroupUseCaseTest`, `RenameGroupUseCaseTest`, `FirebaseGroupDataSourceTest` (casos nuevos),
   `GroupViewModelTest` (casos nuevos), fakes de `GroupRepository` actualizados (Paso 2).
-- **Cross-review de implementación:** por decisión del usuario (2026-09-05) **solo AGY** hasta el
-  ~4 oct: `agy.exe --mode plan --dangerously-skip-permissions -p "Review the current uncommitted git diff for correctness, security, and design issues" --model gemini-3.1-pro-high --effort high`.
-  Documentar hallazgos en el Cross-Review Log. (Cuando Codex recupere cuota, correr también
-  `codex exec review --uncommitted` sobre lo que quede sin mergear.)
+- **Cross-review de implementación:** **solo AGY** (Codex deshabilitado del flujo):
+  `agy.exe --mode plan --dangerously-skip-permissions -p "Review the current uncommitted git diff for correctness, security, and design issues" --model gemini-3.1-pro-high --effort high`.
+  Documentar hallazgos en el Cross-Review Log.
 - **Gradle:** no cambian archivos Gradle ⇒ no `./gradlew dependencies`. Correr `./gradlew assembleDebug`
   y `./gradlew test`; arreglar y re-correr hasta verde.
 - **Branch:** feature nueva fuera del roadmap (p. ej. `feature/group-deletion`); el usuario decide
@@ -254,9 +252,8 @@ solo admin.
   | CR-4 | `try/catch` general al borrar la foto de Storage traga errores legítimos (IAM, red), no solo el 404. | **Válido parcialmente.** Re-lanzar tras borrar Firestore reportaría como fallida una eliminación ya hecha — peor. | Adoptado parcial — `logger.warn` (visible) en el catch, sin re-lanzar (Paso 1). |
   | CR-5 | `scoreGroupWeek`/`scheduledScoring` concurrente con `deleteGroup` podría re-crear `results/**`/`picks/**` huérfanos tras `recursiveDelete`. | **Válido, riesgo bajo.** `scoreGroupForWeek` lee `groups/{id}` primero. | Adoptado — `deleteGroup` hace `groupRef.delete()` **antes** del `recursiveDelete`, para que el scoring concurrente aborte temprano (Paso 1). Ventana residual mínima; huérfanos inertes. |
 
-- **Codex (`codex exec`)** — **omitido por decisión del usuario (2026-09-05)**: CLI sin cuota hasta
-  ~4 oct 2026. Se corrió solo AGY. Reintentar Codex sobre el plan/diff cuando haya cuota si aún no se
-  ha mergeado.
+- **Codex** — deshabilitado por completo del flujo de cross-review (decisión del usuario,
+  2026-09-07). Se corrió solo AGY; no hay revisión de Codex pendiente.
 
 ### Review de implementación
 

@@ -81,6 +81,15 @@
     <string name="group_settings_delete_dialog_title">¿Eliminar este grupo?</string>
     <string name="group_settings_delete_dialog_body">Se eliminarán el grupo, sus semanas, todos los picks, los mensajes del muro y la tabla de posiciones de todos los miembros. Esta acción no se puede deshacer.</string>
     <string name="group_settings_delete_dialog_confirm">Eliminar grupo</string>
+    <string name="group_settings_members">Miembros</string>
+    <string name="group_settings_blocked">Bloqueados</string>
+    <string name="group_member_tag_admin">(admin)</string>
+    <string name="group_member_tag_you">(tú)</string>
+    <string name="cd_group_member_actions">Acciones del miembro</string>
+    <string name="group_member_actions_body">Elige qué hacer con este miembro.</string>
+    <string name="group_member_remove">Eliminar del grupo</string>
+    <string name="group_member_block">Bloquear — no podrá volver a entrar</string>
+    <string name="group_member_unblock">Desbloquear</string>
 
     <!-- Create Group -->
     <string name="create_group_heading">Crear Grupo</string>
@@ -104,6 +113,7 @@
     <string name="join_group_code_hint">Código de invitación</string>
     <string name="join_group_btn">Unirme</string>
     <string name="join_group_prefilled_notice">Código de invitación detectado</string>
+    <string name="group_join_blocked">Has sido bloqueado de este grupo.</string>
 
     <!-- Picks -->
     <string name="picks_no_games">No hay partidos esta semana.</string>

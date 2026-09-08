@@ -27,6 +27,8 @@ private class CapturingGroupRepository : GroupRepository {
     override suspend fun setGroupIcon(groupId: String, iconId: String): Result<Unit> = throw NotImplementedError()
     override suspend fun renameGroup(groupId: String, newName: String) = throw NotImplementedError()
     override suspend fun deleteGroup(groupId: String) = throw NotImplementedError()
+    override suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) = throw NotImplementedError()
+    override suspend fun unblockGroupMember(groupId: String, targetUserId: String) = throw NotImplementedError()
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

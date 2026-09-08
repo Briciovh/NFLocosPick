@@ -114,6 +114,8 @@ class ThinRepositoryDelegationTest {
         assertThat(groupRepo.getGroupsForUser("u1").first()).containsExactly(group)
         groupRepo.renameGroup("g1", "Nuevo")
         groupRepo.deleteGroup("g1")
+        groupRepo.removeGroupMember("g1", "u2", true)
+        groupRepo.unblockGroupMember("g1", "u2")
 
         coVerify(exactly = 1) { groupDs.createGroup("Los Locos", "u1") }
         coVerify(exactly = 1) { groupDs.joinGroup("ABC123", "u2") }
@@ -121,6 +123,8 @@ class ThinRepositoryDelegationTest {
         verify(exactly = 1) { groupDs.getGroupsForUser("u1") }
         coVerify(exactly = 1) { groupDs.renameGroup("g1", "Nuevo") }
         coVerify(exactly = 1) { groupDs.deleteGroup("g1") }
+        coVerify(exactly = 1) { groupDs.removeGroupMember("g1", "u2", true) }
+        coVerify(exactly = 1) { groupDs.unblockGroupMember("g1", "u2") }
     }
 
     @Test

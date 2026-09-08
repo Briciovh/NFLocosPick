@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to any AGENTS.md-compatible coding agent (Antigravity CLI, Codex, Cursor, etc.) working in this repository.
+This file provides guidance to any AGENTS.md-compatible coding agent (Antigravity CLI, Cursor, etc.) working in this repository.
 
 **`CLAUDE.md` is the source of truth for this project.** It is a superset of everything below and is kept current first; this file and `.agents/rules/*.md` are mirrors of it, split up because most agent tools cap a single rules file at ~12,000 characters (`CLAUDE.md` itself is ~43,000). If anything here conflicts with `CLAUDE.md`, `CLAUDE.md` wins — flag the conflict rather than silently picking one.
 

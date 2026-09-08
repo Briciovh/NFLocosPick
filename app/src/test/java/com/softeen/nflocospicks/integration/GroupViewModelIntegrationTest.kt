@@ -12,9 +12,11 @@ import com.softeen.nflocospicks.domain.usecase.CreateGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.DeleteGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.GetGroupsForUserUseCase
 import com.softeen.nflocospicks.domain.usecase.JoinGroupUseCase
+import com.softeen.nflocospicks.domain.usecase.RemoveGroupMemberUseCase
 import com.softeen.nflocospicks.domain.usecase.RenameGroupUseCase
 import com.softeen.nflocospicks.domain.usecase.ScoreWeekPicksUseCase
 import com.softeen.nflocospicks.domain.usecase.SetGroupIconUseCase
+import com.softeen.nflocospicks.domain.usecase.UnblockGroupMemberUseCase
 import com.softeen.nflocospicks.domain.usecase.UploadGroupPhotoUseCase
 import com.softeen.nflocospicks.domain.usecase.WatchBoardMessagesUseCase
 import com.softeen.nflocospicks.presentation.groups.GroupActionUiState
@@ -66,6 +68,7 @@ class GroupViewModelIntegrationTest {
     @Before
     fun setUp() {
         every { userRepo.getCurrentUser() } returns testUser
+        every { userRepo.getAllUsers() } returns flowOf(emptyList())
         every { prefsRepo.preferencesFlow } returns flowOf(UserPreferences())
         every { watchBoardMessagesUseCase(any()) } returns flowOf(emptyList())
     }
@@ -73,18 +76,20 @@ class GroupViewModelIntegrationTest {
     // ── Factory: real use cases wired to the provided GroupRepository mock ────
 
     private fun viewModel(groupRepo: GroupRepository) = GroupViewModel(
-        createGroupUseCase      = CreateGroupUseCase(groupRepo),       // ← REAL
-        joinGroupUseCase        = JoinGroupUseCase(groupRepo),          // ← REAL
-        getGroupsForUserUseCase = GetGroupsForUserUseCase(groupRepo),   // ← REAL
-        scoreWeekPicksUseCase   = scoreUseCase,
-        uploadGroupPhotoUseCase = uploadGroupPhotoUseCase,
-        setGroupIconUseCase     = setGroupIconUseCase,
-        renameGroupUseCase      = RenameGroupUseCase(groupRepo),         // ← REAL
-        deleteGroupUseCase      = DeleteGroupUseCase(groupRepo),         // ← REAL
+        createGroupUseCase        = CreateGroupUseCase(groupRepo),       // ← REAL
+        joinGroupUseCase          = JoinGroupUseCase(groupRepo),          // ← REAL
+        getGroupsForUserUseCase   = GetGroupsForUserUseCase(groupRepo),   // ← REAL
+        scoreWeekPicksUseCase     = scoreUseCase,
+        uploadGroupPhotoUseCase   = uploadGroupPhotoUseCase,
+        setGroupIconUseCase       = setGroupIconUseCase,
+        renameGroupUseCase        = RenameGroupUseCase(groupRepo),         // ← REAL
+        deleteGroupUseCase        = DeleteGroupUseCase(groupRepo),         // ← REAL
+        removeGroupMemberUseCase  = RemoveGroupMemberUseCase(groupRepo),  // ← REAL
+        unblockGroupMemberUseCase = UnblockGroupMemberUseCase(groupRepo), // ← REAL
         watchBoardMessagesUseCase = watchBoardMessagesUseCase,
-        userRepository          = userRepo,
-        preferencesRepository   = prefsRepo,
-        logger                  = logger
+        userRepository            = userRepo,
+        preferencesRepository     = prefsRepo,
+        logger                    = logger
     )
 
     // ── Tests ─────────────────────────────────────────────────────────────────

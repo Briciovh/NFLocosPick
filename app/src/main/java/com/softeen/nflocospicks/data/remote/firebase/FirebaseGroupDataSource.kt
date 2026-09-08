@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.storage.FirebaseStorage
 import com.softeen.nflocospicks.domain.model.Group
+import com.softeen.nflocospicks.domain.model.GroupBlockedException
 import com.softeen.nflocospicks.domain.model.JoinGroupResult
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -73,6 +74,11 @@ class FirebaseGroupDataSource @Inject constructor(
         val doc = snapshot.documents.firstOrNull()
             ?: throw NoSuchElementException("No group found for invite code: $inviteCode")
 
+        val isBlocked = (doc.get("blockedIds") as? List<*>)?.contains(userId) == true
+        if (isBlocked) {
+            throw GroupBlockedException()
+        }
+
         val alreadyMember = (doc.get("memberIds") as? List<*>)?.contains(userId) == true
         if (alreadyMember) {
             return JoinGroupResult(doc.toGroup(), alreadyMember = true)
@@ -81,6 +87,14 @@ class FirebaseGroupDataSource @Inject constructor(
         firestore.collection(COLLECTION).document(doc.id)
             .update("memberIds", FieldValue.arrayUnion(userId))
             .await()
+
+        // Si el usuario tenía standing previo oculto en este grupo, lo des-ocultamos (best-effort)
+        runCatching {
+            firestore.collection("standings").document(doc.id)
+                .collection("members").document(userId)
+                .update(mapOf("hidden" to FieldValue.delete(), "hiddenAt" to FieldValue.delete()))
+                .await()
+        }
 
         // Re-leemos el documento tras el update para retornar el estado fresco.
         val updated = firestore.collection(COLLECTION).document(doc.id).get().await()
@@ -124,6 +138,26 @@ class FirebaseGroupDataSource @Inject constructor(
             .await()
     }
 
+    /**
+     * Quita a un miembro de un grupo y opcionalmente lo bloquea (Cloud Function Admin SDK).
+     * Oculta el standing en standings/{groupId}/members/{targetUserId}.
+     */
+    suspend fun removeGroupMember(groupId: String, targetUserId: String, block: Boolean) {
+        functions.getHttpsCallable("removeGroupMember")
+            .call(mapOf("groupId" to groupId, "targetUid" to targetUserId, "block" to block))
+            .await()
+    }
+
+    /**
+     * Desbloquea a un miembro de un grupo (Cloud Function Admin SDK).
+     * Solo retira a targetUserId de blockedIds.
+     */
+    suspend fun unblockGroupMember(groupId: String, targetUserId: String) {
+        functions.getHttpsCallable("unblockGroupMember")
+            .call(mapOf("groupId" to groupId, "targetUid" to targetUserId))
+            .await()
+    }
+
     fun getGroupsForUser(userId: String): Flow<List<Group>> = callbackFlow {
         val listener = firestore.collection(COLLECTION)
             .whereArrayContains("memberIds", userId)
@@ -150,5 +184,6 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toGroup(): Group = Gr
     createdBy  = getString("createdBy").orEmpty(),
     memberIds  = (get("memberIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
     photoUrl   = getString("photoUrl"),
-    iconId     = getString("iconId")
+    iconId     = getString("iconId"),
+    blockedIds = (get("blockedIds") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
 )

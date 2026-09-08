@@ -1,8 +1,7 @@
 # Plan: Serie de Fortalecimiento de Cobertura de Tests
 
-> Ubicación in-repo (Rule 8). Los reviewers CLI (Codex, `agy.exe`) leen esta ruta.
-> Decisión del usuario (2026-09-07): se procede con **AGY como único reviewer**; Codex se
-> corre sobre el diff de cada PR cuando vuelva su cuota (límite de uso hasta el 4-oct).
+> Ubicación in-repo (Rule 8). El reviewer CLI (`agy.exe`) lee esta ruta.
+> **AGY es el único reviewer.** Codex quedó deshabilitado por completo del flujo (2026-09-07).
 
 ---
 
@@ -75,8 +74,8 @@ PRs pequeños, cada uno construíble/testeable de forma aislada y aprobado de a 
 
 > Etiquetadas `TC-N` para no chocar con el roadmap PR-N de `CLAUDE.md`. Ramas sugeridas
 > `feature/tc-NN-<slug>`. Cada PR: `./gradlew assembleDebug` + `./gradlew test` verdes
-> antes de commit (Rule 3); cross-review de implementación con AGY (+ Codex cuando haya
-> cuota) (Rule 10); aprobación de a un PR por el usuario (Rule 1).
+> antes de commit (Rule 3); cross-review de implementación con AGY (Rule 10);
+> aprobación de a un PR por el usuario (Rule 1).
 
 ### TC-1 — Helpers puros de presentación y analytics (JVM, sin deps nuevas) — ✅ IMPLEMENTADO 2026-09-07
 
@@ -94,7 +93,7 @@ Máximo valor / mínimo riesgo. Solo archivos de test nuevos, cero cambios de pr
 
 **Verificación:** `./gradlew clean test assembleDebug` ✅ (2026-09-07). Corre en el job `verify`
 de CI de PR existente sin cambios. Cross-review AGY del diff: hecho (ver Cross-Review Log →
-Revisión de implementación → TC-1). Codex: pendiente (cuota).
+Revisión de implementación → TC-1).
 
 ### TC-2 — Repositorios sobre DataStore + transformaciones de MockDataProvider (JVM) — ✅ IMPLEMENTADO 2026-09-07
 
@@ -111,7 +110,7 @@ los 2 tests de este PR, no infra cross-PR; vive en el paquete de test de sus con
 
 **Verificación:** `./gradlew clean test assembleDebug` ✅ (2026-09-07), sin warnings nuevos.
 25 tests nuevos (todos `failures=0`/`errors=0`). Cross-review AGY del diff: hecho (ver
-Cross-Review Log → TC-2). Codex: pendiente (cuota).
+Cross-Review Log → TC-2).
 
 ### TC-3 — Use cases sin cobertura + delegación de repos + branching de ScheduleRepositoryImpl — ✅ IMPLEMENTADO 2026-09-07
 
@@ -129,7 +128,7 @@ el inventario inicial estaba desactualizado). Alcance real de TC-3:
 
 **Verificación:** `./gradlew clean test assembleDebug` ✅ (2026-09-07), sin warnings nuevos.
 27 tests nuevos (todos `failures=0`/`errors=0`). Cross-review AGY del diff: hecho (ver
-Cross-Review Log → TC-3). Codex: pendiente (cuota).
+Cross-Review Log → TC-3).
 
 ### TC-4 — Expandir tests delgados de ViewModel (JVM) — ✅ IMPLEMENTADO 2026-09-07
 
@@ -145,7 +144,7 @@ Cross-Review Log → TC-3). Codex: pendiente (cuota).
 
 **Verificación:** `./gradlew clean test assembleDebug` ✅ (2026-09-07), sin warnings nuevos.
 27 tests nuevos (todos `failures=0`/`errors=0`). Cross-review AGY del diff: hecho (ver
-Cross-Review Log → TC-4). Codex: pendiente (cuota).
+Cross-Review Log → TC-4).
 
 ### TC-5 — Harness de test para Cloud Functions + cobertura de lógica pura — ✅ IMPLEMENTADO 2026-09-07
 
@@ -175,7 +174,7 @@ Primer PR de infra nueva, **aislado a `functions/`** (+ CI).
   Node 22 + cache npm, `npm ci`, `npm test`, `npm run build`; `working-directory: functions`).
 
 **Verificación:** `cd functions && npm ci && npm test && npm run build` ✅ (2026-09-07, 16/16).
-Cross-review AGY del diff: hecho (ver Cross-Review Log → TC-5). Codex: pendiente (cuota).
+Cross-review AGY del diff: hecho (ver Cross-Review Log → TC-5).
 
 ### TC-6 — Cloud Functions: lógica atada a Firestore vía emulador — ✅ IMPLEMENTADO 2026-09-07
 
@@ -234,7 +233,7 @@ Cross-review AGY del diff: hecho (ver Cross-Review Log → TC-5). Codex: pendien
 
 **Verificación:** `cd functions && npm ci && npm test && npm run test:integration && npm run build`
 ✅ (2026-09-07 — unit 16/16, integration 27/27, build limpio). Cross-review AGY del diff:
-hecho (ver Cross-Review Log → TC-6). Codex: pendiente (cuota).
+hecho (ver Cross-Review Log → TC-6).
 
 ### TC-7 — Tests de reglas de seguridad Firestore + Storage — ✅ IMPLEMENTADO 2026-09-07
 
@@ -280,7 +279,7 @@ hecho (ver Cross-Review Log → TC-6). Codex: pendiente (cuota).
   JDK 21 + cache de emuladores de TC-6).
 
 **Verificación:** `cd functions && npm run test:rules` ✅ (2026-09-07, 28 pass + 1 todo).
-Cross-review AGY del diff: hecho (ver Cross-Review Log → TC-7). Codex: pendiente (cuota).
+Cross-review AGY del diff: hecho (ver Cross-Review Log → TC-7).
 
 ---
 
@@ -340,15 +339,13 @@ Artefacto: `C:\Users\brici\.gemini\antigravity-cli\brain\9091cf58-...\plan_revie
 | 3 | `removeMemberFromGroup` no maneja `remaining.length === 0` (último miembro borra cuenta) → grupo huérfano, imposible de borrar (rule exige `createdBy == uid`). | **Parcial — hallazgo válido.** Bug real pero menor a la escala actual; el fix es cambio de producción. | TC-6 `accountDeletion.test.ts`: test que fija/documenta la conducta huérfana. Fix = bugfix separado fuera de esta serie. |
 | 4 | TC-7 solo cubría las cláusulas `update` endurecidas; faltaban tests de `create`/`read`/`delete` básicos. | **Adoptado.** Mejora barata y dentro de alcance. | TC-7 ampliado con create/read/delete por colección. |
 
-**Codex (`codex exec -s read-only`) — 2026-09-07:** no ejecutado — CLI devolvió
-`ERROR: You've hit your usage limit ... try again at Oct 4th`. El usuario optó por proceder
-con un solo reviewer y correr Codex sobre el diff de cada PR cuando vuelva la cuota.
+**Codex:** deshabilitado por completo del flujo de cross-review (decisión del usuario,
+2026-09-07). No se ejecutó ni se ejecutará; AGY es el único reviewer.
 
 ### Revisión de implementación (por PR)
 
 **TC-1 — 2026-09-07 — AGY (`agy.exe`, gemini-3.1-pro-high, effort high):** completado.
 Artefacto: `C:\Users\brici\.gemini\antigravity-cli\brain\0e4dd4fb-...\plan_review.md`.
-Codex — pendiente (cuota hasta 4-oct).
 
 | # | Hallazgo AGY | Veredicto | Acción |
 |---|---|---|---|
@@ -363,7 +360,6 @@ warnings nuevos. Listo para PR (el usuario commitea/pushea).
 
 **TC-2 — 2026-09-07 — AGY (`agy.exe`, gemini-3.1-pro-high, effort high):** completado.
 Artefacto: `C:\Users\brici\.gemini\antigravity-cli\brain\be1dd08a-...\tc_2_review_findings.md`.
-Codex — pendiente (cuota).
 
 | # | Hallazgo AGY | Veredicto | Acción |
 |---|---|---|---|
@@ -377,7 +373,6 @@ warnings nuevos. Listo para PR (el usuario commitea/pushea).
 
 **TC-3 — 2026-09-07 — AGY (`agy.exe`, gemini-3.1-pro-high, effort high):** completado.
 Artefacto: `C:\Users\brici\.gemini\antigravity-cli\brain\93fe1dd5-...\review_plan.md`.
-Codex — pendiente (cuota).
 
 | # | Hallazgo AGY | Veredicto | Acción |
 |---|---|---|---|
@@ -394,7 +389,6 @@ warnings nuevos. Listo para PR (el usuario commitea/pushea).
 
 **TC-4 — 2026-09-07 — AGY (`agy.exe`, gemini-3.1-pro-high, effort high):** completado.
 Artefacto: `C:\Users\brici\.gemini\antigravity-cli\brain\c581d45a-...\review_report.md`.
-Codex — pendiente (cuota).
 
 | # | Hallazgo AGY | Veredicto | Acción |
 |---|---|---|---|
@@ -410,7 +404,6 @@ assembleDebug` ✅, sin warnings nuevos. Listo para PR (el usuario commitea/push
 
 **TC-5 — 2026-09-07 — AGY (`agy.exe`, gemini-3.1-pro-high, effort high):** completado.
 Artefacto: `C:\Users\brici\.gemini\antigravity-cli\brain\6715dd22-...\tc5_review_report.md`.
-Codex — pendiente (cuota).
 
 | # | Hallazgo AGY | Veredicto | Acción |
 |---|---|---|---|
@@ -422,7 +415,6 @@ Estado TC-5: `functions/` harness + 16 tests + CI job, `npm ci && npm test && np
 
 **TC-6 — 2026-09-07 — AGY (`agy.exe`, gemini-3.1-pro-high, effort high):** completado.
 Artefacto: `C:\Users\brici\.gemini\antigravity-cli\brain\01fe0d77-...\plan_test_coverage_review.md`.
-Codex — pendiente (cuota).
 
 **Veredicto AGY: "solid, correct, ready to be committed. No modifications are necessary."**
 Sin issues bloqueantes, sin falsos positivos. Aprobó explícitamente: cobertura de ramas de
@@ -439,7 +431,6 @@ usuario commitea/pushea). (Nota: TC-7 movió el bloque `emulators` de `firebase.
 
 **TC-7 — 2026-09-07 — AGY (`agy.exe`, gemini-3.1-pro-high, effort high):** completado.
 Artefacto: `C:\Users\brici\.gemini\antigravity-cli\brain\8cc637c4-...\test-coverage-review.md`.
-Codex — pendiente (cuota).
 
 | # | Hallazgo AGY | Veredicto | Acción |
 |---|---|---|---|
@@ -497,8 +488,6 @@ vacío → descargaría ambos; poblado → ninguno.
 | 3 | `npx --no-install` deprecado en npm 7+ (ignorado en npm 9+). | **Adoptado** — se llama `firebase` directo con `node_modules/.bin` prependido al `PATH` del `execSync` (fuerza el binario local sin `npx`). |
 | 4 | Portabilidad Windows/Ubuntu del script. | **"Very well-designed" — sin acción.** |
 
-Codex — pendiente (cuota, vuelve 4-oct): `codex exec review --uncommitted` sobre el diff.
-
 ### Parte B — ✅ IMPLEMENTADO 2026-09-07
 
 - `functions/test/rules/harness.ts` — `initEnv()` es ahora un loop de **20 intentos**: cada
@@ -527,7 +516,7 @@ blindado por intento), ruta de éxito limpia, sonda sin riesgo de falso positivo
 timeout (60 s vs ~20-30 s peor caso), TDZ resuelto, loop acotado. Único `[!WARNING]` no
 accionable: la sonda está acoplada a la forma de la regla `profile_photos/{userId}` — se
 agregó un `NOTE` en el comentario para que un endurecimiento futuro de esa regla actualice la
-sonda. Codex — pendiente (cuota): `codex exec review --uncommitted` sobre el diff.
+sonda.
 
 ### Estado del fix (Parte A + B)
 
@@ -542,7 +531,7 @@ rules/{firestore,storage}-rules.test.ts` (`beforeAll(..., 60_000)`), `.github/wo
    antes de commit — Rule 3).
 2. Cross-review del diff: `agy.exe --mode plan --dangerously-skip-permissions -p "Review the
    current uncommitted git diff for correctness, security, and design issues" --model
-   gemini-3.1-pro-high --effort high` (+ `codex exec review --uncommitted` cuando haya cuota).
+   gemini-3.1-pro-high --effort high`.
 3. Aplicar fixes verificados; re-correr `./gradlew test` (o `npm test` / emulador).
 4. Registrar hallazgos en el Cross-Review Log de arriba.
 5. Listo para PR — el usuario crea commits y push.

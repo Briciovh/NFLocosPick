@@ -17,6 +17,9 @@ sealed class GroupActionUiState {
     data object Loading : GroupActionUiState()
     data class Success(val group: Group, val alreadyMember: Boolean = false) : GroupActionUiState()
     data class Error(val message: String) : GroupActionUiState()
+
+    /** El usuario está bloqueado del grupo — la pantalla lo mapea a un string localizado. */
+    data object BlockedFromGroup : GroupActionUiState()
 }
 
 // ── Efectos de un solo disparo (navegación, toasts) ───────────────────────────

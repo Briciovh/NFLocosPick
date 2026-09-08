@@ -11,6 +11,7 @@ import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.HttpsCallableReference
 import com.google.firebase.functions.HttpsCallableResult
 import com.google.firebase.storage.FirebaseStorage
+import com.softeen.nflocospicks.domain.model.GroupBlockedException
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -87,11 +88,30 @@ class FirebaseGroupDataSourceTest {
         verify(exactly = 0) { collection.add(any()) }
     }
 
+    private fun stubStandingsUnhide(groupId: String, userId: String, succeeds: Boolean = true) {
+        val standingsColl = mockk<CollectionReference>()
+        val groupDoc = mockk<DocumentReference>()
+        val membersColl = mockk<CollectionReference>()
+        val memberDoc = mockk<DocumentReference>()
+
+        every { firestore.collection("standings") } returns standingsColl
+        every { standingsColl.document(groupId) } returns groupDoc
+        every { groupDoc.collection("members") } returns membersColl
+        every { membersColl.document(userId) } returns memberDoc
+        if (succeeds) {
+            every { memberDoc.update(any<Map<String, Any>>()) } returns Tasks.forResult<Void>(null)
+        } else {
+            every { memberDoc.update(any<Map<String, Any>>()) } returns Tasks.forException(RuntimeException("standing missing"))
+        }
+    }
+
     @Test
     fun `joinGroup adds the user and returns alreadyMember false when not previously a member`() = runBlocking {
         stubJoinInviteCodeQuery()
+        stubStandingsUnhide("g1", "u1")
         val doc = mockk<DocumentSnapshot>()
         every { doc.id } returns "g1"
+        every { doc.get("blockedIds") } returns emptyList<String>()
         every { doc.get("memberIds") } returns listOf("u0")
         val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
         every { query.get() } returns Tasks.forResult(snapshot)
@@ -108,6 +128,7 @@ class FirebaseGroupDataSourceTest {
         every { updatedDoc.get("memberIds") } returns listOf("u0", "u1")
         every { updatedDoc.getString("photoUrl") } returns null
         every { updatedDoc.getString("iconId") } returns null
+        every { updatedDoc.get("blockedIds") } returns emptyList<String>()
         every { docRef.get() } returns Tasks.forResult(updatedDoc)
 
         val result = dataSource.joinGroup("ABC123", "u1")
@@ -117,6 +138,52 @@ class FirebaseGroupDataSourceTest {
         assertEquals(listOf("u0", "u1"), result.group.memberIds)
         verify(exactly = 1) { docRef.update("memberIds", any()) }
         verify(exactly = 1) { docRef.get() }
+    }
+
+    @Test
+    fun `joinGroup succeeds even if standings unhide throws an exception`() = runBlocking {
+        stubJoinInviteCodeQuery()
+        stubStandingsUnhide("g1", "u1", succeeds = false)
+        val doc = mockk<DocumentSnapshot>()
+        every { doc.id } returns "g1"
+        every { doc.get("blockedIds") } returns emptyList<String>()
+        every { doc.get("memberIds") } returns listOf("u0")
+        val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
+        every { query.get() } returns Tasks.forResult(snapshot)
+
+        val docRef = mockk<DocumentReference>()
+        every { collection.document("g1") } returns docRef
+        every { docRef.update("memberIds", any()) } returns Tasks.forResult<Void>(null)
+
+        val updatedDoc = mockk<DocumentSnapshot>()
+        every { updatedDoc.id } returns "g1"
+        every { updatedDoc.getString("name") } returns "Los Locos"
+        every { updatedDoc.getString("inviteCode") } returns "ABC123"
+        every { updatedDoc.getString("createdBy") } returns "u0"
+        every { updatedDoc.get("memberIds") } returns listOf("u0", "u1")
+        every { updatedDoc.getString("photoUrl") } returns null
+        every { updatedDoc.getString("iconId") } returns null
+        every { updatedDoc.get("blockedIds") } returns emptyList<String>()
+        every { docRef.get() } returns Tasks.forResult(updatedDoc)
+
+        val result = dataSource.joinGroup("ABC123", "u1")
+
+        assertEquals(false, result.alreadyMember)
+        assertEquals("g1", result.group.id)
+    }
+
+    @Test
+    fun `joinGroup throws GroupBlockedException when the user is blocked`() {
+        stubJoinInviteCodeQuery()
+        val doc = mockk<DocumentSnapshot>()
+        every { doc.id } returns "g1"
+        every { doc.get("blockedIds") } returns listOf("u1")
+        val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
+        every { query.get() } returns Tasks.forResult(snapshot)
+
+        assertThrows(GroupBlockedException::class.java) {
+            runBlocking { dataSource.joinGroup("ABC123", "u1") }
+        }
     }
 
     @Test
@@ -130,6 +197,7 @@ class FirebaseGroupDataSourceTest {
         every { doc.get("memberIds") } returns listOf("u0", "u1")
         every { doc.getString("photoUrl") } returns null
         every { doc.getString("iconId") } returns null
+        every { doc.get("blockedIds") } returns emptyList<String>()
         val snapshot = mockk<QuerySnapshot> { every { documents } returns listOf(doc) }
         every { query.get() } returns Tasks.forResult(snapshot)
 
@@ -174,5 +242,31 @@ class FirebaseGroupDataSourceTest {
 
         verify(exactly = 1) { functions.getHttpsCallable("deleteGroup") }
         verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1")) }
+    }
+
+    @Test
+    fun `removeGroupMember invokes the removeGroupMember callable with groupId, targetUid, and block`() = runBlocking {
+        val callableRef = mockk<HttpsCallableReference>()
+        val callResult = mockk<HttpsCallableResult>()
+        every { functions.getHttpsCallable("removeGroupMember") } returns callableRef
+        every { callableRef.call(any()) } returns Tasks.forResult(callResult)
+
+        dataSource.removeGroupMember("g1", "u2", true)
+
+        verify(exactly = 1) { functions.getHttpsCallable("removeGroupMember") }
+        verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1", "targetUid" to "u2", "block" to true)) }
+    }
+
+    @Test
+    fun `unblockGroupMember invokes the unblockGroupMember callable with groupId and targetUid`() = runBlocking {
+        val callableRef = mockk<HttpsCallableReference>()
+        val callResult = mockk<HttpsCallableResult>()
+        every { functions.getHttpsCallable("unblockGroupMember") } returns callableRef
+        every { callableRef.call(any()) } returns Tasks.forResult(callResult)
+
+        dataSource.unblockGroupMember("g1", "u2")
+
+        verify(exactly = 1) { functions.getHttpsCallable("unblockGroupMember") }
+        verify(exactly = 1) { callableRef.call(mapOf("groupId" to "g1", "targetUid" to "u2")) }
     }
 }

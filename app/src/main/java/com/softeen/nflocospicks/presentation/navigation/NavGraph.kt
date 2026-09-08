@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.isProfileComplete
 import com.softeen.nflocospicks.presentation.account.AccountScreen
 import com.softeen.nflocospicks.presentation.account.ChangePasswordScreen
@@ -287,10 +288,23 @@ fun NavGraph(
                     }
                     val groupViewModel: GroupViewModel = hiltViewModel(groupsEntry)
                     val groupListState by groupViewModel.groupListState.collectAsStateWithLifecycle()
+                    val allUsers by groupViewModel.allUsers.collectAsStateWithLifecycle()
                     val photoUiState by groupViewModel.photoUiState.collectAsStateWithLifecycle()
                     val settingsState by groupViewModel.groupSettingsState.collectAsStateWithLifecycle()
                     val group = (groupListState as? GroupListUiState.Success)?.groups?.find { it.id == groupId }
                     val currentUserId = groupViewModel.currentUserId
+
+                    val members = remember(group?.memberIds, group?.createdBy, allUsers) {
+                        group?.memberIds.orEmpty().map { uid ->
+                            allUsers.find { it.uid == uid } ?: User(uid = uid, displayName = "", email = "", photoUrl = null)
+                        }.sortedByDescending { it.uid == group?.createdBy }
+                    }
+
+                    val blockedMembers = remember(group?.blockedIds, allUsers) {
+                        group?.blockedIds.orEmpty().map { uid ->
+                            allUsers.find { it.uid == uid } ?: User(uid = uid, displayName = "", email = "", photoUrl = null)
+                        }
+                    }
 
                     // Limpia cualquier Error de una visita previa a esta pantalla.
                     LaunchedEffect(Unit) { groupViewModel.resetGroupSettingsState() }
@@ -299,12 +313,16 @@ fun NavGraph(
                         groupListState       = groupListState,
                         group                = group,
                         currentUserId        = currentUserId,
+                        members              = members,
+                        blockedMembers       = blockedMembers,
                         photoUiState         = photoUiState,
                         settingsState        = settingsState,
                         onRename             = { name -> group?.let { g -> currentUserId?.let { groupViewModel.renameGroup(g, it, name) } } },
                         onUploadPhoto        = { uri -> group?.let { g -> currentUserId?.let { groupViewModel.uploadGroupPhoto(g, it, uri) } } },
                         onSetIcon            = { iconId -> group?.let { g -> currentUserId?.let { groupViewModel.setGroupIcon(g, it, iconId) } } },
                         onDeleteGroup        = { group?.let { g -> currentUserId?.let { groupViewModel.deleteGroup(g, it) } } },
+                        onRemoveMember       = { target, block -> group?.let { g -> currentUserId?.let { groupViewModel.removeGroupMember(g, it, target, block) } } },
+                        onUnblockMember      = { target -> group?.let { g -> currentUserId?.let { groupViewModel.unblockGroupMember(g, it, target) } } },
                         onDismissPhotoPicker = { groupViewModel.resetPhotoUiState() },
                         onNavigateBack       = { navController.popBackStack() },
                         onExitToGroups       = {

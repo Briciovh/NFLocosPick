@@ -7,6 +7,7 @@ import com.softeen.nflocospicks.domain.model.Game
 import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.domain.model.MockSessionState
 import com.softeen.nflocospicks.domain.model.NflSeasonCalendar
+import com.softeen.nflocospicks.domain.model.Pick
 import com.softeen.nflocospicks.domain.model.SeasonType
 import com.softeen.nflocospicks.domain.model.User
 import com.softeen.nflocospicks.domain.model.UserPreferences
@@ -108,6 +109,29 @@ class PickViewModelTest {
         assertNull(state.items.single().pickedTeam)
         assertEquals("2025-week-12", state.weekId)
         assertEquals(false, state.isPreseason)
+    }
+
+    @Test
+    fun `after init, isCorrect is populated from the picks use case`() = runTest(coroutineRule.dispatcher) {
+        val finalGame = testGame.copy(status = GameStatus.FINAL)
+        coEvery { getGamesUseCase(any()) } returns listOf(finalGame)
+        coEvery { getPicksUseCase(any(), any(), any()) } returns mapOf(
+            finalGame.id to Pick(gameId = finalGame.id, pickedTeam = "KC", isCorrect = true, scoredAt = 123L)
+        )
+
+        val vm = viewModel()
+
+        val state = vm.uiState.value as PickUiState.Success
+        assertEquals(true, state.items.single().isCorrect)
+    }
+
+    @Test
+    fun `isCorrect stays null when the game has no scored pick yet`() = runTest(coroutineRule.dispatcher) {
+        // setUp() ya deja getPicksUseCase devolviendo emptyMap()
+        val vm = viewModel()
+
+        val state = vm.uiState.value as PickUiState.Success
+        assertNull(state.items.single().isCorrect)
     }
 
     @Test

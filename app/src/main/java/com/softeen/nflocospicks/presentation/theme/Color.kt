@@ -11,3 +11,7 @@ val BSCardSelected = Color(0xFF1A3ABA)   // selected / active card
 val BSGold         = Color(0xFFFFB800)   // primary accent — CTAs, highlights
 val BSWhite        = Color(0xFFFFFFFF)   // primary text
 val BSMuted        = Color(0xFF7A9ABF)   // secondary / disabled text
+
+// ── Semantic feedback colors (constant across all team themes) ────────────────
+val SuccessGreen = Color(0xFF2ECC71)   // pick correcto
+val ErrorRed     = Color(0xFFE53935)   // pick incorrecto

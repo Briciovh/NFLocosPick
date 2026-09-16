@@ -42,13 +42,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.softeen.nflocospicks.R
 import com.softeen.nflocospicks.domain.model.GamePickResult
 import com.softeen.nflocospicks.domain.model.Group
 import com.softeen.nflocospicks.presentation.common.GroupHeaderBar
@@ -298,14 +299,16 @@ private fun GamePickRow(result: GamePickResult) {
         when (result.isCorrect) {
             null -> Text(text = "⏳", style = MaterialTheme.typography.titleMedium)
             else -> {
-                val tint = if (result.isCorrect) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                val tint = if (result.isCorrect) appColors.success else appColors.error
                 Box(
                     modifier         = Modifier.size(30.dp).background(tint.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector        = if (result.isCorrect) Icons.Default.Check else Icons.Default.Close,
-                        contentDescription = null,
+                        contentDescription = stringResource(
+                            if (result.isCorrect) R.string.cd_pick_correct else R.string.cd_pick_incorrect
+                        ),
                         tint               = tint,
                         modifier           = Modifier.size(18.dp)
                     )

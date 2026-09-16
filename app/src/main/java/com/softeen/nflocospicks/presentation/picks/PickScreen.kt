@@ -3,6 +3,8 @@ package com.softeen.nflocospicks.presentation.picks
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,11 +16,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -64,6 +69,8 @@ import com.softeen.nflocospicks.domain.model.NflSeasonCalendar
 import com.softeen.nflocospicks.presentation.common.TeamLogo
 import com.softeen.nflocospicks.presentation.preview.PreviewWrapper
 import com.softeen.nflocospicks.presentation.preview.fakePickItem
+import com.softeen.nflocospicks.presentation.preview.fakePickItemFinalCorrect
+import com.softeen.nflocospicks.presentation.preview.fakePickItemFinalIncorrect
 import com.softeen.nflocospicks.presentation.preview.fakePickItemLocked
 import com.softeen.nflocospicks.presentation.theme.IconScaleOption
 import com.softeen.nflocospicks.presentation.theme.LocalAppColors
@@ -373,16 +380,19 @@ private fun GamePickCard(
                 verticalAlignment     = Alignment.CenterVertically
             ) {
                 TeamPickButton(
-                    abbr       = game.awayTeamAbbr,
-                    name       = game.awayTeam,
-                    record     = game.awayTeamRecord,
-                    score      = game.awayScore,
-                    label      = stringResource(R.string.picks_team_away),
-                    isSelected = item.pickedTeam == game.awayTeamAbbr,
-                    isLocked   = item.isLocked,
-                    iconScale  = iconScale,
-                    modifier   = Modifier.weight(1f),
-                    onClick    = { onPick(game.awayTeamAbbr) }
+                    abbr        = game.awayTeamAbbr,
+                    name        = game.awayTeam,
+                    record      = game.awayTeamRecord,
+                    score       = game.awayScore,
+                    label       = stringResource(R.string.picks_team_away),
+                    isSelected  = item.pickedTeam == game.awayTeamAbbr,
+                    isLocked    = item.isLocked,
+                    iconScale   = iconScale,
+                    resultBadge = item.isCorrect.takeIf {
+                        item.pickedTeam == game.awayTeamAbbr && game.status == GameStatus.FINAL
+                    },
+                    modifier    = Modifier.weight(1f),
+                    onClick     = { onPick(game.awayTeamAbbr) }
                 )
                 Text(
                     text       = "@",
@@ -390,16 +400,19 @@ private fun GamePickCard(
                     fontWeight = FontWeight.ExtraBold
                 )
                 TeamPickButton(
-                    abbr       = game.homeTeamAbbr,
-                    name       = game.homeTeam,
-                    record     = game.homeTeamRecord,
-                    score      = game.homeScore,
-                    label      = stringResource(R.string.picks_team_home),
-                    isSelected = item.pickedTeam == game.homeTeamAbbr,
-                    isLocked   = item.isLocked,
-                    iconScale  = iconScale,
-                    modifier   = Modifier.weight(1f),
-                    onClick    = { onPick(game.homeTeamAbbr) }
+                    abbr        = game.homeTeamAbbr,
+                    name        = game.homeTeam,
+                    record      = game.homeTeamRecord,
+                    score       = game.homeScore,
+                    label       = stringResource(R.string.picks_team_home),
+                    isSelected  = item.pickedTeam == game.homeTeamAbbr,
+                    isLocked    = item.isLocked,
+                    iconScale   = iconScale,
+                    resultBadge = item.isCorrect.takeIf {
+                        item.pickedTeam == game.homeTeamAbbr && game.status == GameStatus.FINAL
+                    },
+                    modifier    = Modifier.weight(1f),
+                    onClick     = { onPick(game.homeTeamAbbr) }
                 )
             }
         }
@@ -418,6 +431,7 @@ private fun TeamPickButton(
     isSelected: Boolean,
     isLocked: Boolean,
     iconScale: IconScaleOption,
+    resultBadge: Boolean?,   // null = sin badge; non-null solo si FINAL + este es el pick + ya se puntuó
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -437,6 +451,10 @@ private fun TeamPickButton(
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .testTag("${TestTags.PICK_TEAM_BUTTON}_$abbr"),
         shape    = MaterialTheme.shapes.small,
+        border   = if (resultBadge != null) {
+            val borderColor = if (resultBadge) appColors.success else appColors.error
+            BorderStroke(2.5.dp, borderColor)
+        } else null,
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
         colors   = ButtonDefaults.buttonColors(
             containerColor         = containerColor,
@@ -457,7 +475,13 @@ private fun TeamPickButton(
                 fontWeight = FontWeight.ExtraBold
             )
             BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                TeamLogo(abbr = abbr, size = (maxWidth - TEAM_LOGO_SECTION_PADDING * 2) * iconScale.multiplier)
+                val logoSize = (maxWidth - TEAM_LOGO_SECTION_PADDING * 2) * iconScale.multiplier
+                Box {
+                    TeamLogo(abbr = abbr, size = logoSize)
+                    if (resultBadge != null) {
+                        PickResultBadge(isCorrect = resultBadge, modifier = Modifier.align(Alignment.BottomEnd))
+                    }
+                }
             }
             Text(
                 text      = name,
@@ -485,6 +509,27 @@ private fun TeamPickButton(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PickResultBadge(isCorrect: Boolean, modifier: Modifier = Modifier) {
+    val appColors = LocalAppColors.current
+    val tint = if (isCorrect) appColors.success else appColors.error
+    Box(
+        modifier = modifier
+            .size(20.dp)
+            .background(appColors.onSurface.copy(alpha = 0.85f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector        = if (isCorrect) Icons.Default.Check else Icons.Default.Close,
+            contentDescription = stringResource(
+                if (isCorrect) R.string.cd_pick_correct else R.string.cd_pick_incorrect
+            ),
+            tint               = tint,
+            modifier           = Modifier.size(12.dp)
+        )
     }
 }
 
@@ -519,6 +564,25 @@ private fun PickScreenSuccessPreview() {
             uiState        = PickUiState.Success(
                 weekId = "2025-week-12",
                 items  = listOf(fakePickItem, fakePickItemLocked)
+            ),
+            errorMessage   = null,
+            onNavigateBack = {},
+            onRetry        = {},
+            onSync         = {},
+            onPick         = { _, _, _, _ -> },
+            onErrorShown   = {}
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B2156)
+@Composable
+private fun PickScreenFinalResultPreview() {
+    PreviewWrapper {
+        PickScreenContent(
+            uiState        = PickUiState.Success(
+                weekId = "2025-week-12",
+                items  = listOf(fakePickItemFinalCorrect, fakePickItemFinalIncorrect)
             ),
             errorMessage   = null,
             onNavigateBack = {},

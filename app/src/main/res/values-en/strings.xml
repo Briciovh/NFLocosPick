@@ -5,6 +5,8 @@
     <string name="cd_sync">Sync</string>
     <string name="cd_app_logo">NFLocos Picks logo</string>
     <string name="cd_phone_country_selector">Select country</string>
+    <string name="cd_pick_correct">Correct pick</string>
+    <string name="cd_pick_incorrect">Incorrect pick</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_my_picks">My Picks</string>

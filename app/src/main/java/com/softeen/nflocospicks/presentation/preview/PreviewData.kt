@@ -100,6 +100,20 @@ internal val fakePickItemLocked = GamePickItem(
     isLocked   = true
 )
 
+internal val fakePickItemFinalCorrect = GamePickItem(
+    game       = fakeGame.copy(status = GameStatus.FINAL, homeScore = 27, awayScore = 20),
+    pickedTeam = "KC",
+    isLocked   = true,
+    isCorrect  = true
+)
+
+internal val fakePickItemFinalIncorrect = GamePickItem(
+    game       = fakeGame.copy(status = GameStatus.FINAL, homeScore = 17, awayScore = 24),
+    pickedTeam = "DAL",
+    isLocked   = true,
+    isCorrect  = false
+)
+
 internal val fakeHistory = listOf(
     WeekHistoryEntry(
         weekId     = "2025-week-12",

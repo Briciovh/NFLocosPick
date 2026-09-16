@@ -16,7 +16,9 @@ data class AppColors(
     val onPrimaryContainer: Color, // replaces BSWhite
     val secondary: Color,          // replaces BSMuted
     val onSecondary: Color,        // replaces BSWhite
-    val header: Color              // replaces BSHeader
+    val header: Color,             // replaces BSHeader
+    val success: Color = SuccessGreen,   // pick correcto — constante, no varía por equipo
+    val error: Color = ErrorRed          // pick incorrecto — constante, no varía por equipo
 )
 
 val LocalAppColors = compositionLocalOf { 

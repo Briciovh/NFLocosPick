@@ -183,6 +183,7 @@ class PickViewModel @Inject constructor(
             GamePickItem(
                 game       = game,
                 pickedTeam = picks[game.id]?.pickedTeam,
+                isCorrect  = picks[game.id]?.isCorrect,
                 isLocked   = now >= game.kickoffTime || game.status != GameStatus.SCHEDULED
             )
         }
@@ -232,9 +233,21 @@ class PickViewModel @Inject constructor(
                 MockDataProvider.MOCK_GAMES
 
             val items = games.map { game ->
+                val picked = session.realUserPicks[game.id]
+                val isCorrect = if (game.status == GameStatus.FINAL && picked != null) {
+                    if (game.homeScore != null && game.awayScore != null) {
+                        val homeWins = game.homeScore > game.awayScore
+                        val awayWins = game.awayScore > game.homeScore
+                        if (picked == game.homeTeamAbbr) homeWins
+                        else if (picked == game.awayTeamAbbr) awayWins
+                        else false
+                    } else null
+                } else null
+
                 GamePickItem(
                     game       = game,
-                    pickedTeam = session.realUserPicks[game.id],
+                    pickedTeam = picked,
+                    isCorrect  = isCorrect,
                     isLocked   = prefs.simulateGamesStarted  // bloqueado si se está simulando
                 )
             }

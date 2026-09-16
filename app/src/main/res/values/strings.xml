@@ -8,6 +8,8 @@
     <string name="cd_sync">Sincronizar</string>
     <string name="cd_app_logo">Logo de NFLocos Picks</string>
     <string name="cd_phone_country_selector">Seleccionar país</string>
+    <string name="cd_pick_correct">Pick correcto</string>
+    <string name="cd_pick_incorrect">Pick incorrecto</string>
 
     <!-- Bottom Navigation -->
     <string name="nav_my_picks">Mis Picks</string>

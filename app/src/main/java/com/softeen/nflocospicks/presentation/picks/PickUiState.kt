@@ -5,7 +5,8 @@ import com.softeen.nflocospicks.domain.model.Game
 data class GamePickItem(
     val game: Game,
     val pickedTeam: String?,   // null = sin pick aún
-    val isLocked: Boolean      // true cuando kickoffTime ya pasó
+    val isLocked: Boolean,     // true cuando kickoffTime ya pasó
+    val isCorrect: Boolean? = null   // null hasta que el juego sea FINAL y Pick se puntúe (ver Pick.isCorrect)
 )
 
 sealed class PickUiState {

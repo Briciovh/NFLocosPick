@@ -3,6 +3,7 @@ package com.softeen.nflocospicks.presentation.picks
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -450,6 +451,10 @@ private fun TeamPickButton(
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .testTag("${TestTags.PICK_TEAM_BUTTON}_$abbr"),
         shape    = MaterialTheme.shapes.small,
+        border   = if (resultBadge != null) {
+            val borderColor = if (resultBadge) appColors.success else appColors.error
+            BorderStroke(2.5.dp, borderColor)
+        } else null,
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp),
         colors   = ButtonDefaults.buttonColors(
             containerColor         = containerColor,

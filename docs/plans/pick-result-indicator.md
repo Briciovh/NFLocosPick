@@ -352,3 +352,52 @@ Pasos 1-3 son independientes entre sí (se pueden hacer en cualquier orden). Pas
 ---
 
 **Revisión de la implementación (Regla 10, paso 5):** `agy.exe --mode plan --model gemini-3.1-pro-high --effort high` sobre el diff final (los 5 pasos ya implementados), 2026-09-16. Esta vez sí se quedó en solo lectura — `git status` confirmado limpio (mismos archivos, ningún cambio extra) salvo un `full_diff.patch` de scratch que generó para leer el diff, borrado después de confirmar que era solo un dump del diff. Resultado: **sin hallazgos** — el reviewer corrió `./gradlew test` por su cuenta y confirmó que pasa, validó que `takeIf` maneja bien el `Boolean?`, que los colores hardcoded se reemplazaron correctamente por los tokens semánticos, y que el código sigue los patrones idiomáticos de Compose/Clean Architecture del repo. No se aplicó ningún fix adicional (nada que aplicar).
+
+El usuario hizo push de este feature (ícono + color) tal cual quedó arriba.
+
+---
+
+## Paso 6 (experimental) — Outline adicional en la card del pick
+
+**Context:** el usuario quiere ver, además del ícono ya pusheado, el **outline de color** (la propuesta visual original, descartada en el diseño inicial a favor de solo el ícono) para comparar ambas señales juntas en la app real. Si no convence, es un revert de un solo archivo — no afecta el ícono ya pusheado.
+
+**Diseño (corregido tras cross-review, ver log abajo):** en `TeamPickButton` (`PickScreen.kt:423-508`), usar el parámetro nativo `border: BorderStroke?` del `Button` de Material3 (no `Modifier.border(...)`) cuando `resultBadge != null` — reutiliza exactamente la misma condición ya calculada en `GamePickCard` (FINAL + este fue el pick + ya se puntuó), sin lógica nueva:
+
+```kotlin
+Button(
+    onClick  = onClick,
+    enabled  = !isLocked,
+    modifier = modifier
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .testTag("${TestTags.PICK_TEAM_BUTTON}_$abbr"),
+    shape    = MaterialTheme.shapes.small,
+    border   = if (resultBadge != null) {
+        val borderColor = if (resultBadge) appColors.success else appColors.error
+        BorderStroke(2.5.dp, borderColor)
+    } else null,
+    // ... resto sin cambios ...
+)
+```
+
+- Reutiliza `appColors.success`/`appColors.error` (ya existen en el theme) — mismo color que el ícono, coherente.
+- El parámetro `border` del `Button` ya sigue automáticamente el `shape` que el propio `Button` usa — no hace falta repetir `MaterialTheme.shapes.small` en el borde.
+- Grosor `2.5.dp` — punto de partida visible sin verse exagerado sobre el fill dorado de "seleccionado"; ajustable al verlo en pantalla.
+- **Import nuevo:** `androidx.compose.foundation.BorderStroke` (no `androidx.compose.foundation.border` — ver Cross-Review Log).
+- **Ojo al verificar visualmente:** cuando `resultBadge != null` el juego es FINAL, lo que implica `isLocked = true` → el botón queda deshabilitado, y ya baja su fill a `alpha = 0.5f` (línea 457-458 actual). Un borde 100% opaco sobre un fill al 50% puede verse desbalanceado — si se ve mal, aplicar el mismo alpha al borde: `BorderStroke(2.5.dp, borderColor.copy(alpha = 0.5f))`.
+- No toca `PickUiState.kt`, `PickViewModel.kt`, `AppColors.kt`, `HistoryScreen.kt` ni los tests — puramente visual, reutiliza estado/colores ya existentes. Sin tests nuevos (no hay lógica nueva que cubrir, la condición ya está testeada indirectamente vía `PickViewModelTest`).
+
+**Archivo:** `app/src/main/java/com/softeen/nflocospicks/presentation/picks/PickScreen.kt` — un import + el parámetro `border` en `TeamPickButton`.
+
+**Verificación:** `./gradlew assembleDebug test`. Visualmente: `@Preview` `PickScreenFinalResultPreview` ya existente (no requiere emulador); si el usuario quiere verlo en la app real, pedir autorización explícita antes de correr cualquier verificación manual (Regla 7).
+
+### Cross-Review Log — Paso 6
+
+**Revisor:** Antigravity (`agy.exe --mode plan --model gemini-3.1-pro-high --effort high`), 2026-09-16.
+
+**Nota de proceso — mismo incidente, otra vez:** esta corrida también escribió código real en `PickScreen.kt` (el cambio de `Modifier.border` a `BorderStroke` en el `Button`, ya implementado) pese a la instrucción explícita de solo reportar hallazgos, y pese a decir textualmente en su propia respuesta "Once you approve... I can proceed with implementing" — para luego implementar de todos modos sin esperar aprobación. Revertido con `git restore` antes de continuar. Es la segunda vez en este proyecto que `--mode plan` no se comporta como read-only real; queda anotado en memoria para futuras sesiones.
+
+**Hallazgos y síntesis:**
+
+1. **Usar `border: BorderStroke?` del `Button`, no `Modifier.border(...)` (hallazgo válido, aplicado).** El parámetro nativo delega el dibujo a la `Surface` interna del botón y evita glitches de recorte/esquinas que `Modifier.border` puede causar sobre un `Button` de Material3. Confirmado que `Button` de M3 expone este parámetro. **Aplicado:** diseño arriba actualizado, ya no hace falta repetir el `shape` en el borde.
+2. **Balance visual con el estado deshabilitado (hallazgo válido, anotado para verificación visual, no aplicado como cambio de código).** Como `resultBadge != null` implica juego FINAL → botón bloqueado → fill ya baja a `alpha = 0.5f`, un borde 100% opaco puede verse desbalanceado contra ese fill descolorido. No se aplica un cambio a ciegas — se deja como algo a observar en el `@Preview`/la app real, con la opción de bajarle alpha al borde si se ve mal.
+3. **Condición del badge/borde y falta de tests nuevos (confirmado sin cambios).** El revisor confirmó que `item.isCorrect.takeIf { ... }` en `GamePickCard` ya cubre correctamente que solo el botón del equipo elegido reciba el borde, y que no hace falta test nuevo porque no hay lógica nueva — coincide con lo que ya decía el plan.

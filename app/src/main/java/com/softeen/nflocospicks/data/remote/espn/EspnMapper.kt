@@ -63,6 +63,8 @@ private fun EspnEvent.toGame(): Game {
     val year = cal.get(Calendar.YEAR)
     val weekId = buildWeekId(year, weekNumber, seasonType)
 
+    val status = competition.status.type.toGameStatus()
+
     return Game(
         id             = id,
         weekId         = weekId,
@@ -72,17 +74,26 @@ private fun EspnEvent.toGame(): Game {
         homeTeamAbbr   = home.team.abbreviation,
         awayTeamAbbr   = away.team.abbreviation,
         kickoffTime    = kickoffMillis,
-        homeScore      = home.score?.toIntOrNull(),
-        awayScore      = away.score?.toIntOrNull(),
-        status         = competition.status.type.toGameStatus(),
+        homeScore      = if (status == GameStatus.SCHEDULED) null else home.score?.toIntOrNull(),
+        awayScore      = if (status == GameStatus.SCHEDULED) null else away.score?.toIntOrNull(),
+        status         = status,
         homeTeamRecord = home.records?.firstOrNull { it.name == "overall" }?.summary,
         awayTeamRecord = away.records?.firstOrNull { it.name == "overall" }?.summary,
         weekNumber     = weekNumber
     )
 }
 
+private val liveStatusNames = setOf(
+    "STATUS_IN_PROGRESS",
+    "STATUS_HALFTIME",
+    "STATUS_END_PERIOD",
+    "STATUS_SUSPENDED"
+)
+
 private fun EspnStatusType.toGameStatus(): GameStatus = when {
-    completed                    -> GameStatus.FINAL
-    name == "STATUS_IN_PROGRESS" -> GameStatus.IN_PROGRESS
+    completed || state == "post" -> GameStatus.FINAL
+    state == "in"                -> GameStatus.IN_PROGRESS
+    state == "pre"               -> GameStatus.SCHEDULED
+    name in liveStatusNames      -> GameStatus.IN_PROGRESS
     else                         -> GameStatus.SCHEDULED
 }

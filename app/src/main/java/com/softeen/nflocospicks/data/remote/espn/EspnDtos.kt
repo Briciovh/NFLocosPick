@@ -50,5 +50,6 @@ data class EspnStatus(
 
 data class EspnStatusType(
     val name: String,        // STATUS_SCHEDULED | STATUS_IN_PROGRESS | STATUS_FINAL
-    val completed: Boolean
+    val completed: Boolean,
+    val state: String? = null // "pre" | "in" | "post"
 )

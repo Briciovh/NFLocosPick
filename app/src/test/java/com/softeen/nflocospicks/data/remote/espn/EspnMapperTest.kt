@@ -130,12 +130,135 @@ class EspnMapperTest {
         assertThat(domainGames[0].seasonType).isEqualTo(SeasonType.POSTSEASON)
     }
 
+    @Test
+    fun `toDomain nulls scores for scheduled games even when ESPN returns 0`() {
+        val response = EspnScoreboardResponse(
+            events = listOf(
+                singleEvent(
+                    id = "10",
+                    homeAbbr = "DET",
+                    awayAbbr = "BUF",
+                    seasonType = 2,
+                    homeScore = "0",
+                    awayScore = "0",
+                    statusName = "STATUS_SCHEDULED"
+                )
+            )
+        )
+
+        val game = response.toDomain().single()
+
+        assertThat(game.status).isEqualTo(GameStatus.SCHEDULED)
+        assertThat(game.homeScore).isNull()
+        assertThat(game.awayScore).isNull()
+    }
+
+    @Test
+    fun `toDomain preserves scores for in-progress games`() {
+        val response = EspnScoreboardResponse(
+            events = listOf(
+                singleEvent(
+                    id = "11",
+                    homeAbbr = "DET",
+                    awayAbbr = "BUF",
+                    seasonType = 2,
+                    homeScore = "7",
+                    awayScore = "3",
+                    statusName = "STATUS_IN_PROGRESS"
+                )
+            )
+        )
+
+        val game = response.toDomain().single()
+
+        assertThat(game.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(game.homeScore).isEqualTo(7)
+        assertThat(game.awayScore).isEqualTo(3)
+    }
+
+    @Test
+    fun `toDomain maps non-standard live status to IN_PROGRESS and preserves scores`() {
+        val response = EspnScoreboardResponse(
+            events = listOf(
+                singleEvent(
+                    id = "12",
+                    homeAbbr = "DET",
+                    awayAbbr = "BUF",
+                    seasonType = 2,
+                    homeScore = "14",
+                    awayScore = "10",
+                    statusName = "STATUS_HALFTIME",
+                    completed = false
+                )
+            )
+        )
+
+        val game = response.toDomain().single()
+
+        assertThat(game.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(game.homeScore).isEqualTo(14)
+        assertThat(game.awayScore).isEqualTo(10)
+    }
+
+    @Test
+    fun `toDomain maps postponed game to SCHEDULED and nulls scores`() {
+        val response = EspnScoreboardResponse(
+            events = listOf(
+                singleEvent(
+                    id = "13",
+                    homeAbbr = "DET",
+                    awayAbbr = "BUF",
+                    seasonType = 2,
+                    homeScore = "0",
+                    awayScore = "0",
+                    statusName = "STATUS_POSTPONED",
+                    state = "pre"
+                )
+            )
+        )
+
+        val game = response.toDomain().single()
+
+        assertThat(game.status).isEqualTo(GameStatus.SCHEDULED)
+        assertThat(game.homeScore).isNull()
+        assertThat(game.awayScore).isNull()
+    }
+
+    @Test
+    fun `toDomain preserves scores for mid-game weather delay`() {
+        val response = EspnScoreboardResponse(
+            events = listOf(
+                singleEvent(
+                    id = "14",
+                    homeAbbr = "DET",
+                    awayAbbr = "BUF",
+                    seasonType = 2,
+                    homeScore = "21",
+                    awayScore = "17",
+                    statusName = "STATUS_DELAYED",
+                    state = "in"
+                )
+            )
+        )
+
+        val game = response.toDomain().single()
+
+        assertThat(game.status).isEqualTo(GameStatus.IN_PROGRESS)
+        assertThat(game.homeScore).isEqualTo(21)
+        assertThat(game.awayScore).isEqualTo(17)
+    }
+
     private fun singleEvent(
         id: String,
         homeAbbr: String,
         awayAbbr: String,
         seasonType: Int,
-        weekNumber: Int = 1
+        weekNumber: Int = 1,
+        homeScore: String? = "0",
+        awayScore: String? = "0",
+        statusName: String = "STATUS_SCHEDULED",
+        completed: Boolean = false,
+        state: String? = null
     ) = EspnEvent(
         id = id,
         date = "2025-08-07T17:00Z",
@@ -146,16 +269,16 @@ class EspnMapperTest {
                 competitors = listOf(
                     EspnCompetitor(
                         homeAway = "home",
-                        score = null,
+                        score = homeScore,
                         team = EspnTeam(displayName = homeAbbr, abbreviation = homeAbbr)
                     ),
                     EspnCompetitor(
                         homeAway = "away",
-                        score = null,
+                        score = awayScore,
                         team = EspnTeam(displayName = awayAbbr, abbreviation = awayAbbr)
                     )
                 ),
-                status = EspnStatus(type = EspnStatusType(name = "STATUS_SCHEDULED", completed = false))
+                status = EspnStatus(type = EspnStatusType(name = statusName, completed = completed, state = state))
             )
         )
     )

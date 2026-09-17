@@ -245,6 +245,20 @@ class PickViewModelTest {
     }
 
     @Test
+    fun `init falls back to the default tab when resolving the current week throws`() = runTest(coroutineRule.dispatcher) {
+        coEvery { getGamesUseCase(any()) } throws RuntimeException("Network error")
+        coEvery { getGamesForWeekUseCase(SeasonType.REGULAR, 1) } returns
+            listOf(testGame.copy(weekId = "2025-week-01", weekNumber = 1))
+
+        val vm = viewModel()
+
+        assertTrue(vm.uiState.value is PickUiState.Success)
+        assertEquals(NflSeasonCalendar.DEFAULT_INDEX, vm.selectedWeekIndex.value)
+        assertNull(vm.currentWeekIndex.value)
+        coVerify(exactly = 1) { getGamesForWeekUseCase(SeasonType.REGULAR, 1) }
+    }
+
+    @Test
     fun `onWeekSelected maps the HOF tab to ESPN preseason week 1 and logs it`() = runTest(coroutineRule.dispatcher) {
         coEvery { getGamesForWeekUseCase(SeasonType.PRESEASON, 1) } returns
             listOf(testGame.copy(weekId = "2025-pre-week-01", seasonType = SeasonType.PRESEASON, weekNumber = 1))

@@ -8,9 +8,12 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
-private val espnDateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US).apply {
-    timeZone = TimeZone.getTimeZone("UTC")
+private val espnDateFormatThreadLocal = ThreadLocal.withInitial {
+    SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
 }
+internal val espnDateFormat: SimpleDateFormat get() = checkNotNull(espnDateFormatThreadLocal.get())
 
 /**
  * Mapea la respuesta completa del scoreboard a una lista de domain [Game].

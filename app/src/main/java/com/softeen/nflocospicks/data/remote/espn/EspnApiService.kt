@@ -5,10 +5,12 @@ import retrofit2.http.Query
 
 interface EspnApiService {
     /**
-     * Obtiene el scoreboard de la semana NFL actual.
-     * "dates" es obligatorio: sin él, ESPN decide "hoy" del lado del
-     * servidor y cae al día más reciente con juegos si hoy no hay ninguno,
-     * en vez de devolver la semana completa. Usar [currentNflWeekDatesParam].
+     * Scoreboard de una fecha específica ("dates" es una sola fecha YYYYMMDD —
+     * ESPN rechaza con 400 cualquier valor de rango, ver
+     * docs/plans/fix-espn-current-week-400.md). Se usa para dos cosas: traer los
+     * juegos de un día puntual, y leer `leagues[0].calendar` de la respuesta
+     * (presente incluso sin eventos ese día) para resolver la semana actual —
+     * ver [resolveCurrentSeasonWeek].
      */
     @GET("scoreboard")
     suspend fun getScoreboard(@Query("dates") dates: String): EspnScoreboardResponse

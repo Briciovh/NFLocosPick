@@ -110,7 +110,9 @@ class PickViewModel @Inject constructor(
                     loadWeek(NflSeasonCalendar.DEFAULT_INDEX, showLoading = true)
                 }
             } catch (e: Exception) {
-                _uiState.value = PickUiState.Error(e.message ?: "Error al cargar los partidos")
+                Timber.w(e, "No se pudo resolver la semana actual, cae al tab por default")
+                _selectedWeekIndex.value = NflSeasonCalendar.DEFAULT_INDEX
+                loadWeek(NflSeasonCalendar.DEFAULT_INDEX, showLoading = true)
             }
         }
     }

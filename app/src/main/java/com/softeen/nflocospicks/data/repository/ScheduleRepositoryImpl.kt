@@ -4,7 +4,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import timber.log.Timber
 import com.softeen.nflocospicks.BuildConfig
 import com.softeen.nflocospicks.data.remote.espn.EspnApiService
-import com.softeen.nflocospicks.data.remote.espn.currentNflWeekDatesParam
+import com.softeen.nflocospicks.data.remote.espn.resolveCurrentSeasonWeek
+import com.softeen.nflocospicks.data.remote.espn.todayDateParam
 import com.softeen.nflocospicks.data.remote.espn.toDomain
 import com.softeen.nflocospicks.data.remote.espn.toEspnSeasonTypeParam
 import com.softeen.nflocospicks.domain.model.Game
@@ -31,7 +32,11 @@ class ScheduleRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getCurrentWeekGames(groupId: String): List<Game> {
-        val games = espnApiService.getScoreboard(dates = currentNflWeekDatesParam())
+        val calendarResponse = espnApiService.getScoreboard(dates = todayDateParam())
+        val (seasonType, weekNumber) = calendarResponse.leagues.resolveCurrentSeasonWeek()
+            ?: return emptyList()
+
+        val games = espnApiService.getScoreboardForWeek(seasonType, weekNumber)
             .toDomain()
             .withDebugKickoffOffset()
 

@@ -3,7 +3,23 @@ package com.softeen.nflocospicks.data.remote.espn
 import com.google.gson.annotations.SerializedName
 
 data class EspnScoreboardResponse(
-    val events: List<EspnEvent>
+    val events: List<EspnEvent>,
+    val leagues: List<EspnLeague>? = null
+)
+
+data class EspnLeague(
+    val calendar: List<EspnCalendarGroup>? = null
+)
+
+data class EspnCalendarGroup(
+    val value: String,                       // "1"=pre, "2"=regular, "3"=post — mismo valor que EspnSeason.type
+    val entries: List<EspnCalendarEntry>
+)
+
+data class EspnCalendarEntry(
+    val value: String,                       // número de semana crudo, mismo valor que EspnWeek.number
+    val startDate: String,                   // ISO 8601 UTC, mismo formato que EspnEvent.date ("2026-09-16T07:00Z")
+    val endDate: String
 )
 
 data class EspnEvent(

@@ -7,9 +7,12 @@ import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
 import com.softeen.nflocospicks.BuildConfig
 import com.softeen.nflocospicks.data.remote.espn.EspnApiService
+import com.softeen.nflocospicks.data.remote.espn.EspnCalendarEntry
+import com.softeen.nflocospicks.data.remote.espn.EspnCalendarGroup
 import com.softeen.nflocospicks.data.remote.espn.EspnCompetition
 import com.softeen.nflocospicks.data.remote.espn.EspnCompetitor
 import com.softeen.nflocospicks.data.remote.espn.EspnEvent
+import com.softeen.nflocospicks.data.remote.espn.EspnLeague
 import com.softeen.nflocospicks.data.remote.espn.EspnScoreboardResponse
 import com.softeen.nflocospicks.data.remote.espn.EspnSeason
 import com.softeen.nflocospicks.data.remote.espn.EspnStatus
@@ -18,6 +21,10 @@ import com.softeen.nflocospicks.data.remote.espn.EspnTeam
 import com.softeen.nflocospicks.data.remote.espn.EspnWeek
 import com.softeen.nflocospicks.domain.model.GameStatus
 import com.softeen.nflocospicks.domain.model.SeasonType
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -78,6 +85,34 @@ class ScheduleRepositoryImplTest {
         return weekDoc
     }
 
+    private val testIsoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
+
+    private fun calendarResponse(
+        seasonType: String = "2",
+        week: String = "1",
+        nowMillis: Long = System.currentTimeMillis()
+    ): EspnScoreboardResponse = EspnScoreboardResponse(
+        events = emptyList(),
+        leagues = listOf(
+            EspnLeague(
+                calendar = listOf(
+                    EspnCalendarGroup(
+                        value = seasonType,
+                        entries = listOf(
+                            EspnCalendarEntry(
+                                value = week,
+                                startDate = testIsoFormat.format(Date(nowMillis - ONE_DAY_MS)),
+                                endDate = testIsoFormat.format(Date(nowMillis + ONE_DAY_MS))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+
     @Test
     fun `getCurrentWeekGames applies the debug kickoff offset only to SCHEDULED games`() = runBlocking {
         // withDebugKickoffOffset is gated on BuildConfig.DEBUG. This project only
@@ -85,7 +120,8 @@ class ScheduleRepositoryImplTest {
         // the test is skipped (not failed) if a release unit-test variant is ever added.
         assumeTrue(BuildConfig.DEBUG)
         stubFirestoreChain()
-        coEvery { api.getScoreboard(any()) } returns EspnScoreboardResponse(
+        coEvery { api.getScoreboard(any()) } returns calendarResponse()
+        coEvery { api.getScoreboardForWeek(any(), any()) } returns EspnScoreboardResponse(
             events = listOf(
                 event("1", completed = false, statusName = "STATUS_SCHEDULED"),
                 event("2", completed = true, statusName = "STATUS_FINAL")
@@ -108,7 +144,8 @@ class ScheduleRepositoryImplTest {
     @Test
     fun `getCurrentWeekGames caches the games under groups weeks weekId`() = runBlocking {
         val weekDoc = stubFirestoreChain()
-        coEvery { api.getScoreboard(any()) } returns EspnScoreboardResponse(
+        coEvery { api.getScoreboard(any()) } returns calendarResponse()
+        coEvery { api.getScoreboardForWeek(any(), any()) } returns EspnScoreboardResponse(
             events = listOf(event("1", completed = false, statusName = "STATUS_SCHEDULED"))
         )
 
@@ -136,7 +173,8 @@ class ScheduleRepositoryImplTest {
         every { weeksCol.document(EXPECTED_WEEK_ID) } returns weekDoc
         every { weekDoc.set(any()) } returns Tasks.forException(RuntimeException("write denied"))
 
-        coEvery { api.getScoreboard(any()) } returns EspnScoreboardResponse(
+        coEvery { api.getScoreboard(any()) } returns calendarResponse()
+        coEvery { api.getScoreboardForWeek(any(), any()) } returns EspnScoreboardResponse(
             events = listOf(event("1", completed = false, statusName = "STATUS_SCHEDULED"))
         )
 
@@ -146,13 +184,35 @@ class ScheduleRepositoryImplTest {
     }
 
     @Test
-    fun `getCurrentWeekGames does not touch Firestore when the schedule is empty`() = runBlocking {
-        coEvery { api.getScoreboard(any()) } returns EspnScoreboardResponse(events = emptyList())
+    fun `getCurrentWeekGames does not touch Firestore and does not fetch games when calendar does not resolve a week`() = runBlocking {
+        coEvery { api.getScoreboard(any()) } returns EspnScoreboardResponse(events = emptyList(), leagues = null)
+
+        val games = repo.getCurrentWeekGames("g1")
+
+        assertThat(games).isEmpty()
+        coVerify(exactly = 0) { api.getScoreboardForWeek(any(), any()) }
+        verify(exactly = 0) { firestore.collection(any()) }
+    }
+
+    @Test
+    fun `getCurrentWeekGames does not touch Firestore when resolved week has no games`() = runBlocking {
+        coEvery { api.getScoreboard(any()) } returns calendarResponse()
+        coEvery { api.getScoreboardForWeek(any(), any()) } returns EspnScoreboardResponse(events = emptyList())
 
         val games = repo.getCurrentWeekGames("g1")
 
         assertThat(games).isEmpty()
         verify(exactly = 0) { firestore.collection(any()) }
+    }
+
+    @Test
+    fun `getCurrentWeekGames delegates to getScoreboardForWeek with the seasonType and week resolved from the calendar`() = runBlocking {
+        coEvery { api.getScoreboard(any()) } returns calendarResponse(seasonType = "2", week = "3")
+        coEvery { api.getScoreboardForWeek(any(), any()) } returns EspnScoreboardResponse(events = emptyList())
+
+        repo.getCurrentWeekGames("g1")
+
+        coVerify { api.getScoreboardForWeek(2, 3) }
     }
 
     @Test
